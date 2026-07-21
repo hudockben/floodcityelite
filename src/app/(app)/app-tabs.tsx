@@ -13,6 +13,7 @@ const TABS = [
   { href: "/schedules", label: "Schedules" },
   { href: "/contact-info", label: "Contact Info" },
   { href: "/yard-tournaments", label: "Yard Tournaments" },
+  { href: "/hotels", label: "Hotels" },
   { href: "/inventory", label: "Inventory" },
 ];
 

@@ -10,6 +10,7 @@ const SECTIONS = [
   { href: "/schedules", label: "Schedules", icon: "🗓️", desc: "Practices, games, and events" },
   { href: "/contact-info", label: "Contact Info", icon: "📇", desc: "Players, families, and staff" },
   { href: "/yard-tournaments", label: "Yard Tournaments", icon: "🏆", desc: "Brackets and results" },
+  { href: "/hotels", label: "Hotels", icon: "🏨", desc: "Team travel and lodging" },
   { href: "/inventory", label: "Inventory", icon: "📦", desc: "Equipment and gear" },
 ];
 
