@@ -15,8 +15,8 @@ import {
   type TeamOption,
 } from "./payments";
 
-// Date, Division, Team, Player, Type, Amount, Total, Actions.
-const COL_COUNT = 8;
+// Date, Division, Team, Player, Type, Check #, Amount, Total, Actions.
+const COL_COUNT = 9;
 
 function divisionLabel(slug: string): string {
   return DIVISIONS.find((d) => d.slug === slug)?.label ?? slug;
@@ -90,6 +90,7 @@ export default function PaymentTracker({
                 <col className="pc-team" />
                 <col className="pc-player" />
                 <col className="pc-type" />
+                <col className="pc-check" />
                 <col className="pc-amount" />
                 <col className="pc-total" />
                 <col className="pc-actions" />
@@ -101,6 +102,7 @@ export default function PaymentTracker({
                   <th>Team Name</th>
                   <th>Player Name</th>
                   <th>Payment Type</th>
+                  <th>Check #</th>
                   <th className="pay-num">Amount</th>
                   <th className="pay-num">Total</th>
                   <th className="col-actions">
@@ -136,6 +138,15 @@ export default function PaymentTracker({
                         {paymentTypeLabel(payment.payment_type)}
                       </span>
                     </td>
+                    <td className="pay-check">
+                      {payment.check_number ? (
+                        payment.check_number
+                      ) : (
+                        <span className="pay-dash" aria-hidden="true">
+                          —
+                        </span>
+                      )}
+                    </td>
                     <td className="pay-num">{formatMoney(payment.amount)}</td>
                     <td className="pay-num pay-running">
                       {formatMoney(runningTotal)}
@@ -168,7 +179,7 @@ export default function PaymentTracker({
               </tbody>
               <tfoot>
                 <tr className="pay-total-row">
-                  <td colSpan={6} className="pay-total-label">
+                  <td colSpan={7} className="pay-total-label">
                     Total payments received
                   </td>
                   <td className="pay-num pay-grand">{formatMoney(grandTotal)}</td>

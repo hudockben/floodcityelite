@@ -12,6 +12,7 @@ export type PaymentInput = {
   playerId: number | string;
   paidOn: string;
   paymentType: string;
+  checkNumber?: string | null;
   amount: number | string;
 };
 
@@ -40,6 +41,12 @@ export async function addPaymentAction(
   if (amountNum > 99_999_999.99) return { error: "That amount is too large." };
   const amount = amountNum.toFixed(2);
 
+  // A check number only applies to check payments; ignore it for cash. Cap to
+  // the column width (VARCHAR(32)).
+  const rawCheck = String(input.checkNumber ?? "").trim();
+  const checkNumber =
+    paymentType === "check" && rawCheck !== "" ? rawCheck.slice(0, 32) : null;
+
   try {
     await ensurePaymentsSchema();
 
@@ -53,8 +60,8 @@ export async function addPaymentAction(
     if (owned.length === 0) return { error: "That player no longer exists." };
 
     await sql()`
-      INSERT INTO payments (player_id, paid_on, payment_type, amount)
-      VALUES (${playerId}, ${paidOn}, ${paymentType}, ${amount})
+      INSERT INTO payments (player_id, paid_on, payment_type, check_number, amount)
+      VALUES (${playerId}, ${paidOn}, ${paymentType}, ${checkNumber}, ${amount})
     `;
   } catch (err) {
     console.error("addPayment error:", err);

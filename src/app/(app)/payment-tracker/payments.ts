@@ -35,6 +35,7 @@ export type PaymentRow = {
   id: number;
   paid_on: string; // YYYY-MM-DD
   payment_type: PaymentType;
+  check_number: string | null;
   amount: string;
   player_id: number;
   player_name: string;

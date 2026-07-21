@@ -41,8 +41,9 @@ Five tables back the app (see [`db/schema.sql`](db/schema.sql)):
   closest facility) can be filled in over time.
 - **`payments`** — payments logged against a player via `player_id`
   (`ON DELETE CASCADE`). Each row records `paid_on`, a `payment_type` (`check`
-  or `cash`), and an `amount`. This powers the **Payment Tracker** tab, whose
-  Total column accumulates the payments received.
+  or `cash`), an optional `check_number` (for check payments), and an `amount`.
+  This powers the **Payment Tracker** tab, whose Total column accumulates the
+  payments received.
 
 ## Getting started
 

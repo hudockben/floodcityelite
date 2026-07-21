@@ -125,6 +125,7 @@ async function main() {
       paid_on       DATE          NOT NULL DEFAULT CURRENT_DATE,
       payment_type  VARCHAR(16)   NOT NULL DEFAULT 'cash'
                       CHECK (payment_type IN ('check', 'cash')),
+      check_number  VARCHAR(32),
       amount        NUMERIC(10,2) NOT NULL DEFAULT 0,
       created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
       updated_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
@@ -132,6 +133,9 @@ async function main() {
   `;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_payments_player_id ON payments (player_id)`;
+
+  // Backfill check_number on databases that created `payments` before it existed.
+  await sql`ALTER TABLE payments ADD COLUMN IF NOT EXISTS check_number VARCHAR(32)`;
 
   // One budget row per team. The paying-player count defaults to the roster
   // size (players); paying_players overrides it when not everyone pays.

@@ -36,6 +36,7 @@ export default function PaymentDraftRow({
   const [teamId, setTeamId] = useState("");
   const [playerId, setPlayerId] = useState("");
   const [paymentType, setPaymentType] = useState("");
+  const [checkNumber, setCheckNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -66,6 +67,7 @@ export default function PaymentDraftRow({
         playerId,
         paidOn: date,
         paymentType,
+        checkNumber,
         amount,
       });
       if (res?.ok) onSaved(id);
@@ -158,7 +160,12 @@ export default function PaymentDraftRow({
             className="pay-select"
             value={paymentType}
             aria-label="Payment type"
-            onChange={(e) => setPaymentType(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setPaymentType(next);
+              // A check number only applies to checks — clear it for cash.
+              if (next !== "check") setCheckNumber("");
+            }}
           >
             <option value="" disabled>
               Type…
@@ -169,6 +176,20 @@ export default function PaymentDraftRow({
               </option>
             ))}
           </select>
+        </td>
+
+        <td>
+          <input
+            type="text"
+            inputMode="numeric"
+            className="pay-input"
+            value={checkNumber}
+            placeholder={paymentType === "check" ? "e.g. 1024" : "—"}
+            aria-label="Check number"
+            disabled={paymentType !== "check"}
+            maxLength={32}
+            onChange={(e) => setCheckNumber(e.target.value)}
+          />
         </td>
 
         <td className="pay-num">
@@ -213,7 +234,7 @@ export default function PaymentDraftRow({
 
       {error ? (
         <tr className="pay-error-row">
-          <td colSpan={8}>
+          <td colSpan={9}>
             <p className="error pay-error" role="alert">
               {error}
             </p>

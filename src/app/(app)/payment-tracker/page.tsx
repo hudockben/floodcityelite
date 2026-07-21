@@ -40,6 +40,7 @@ export default async function PaymentTrackerPage() {
           pay.id,
           pay.paid_on::text AS paid_on,
           pay.payment_type,
+          pay.check_number,
           pay.amount::text  AS amount,
           pl.id             AS player_id,
           pl.player_name,

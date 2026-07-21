@@ -32,6 +32,7 @@ async function provision(): Promise<void> {
       paid_on       DATE          NOT NULL DEFAULT CURRENT_DATE,
       payment_type  VARCHAR(16)   NOT NULL DEFAULT 'cash'
                       CHECK (payment_type IN ('check', 'cash')),
+      check_number  VARCHAR(32),
       amount        NUMERIC(10,2) NOT NULL DEFAULT 0,
       created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
       updated_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
@@ -39,4 +40,9 @@ async function provision(): Promise<void> {
   `;
 
   await db`CREATE INDEX IF NOT EXISTS idx_payments_player_id ON payments (player_id)`;
+
+  // Backfill check_number on databases that provisioned `payments` before this
+  // column existed (e.g. an earlier deploy). ADD COLUMN IF NOT EXISTS is a no-op
+  // once it's there, so this stays idempotent.
+  await db`ALTER TABLE payments ADD COLUMN IF NOT EXISTS check_number VARCHAR(32)`;
 }
