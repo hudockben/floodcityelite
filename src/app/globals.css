@@ -828,3 +828,69 @@ body {
   border: 0;
   border-radius: 0;
 }
+
+/* Row actions (Edit / Remove) */
+.row-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.row-edit {
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.row-edit:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.55);
+}
+
+.btn-secondary {
+  padding: 12px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(8, 20, 36, 0.6);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Inline edit form (expands within a roster row) */
+.player-edit-row > td {
+  padding: 0;
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.player-edit-form {
+  padding: 18px 16px;
+  border-left: 3px solid var(--accent);
+}
+
+.player-edit-head {
+  margin-bottom: 14px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.player-edit-head strong {
+  color: var(--text);
+}

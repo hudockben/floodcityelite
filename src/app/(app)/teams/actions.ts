@@ -115,6 +115,54 @@ export async function addPlayerAction(
   return { ok: true };
 }
 
+// --- update a player's info -------------------------------------------------
+
+export async function updatePlayerAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await getSession();
+  if (!session) return { error: "Your session has expired. Please sign in again." };
+
+  const playerId = Number.parseInt(String(formData.get("playerId") ?? ""), 10);
+  const playerName = text(formData, "player_name");
+
+  if (!Number.isFinite(playerId)) return { error: "Missing player." };
+  if (!playerName) return { error: "Enter the player's name." };
+
+  try {
+    await ensureTeamsSchema();
+
+    // Scope the update to a player whose team belongs to this company.
+    const updated = await sql()`
+      UPDATE players SET
+        player_name        = ${playerName},
+        grad_year          = ${nonNegInt(formData, "grad_year")},
+        date_of_birth      = ${isoDate(formData, "date_of_birth")},
+        height             = ${text(formData, "height")},
+        weight             = ${nonNegInt(formData, "weight")},
+        primary_position   = ${text(formData, "primary_position")},
+        secondary_position = ${text(formData, "secondary_position")},
+        high_school        = ${text(formData, "high_school")},
+        parent_phone       = ${text(formData, "parent_phone")},
+        parent_email       = ${text(formData, "parent_email")},
+        parent_name        = ${text(formData, "parent_name")},
+        closest_facility   = ${text(formData, "closest_facility")},
+        updated_at         = now()
+      WHERE id = ${playerId}
+        AND team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})
+      RETURNING id
+    `;
+    if (updated.length === 0) return { error: "That player no longer exists." };
+  } catch (err) {
+    console.error("updatePlayer error:", err);
+    return { error: "Could not save changes. Please try again." };
+  }
+
+  revalidatePath("/teams");
+  return { ok: true };
+}
+
 // --- delete a player -------------------------------------------------------
 
 export async function deletePlayerAction(formData: FormData): Promise<void> {

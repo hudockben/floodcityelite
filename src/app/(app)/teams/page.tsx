@@ -2,11 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { deletePlayerAction, deleteTeamAction } from "./actions";
+import { deleteTeamAction } from "./actions";
 import { ensureTeamsSchema } from "./schema";
 import AddPlayerForm from "./add-player-form";
 import ConfirmButton from "./confirm-button";
 import CreateTeamForm from "./create-team-form";
+import PlayerRowItem from "./player-row";
 import {
   DIVISIONS,
   PLAYER_FIELDS,
@@ -258,41 +259,11 @@ export default async function TeamsPage({
                         </thead>
                         <tbody>
                           {teamPlayers.map((row) => (
-                            <tr key={row.id}>
-                              {PLAYER_FIELDS.map((f) => {
-                                const value = row[f.key as keyof PlayerRow];
-                                const empty = value == null || value === "";
-                                return (
-                                  <td
-                                    key={f.key}
-                                    className={
-                                      f.key === "player_name"
-                                        ? "col-name"
-                                        : undefined
-                                    }
-                                  >
-                                    {empty ? (
-                                      <span className="cell-empty">—</span>
-                                    ) : (
-                                      String(value)
-                                    )}
-                                  </td>
-                                );
-                              })}
-                              <td className="col-actions">
-                                <ConfirmButton
-                                  action={deletePlayerAction}
-                                  hidden={{
-                                    playerId: row.id,
-                                    division: division.slug,
-                                  }}
-                                  confirmText={`Remove ${row.player_name} from the roster?`}
-                                  className="row-delete"
-                                >
-                                  Remove
-                                </ConfirmButton>
-                              </td>
-                            </tr>
+                            <PlayerRowItem
+                              key={row.id}
+                              player={row}
+                              division={division.slug}
+                            />
                           ))}
                         </tbody>
                       </table>
