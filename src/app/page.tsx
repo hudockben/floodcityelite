@@ -4,7 +4,7 @@ import LoginForm from "./login-form";
 
 export default async function HomePage() {
   const session = await getSession();
-  if (session) redirect("/dashboard");
+  if (session) redirect("/homeplate");
 
   return (
     <main className="page">

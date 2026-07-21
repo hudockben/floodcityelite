@@ -5,21 +5,23 @@ screen backed by a [Neon](https://neon.tech) Postgres database. Members sign in
 with a **company code**, **username**, and **password**.
 
 - Home screen (`/`) — the Flood City Elite login.
-- Dashboard (`/dashboard`) — a protected page shown after a successful login.
+- Member area — a protected tabbed shell (Homeplate, Payment Tracker, Budgets,
+  Schedules, Contact Info, Yard Tournaments, Inventory) shown after a
+  successful login and guarded by middleware.
 - Auth — passwords are hashed with **bcrypt**; the session is a signed
-  (JWT) **httpOnly** cookie.
+  (JWT, HS256) **httpOnly** cookie.
 
 ## Login credentials
 
-| Field        | Value                        |
-| ------------ | ---------------------------- |
-| Company code | `fce`                        |
-| Username     | `admin` (default seed)       |
-| Password     | `FloodCity2026!` (default)   |
+| Field        | Value                                                            |
+| ------------ | ---------------------------------------------------------------- |
+| Company code | `fce`                                                            |
+| Username     | `admin` (default seed username)                                  |
+| Password     | your `SEED_ADMIN_PASSWORD`, or a strong random one generated and printed once by `npm run db:setup` |
 
-> The username/password above are created by the seed step and should be
-> changed after the first login. The company code for Flood City Elite is
-> always `fce`.
+> The company code for Flood City Elite is always `fce`. The admin password is
+> never hardcoded — set your own via `SEED_ADMIN_PASSWORD` or use the one the
+> seed step prints, and change it after first login.
 
 ## Database tables
 

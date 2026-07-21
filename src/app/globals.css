@@ -265,3 +265,194 @@ body {
 .logout-btn:hover {
   border-color: var(--accent);
 }
+
+/* ---- Authenticated app shell ---- */
+.shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 20px 48px;
+}
+
+.appbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 4px 16px;
+}
+
+.appbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-size: 1.05rem;
+}
+
+.appbar-logo {
+  width: 30px;
+  height: 30px;
+  filter: drop-shadow(0 4px 10px rgba(56, 189, 248, 0.4));
+}
+
+.appbar-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.25;
+}
+
+.who-name {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.who-role {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+/* ---- Tab bar ---- */
+.tabs {
+  border-top: 1px solid var(--card-border);
+  border-bottom: 1px solid var(--card-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tabs-inner {
+  display: flex;
+  gap: 4px;
+  min-width: max-content;
+  padding: 8px 0;
+}
+
+.tab {
+  white-space: nowrap;
+  padding: 9px 15px;
+  border-radius: 9px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tab:hover {
+  color: var(--text);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.tab.active {
+  color: #04121f;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+}
+
+/* ---- Content panels ---- */
+.content {
+  padding-top: 28px;
+}
+
+.panel {
+  background: rgba(15, 30, 52, 0.72);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.35);
+}
+
+.panel-head h1 {
+  margin: 0 0 6px;
+  font-size: 1.5rem;
+}
+
+.panel-head p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.empty {
+  margin-top: 26px;
+  padding: 46px 20px;
+  border: 1px dashed var(--card-border);
+  border-radius: 14px;
+  text-align: center;
+  background: rgba(8, 20, 36, 0.4);
+}
+
+.empty-icon {
+  font-size: 2.4rem;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.empty-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.empty-sub {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+/* ---- Homeplate ---- */
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.home-card {
+  display: block;
+  padding: 20px;
+  border-radius: 14px;
+  background: rgba(15, 30, 52, 0.72);
+  border: 1px solid var(--card-border);
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color 0.15s ease, transform 0.05s ease;
+}
+
+.home-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.home-card-icon {
+  font-size: 1.7rem;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.home-card-label {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.home-card-desc {
+  font-size: 0.83rem;
+  color: var(--text-muted);
+}

@@ -10,6 +10,7 @@
 
 import { neon } from "@neondatabase/serverless";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 
 // Load env from .env.local (preferred) or .env, if present.
 for (const file of [".env.local", ".env"]) {
@@ -33,7 +34,14 @@ if (!DATABASE_URL) {
 const COMPANY_CODE = "fce";
 const COMPANY_NAME = "Flood City Elite";
 const ADMIN_USERNAME = process.env.SEED_ADMIN_USERNAME || "admin";
-const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "FloodCity2026!";
+
+// No hardcoded default password. Use SEED_ADMIN_PASSWORD if provided,
+// otherwise generate a strong random one and print it once.
+let ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "";
+const ADMIN_PASSWORD_GENERATED = ADMIN_PASSWORD === "";
+if (ADMIN_PASSWORD_GENERATED) {
+  ADMIN_PASSWORD = randomBytes(18).toString("base64url");
+}
 
 const sql = neon(DATABASE_URL);
 
@@ -78,18 +86,33 @@ async function main() {
 
   console.log(`→ Ensuring admin user "${ADMIN_USERNAME}"…`);
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
-  await sql`
+  const insertedUser = await sql`
     INSERT INTO users (company_id, username, password_hash, full_name, role)
     VALUES (${companyId}, ${ADMIN_USERNAME}, ${passwordHash}, 'Flood City Elite Admin', 'admin')
     ON CONFLICT (company_id, username) DO NOTHING
+    RETURNING id
   `;
 
   console.log("\n✔  Database ready.\n");
-  console.log("   Log in with:");
-  console.log(`     Company code:  ${COMPANY_CODE}`);
-  console.log(`     Username:      ${ADMIN_USERNAME}`);
-  console.log(`     Password:      ${ADMIN_PASSWORD}`);
-  console.log("\n   (Change this password after your first login.)\n");
+  if (insertedUser.length > 0) {
+    console.log("   Created the admin account. Log in with:");
+    console.log(`     Company code:  ${COMPANY_CODE}`);
+    console.log(`     Username:      ${ADMIN_USERNAME}`);
+    console.log(`     Password:      ${ADMIN_PASSWORD}`);
+    if (ADMIN_PASSWORD_GENERATED) {
+      console.log(
+        "\n   ^ This password was generated just now and is shown only once — save it.",
+      );
+    }
+    console.log("   Change it after your first login.\n");
+  } else {
+    console.log(
+      `   Admin user "${ADMIN_USERNAME}" already exists — left unchanged.`,
+    );
+    console.log(
+      "   To reset it, delete that row and re-run with SEED_ADMIN_PASSWORD set.\n",
+    );
+  }
 }
 
 main().catch((err) => {
