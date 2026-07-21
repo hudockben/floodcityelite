@@ -116,6 +116,19 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_players_team_id ON players (team_id)`;
 
+  // One budget row per team. The paying-player count defaults to the roster
+  // size (players); paying_players overrides it when not everyone pays.
+  await sql`
+    CREATE TABLE IF NOT EXISTS team_budgets (
+      team_id                 INTEGER       PRIMARY KEY REFERENCES teams(id) ON DELETE CASCADE,
+      tuition_per_player      NUMERIC(12,2) NOT NULL DEFAULT 0,
+      portion_to_team_budget  NUMERIC(12,2) NOT NULL DEFAULT 0,
+      paying_players          INTEGER,
+      created_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at              TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
   // Schedule events (tournaments/games) belong to a team. Only event_name is
   // required; cost is optional and summed per team on the Schedules tab.
   await sql`

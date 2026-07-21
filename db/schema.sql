@@ -80,6 +80,25 @@ CREATE TABLE IF NOT EXISTS players (
 CREATE INDEX IF NOT EXISTS idx_players_team_id ON players (team_id);
 
 -- ---------------------------------------------------------------------------
+-- Team budgets
+--
+-- One budget row per team (team_id is the primary key). The Budgets tab reads
+-- the paying-player count from the roster (players) by default; paying_players
+-- overrides that when not everyone on the roster pays. Money columns are
+-- stored as NUMERIC. Current balance / fundraising are derived downstream from
+-- the Schedules tab once that feature lands, so they aren't stored here.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS team_budgets (
+    team_id                 INTEGER       PRIMARY KEY
+                              REFERENCES teams(id) ON DELETE CASCADE,
+    tuition_per_player      NUMERIC(12,2) NOT NULL DEFAULT 0,
+    portion_to_team_budget  NUMERIC(12,2) NOT NULL DEFAULT 0,
+    paying_players          INTEGER,
+    created_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at              TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
 -- Schedules
 --
 -- A schedule event (a tournament/game/practice) belongs to a team. It carries
