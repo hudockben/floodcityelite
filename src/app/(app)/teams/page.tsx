@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { deletePlayerAction, deleteTeamAction } from "./actions";
+import { ensureTeamsSchema } from "./schema";
 import AddPlayerForm from "./add-player-form";
 import ConfirmButton from "./confirm-button";
 import CreateTeamForm from "./create-team-form";
@@ -33,46 +34,59 @@ export default async function TeamsPage({
   const params = await searchParams;
   const division = resolveDivision(firstParam(params.division));
 
-  const [teamRows, playerRows] = await Promise.all([
-    sql()`
-      SELECT
-        t.id,
-        t.name,
-        t.division,
-        t.sport,
-        (SELECT count(*) FROM players p WHERE p.team_id = t.id)::int AS player_count
-      FROM teams t
-      WHERE t.company_id = ${session.companyId}
-        AND t.division = ${division.slug}
-      ORDER BY t.name
-    `,
-    sql()`
-      SELECT
-        p.id,
-        p.team_id,
-        t.name AS team_name,
-        p.player_name,
-        p.grad_year,
-        p.date_of_birth::text AS date_of_birth,
-        p.height,
-        p.weight,
-        p.primary_position,
-        p.secondary_position,
-        p.high_school,
-        p.parent_phone,
-        p.parent_email,
-        p.parent_name,
-        p.closest_facility
-      FROM players p
-      JOIN teams t ON t.id = p.team_id
-      WHERE t.company_id = ${session.companyId}
-        AND t.division = ${division.slug}
-      ORDER BY t.name, p.player_name
-    `,
-  ]);
+  let teams: TeamRow[] = [];
+  let players: PlayerRow[] = [];
+  let loadError = false;
 
-  const teams = teamRows as TeamRow[];
-  const players = playerRows as PlayerRow[];
+  try {
+    // Create the teams/players tables on first use so the tab works even if
+    // the database predates this feature. Idempotent and memoized.
+    await ensureTeamsSchema();
+
+    const [teamRows, playerRows] = await Promise.all([
+      sql()`
+        SELECT
+          t.id,
+          t.name,
+          t.division,
+          t.sport,
+          (SELECT count(*) FROM players p WHERE p.team_id = t.id)::int AS player_count
+        FROM teams t
+        WHERE t.company_id = ${session.companyId}
+          AND t.division = ${division.slug}
+        ORDER BY t.name
+      `,
+      sql()`
+        SELECT
+          p.id,
+          p.team_id,
+          t.name AS team_name,
+          p.player_name,
+          p.grad_year,
+          p.date_of_birth::text AS date_of_birth,
+          p.height,
+          p.weight,
+          p.primary_position,
+          p.secondary_position,
+          p.high_school,
+          p.parent_phone,
+          p.parent_email,
+          p.parent_name,
+          p.closest_facility
+        FROM players p
+        JOIN teams t ON t.id = p.team_id
+        WHERE t.company_id = ${session.companyId}
+          AND t.division = ${division.slug}
+        ORDER BY t.name, p.player_name
+      `,
+    ]);
+
+    teams = teamRows as TeamRow[];
+    players = playerRows as PlayerRow[];
+  } catch (err) {
+    console.error("Teams page load error:", err);
+    loadError = true;
+  }
 
   const teamOptions = teams.map((t) => ({
     id: t.id,
@@ -109,8 +123,24 @@ export default async function TeamsPage({
         </nav>
       </section>
 
-      {/* Step 1 — create a team in this division */}
-      <section className="panel">
+      {loadError ? (
+        <section className="panel">
+          <div className="empty">
+            <div className="empty-icon" aria-hidden="true">
+              ⚠️
+            </div>
+            <p className="empty-title">Couldn&apos;t load teams</p>
+            <p className="empty-sub">
+              The roster tables may still be getting set up. Refresh in a moment
+              — if this keeps happening, run <code>npm run db:setup</code>{" "}
+              against the database.
+            </p>
+          </div>
+        </section>
+      ) : (
+        <>
+          {/* Step 1 — create a team in this division */}
+          <section className="panel">
         <div className="panel-head">
           <h2 className="step-title">
             <span className="step-num">1</span> Create a team
@@ -234,6 +264,8 @@ export default async function TeamsPage({
           </div>
         )}
       </section>
+        </>
+      )}
     </div>
   );
 }

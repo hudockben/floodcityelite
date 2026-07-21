@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { isDivisionSlug, isSport } from "./divisions";
+import { ensureTeamsSchema } from "./schema";
 
 export type FormState = { ok?: boolean; error?: string };
 
@@ -46,6 +47,7 @@ export async function createTeamAction(
   if (!isSport(sport)) return { error: "Pick a sport (baseball or softball)." };
 
   try {
+    await ensureTeamsSchema();
     await sql()`
       INSERT INTO teams (company_id, name, division, sport)
       VALUES (${session.companyId}, ${name}, ${division}, ${sport})
@@ -74,13 +76,15 @@ export async function addPlayerAction(
   if (!Number.isFinite(teamId)) return { error: "Choose a team for this player." };
   if (!playerName) return { error: "Enter the player's name." };
 
-  // Confirm the team exists and belongs to this company before inserting.
-  const owned = await sql()`
-    SELECT id FROM teams WHERE id = ${teamId} AND company_id = ${session.companyId}
-  `;
-  if (owned.length === 0) return { error: "That team no longer exists." };
-
   try {
+    await ensureTeamsSchema();
+
+    // Confirm the team exists and belongs to this company before inserting.
+    const owned = await sql()`
+      SELECT id FROM teams WHERE id = ${teamId} AND company_id = ${session.companyId}
+    `;
+    if (owned.length === 0) return { error: "That team no longer exists." };
+
     await sql()`
       INSERT INTO players (
         team_id, player_name, grad_year, date_of_birth, height, weight,
