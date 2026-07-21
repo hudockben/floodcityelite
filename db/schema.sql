@@ -98,6 +98,31 @@ CREATE TABLE IF NOT EXISTS team_budgets (
     updated_at              TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
+-- ---------------------------------------------------------------------------
+-- Schedules
+--
+-- A schedule event (a tournament/game/practice) belongs to a team. It carries
+-- the columns shown on the Schedules tab: host, date, name, location, cost,
+-- and a registration status. The per-team "total cost" is the sum of cost
+-- across a team's events and is computed at read time, not stored.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS schedule_events (
+    id          SERIAL PRIMARY KEY,
+    team_id     INTEGER       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    event_host  VARCHAR(160),
+    event_date  DATE,
+    event_name  VARCHAR(200)  NOT NULL,
+    location    VARCHAR(200),
+    cost        NUMERIC(10, 2),
+    status      VARCHAR(16)   NOT NULL DEFAULT 'registered'
+                  CHECK (status IN ('registered', 'paid', 'waitlisted')),
+    created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_schedule_events_team_id ON schedule_events (team_id);
+
 -- Seed the Flood City Elite company (code: fce). Idempotent.
 INSERT INTO companies (code, name)
 VALUES ('fce', 'Flood City Elite')
