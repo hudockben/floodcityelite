@@ -281,7 +281,7 @@ body {
 
 /* ---- Authenticated app shell ---- */
 .shell {
-  max-width: 1120px;
+  max-width: 1500px;
   margin: 0 auto;
   padding: 0 20px 48px;
 }
@@ -679,7 +679,7 @@ body {
   border-collapse: collapse;
   width: 100%;
   min-width: max-content;
-  font-size: 0.86rem;
+  font-size: 0.84rem;
 }
 
 .roster thead th {
@@ -687,7 +687,7 @@ body {
   top: 0;
   text-align: left;
   white-space: nowrap;
-  padding: 12px 14px;
+  padding: 10px 12px;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -697,7 +697,7 @@ body {
 }
 
 .roster tbody td {
-  padding: 11px 14px;
+  padding: 9px 12px;
   white-space: nowrap;
   border-bottom: 1px solid rgba(148, 187, 233, 0.08);
   vertical-align: middle;
