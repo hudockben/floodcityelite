@@ -32,6 +32,7 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     "/homeplate/:path*",
+    "/teams/:path*",
     "/payment-tracker/:path*",
     "/budgets/:path*",
     "/schedules/:path*",
