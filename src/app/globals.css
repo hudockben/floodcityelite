@@ -1051,12 +1051,15 @@ body {
   font-weight: 700;
 }
 
-/* Rows awaiting the Schedules tab render their value as muted "Pending" text. */
-.bs-pending {
-  font-weight: 500;
-  font-size: 0.8rem;
-  font-style: italic;
-  color: var(--text-muted);
+/* A negative current balance (scheduled costs exceed the starting balance)
+   reads as a warning instead of the neutral amber. */
+.budget-sheet .bs-current .bs-value.bs-negative {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.budget-summary-value.bs-negative {
+  color: var(--danger);
 }
 
 /* Inputs inside the sheet. */
