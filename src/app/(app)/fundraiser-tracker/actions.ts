@@ -86,7 +86,9 @@ export async function deleteFundraiserAction(formData: FormData): Promise<void> 
 // --- log a fundraiser entry against a player + fundraiser ------------------
 
 export type EntryInput = {
-  playerId: number | string;
+  teamId: number | string;
+  // Omit or leave blank for a whole-team (team-based) entry.
+  playerId?: number | string | null;
   fundraiserId: number | string;
   raisedOn: string;
   amount: number | string;
@@ -98,8 +100,12 @@ export async function addFundraiserEntryAction(
   const session = await getSession();
   if (!session) return { error: "Your session has expired. Please sign in again." };
 
-  const playerId = Number.parseInt(String(input.playerId ?? ""), 10);
-  if (!Number.isFinite(playerId)) return { error: "Choose a player for this entry." };
+  const teamId = Number.parseInt(String(input.teamId ?? ""), 10);
+  if (!Number.isFinite(teamId)) return { error: "Choose a team for this entry." };
+
+  // A blank/omitted player means this is a whole-team entry.
+  const rawPlayer = String(input.playerId ?? "").trim();
+  const isPlayerLevel = rawPlayer !== "";
 
   const fundraiserId = Number.parseInt(String(input.fundraiserId ?? ""), 10);
   if (!Number.isFinite(fundraiserId)) return { error: "Choose a fundraiser for this entry." };
@@ -113,14 +119,33 @@ export async function addFundraiserEntryAction(
   try {
     await ensureFundraisersSchema();
 
-    // Confirm the player exists and belongs to this company before inserting.
-    const ownedPlayer = await sql()`
-      SELECT pl.id
-      FROM players pl
-      JOIN teams t ON t.id = pl.team_id
-      WHERE pl.id = ${playerId} AND t.company_id = ${session.companyId}
-    `;
-    if (ownedPlayer.length === 0) return { error: "That player no longer exists." };
+    // Resolve the team the entry belongs to. For a player-level entry, take the
+    // team straight from the player (authoritative) after confirming both the
+    // player and its team belong to this company. For a team-level entry,
+    // confirm the chosen team belongs to this company.
+    let resolvedTeamId = teamId;
+    let playerId: number | null = null;
+
+    if (isPlayerLevel) {
+      const parsedPlayer = Number.parseInt(rawPlayer, 10);
+      if (!Number.isFinite(parsedPlayer)) return { error: "Choose a valid player." };
+
+      const ownedPlayer = await sql()`
+        SELECT pl.team_id
+        FROM players pl
+        JOIN teams t ON t.id = pl.team_id
+        WHERE pl.id = ${parsedPlayer} AND t.company_id = ${session.companyId}
+      `;
+      if (ownedPlayer.length === 0) return { error: "That player no longer exists." };
+
+      resolvedTeamId = Number(ownedPlayer[0].team_id);
+      playerId = parsedPlayer;
+    } else {
+      const ownedTeam = await sql()`
+        SELECT id FROM teams WHERE id = ${teamId} AND company_id = ${session.companyId}
+      `;
+      if (ownedTeam.length === 0) return { error: "That team no longer exists." };
+    }
 
     // Confirm the fundraiser exists and belongs to this company too.
     const ownedFundraiser = await sql()`
@@ -130,8 +155,8 @@ export async function addFundraiserEntryAction(
     if (ownedFundraiser.length === 0) return { error: "That fundraiser no longer exists." };
 
     await sql()`
-      INSERT INTO fundraiser_entries (fundraiser_id, player_id, raised_on, amount)
-      VALUES (${fundraiserId}, ${playerId}, ${raisedOn}, ${amount})
+      INSERT INTO fundraiser_entries (fundraiser_id, team_id, player_id, raised_on, amount)
+      VALUES (${fundraiserId}, ${resolvedTeamId}, ${playerId}, ${raisedOn}, ${amount})
     `;
   } catch (err) {
     console.error("addFundraiserEntry error:", err);
@@ -151,16 +176,12 @@ export async function deleteFundraiserEntryAction(formData: FormData): Promise<v
   const entryId = Number.parseInt(String(formData.get("entryId") ?? ""), 10);
   if (!Number.isFinite(entryId)) return;
 
-  // Scope the delete to an entry whose player's team belongs to this company.
+  // Scope the delete to an entry whose team belongs to this company. Using
+  // team_id (always set) covers both player-level and whole-team entries.
   await sql()`
     DELETE FROM fundraiser_entries
     WHERE id = ${entryId}
-      AND player_id IN (
-        SELECT pl.id
-        FROM players pl
-        JOIN teams t ON t.id = pl.team_id
-        WHERE t.company_id = ${session.companyId}
-      )
+      AND team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})
   `;
 
   revalidatePath("/fundraiser-tracker");

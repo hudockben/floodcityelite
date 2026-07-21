@@ -92,8 +92,9 @@ export default function FundraiserTracker({
         <div className="panel-head">
           <h1>Fundraiser Tracker</h1>
           <p>
-            Create fundraisers, then log how much each player raised for a
-            specific fundraiser. Totals build up per fundraiser and overall.
+            Create fundraisers, then log how much was raised toward each one —
+            by an individual player or a whole team. Totals build up per
+            fundraiser and overall.
           </p>
         </div>
       </section>
@@ -184,8 +185,9 @@ export default function FundraiserTracker({
             <span className="step-num">2</span> Log fundraising
           </h2>
           <p>
-            Pick the division, team, and player, choose which fundraiser, and
-            enter the amount raised. The Total column accumulates every dollar.
+            Pick the division and team, then a player or the whole team, choose
+            which fundraiser, and enter the amount raised. The Total column
+            accumulates every dollar.
           </p>
         </div>
 
@@ -261,9 +263,11 @@ export default function FundraiserTracker({
                       </td>
                       <td
                         className="col-name pay-trunc"
-                        title={entry.player_name}
+                        title={entry.player_name ?? "Whole team"}
                       >
-                        {entry.player_name}
+                        {entry.player_name ?? (
+                          <span className="fund-team-level">Whole team</span>
+                        )}
                       </td>
                       <td className="pay-trunc" title={entry.fundraiser_name}>
                         <span className="fund-badge">{entry.fundraiser_name}</span>
@@ -278,7 +282,7 @@ export default function FundraiserTracker({
                           hidden={{ entryId: entry.id }}
                           confirmText={`Remove this ${formatMoney(
                             entry.amount,
-                          )} entry for ${entry.player_name}?`}
+                          )} entry for ${entry.player_name ?? entry.team_name}?`}
                           className="row-delete"
                         >
                           Remove

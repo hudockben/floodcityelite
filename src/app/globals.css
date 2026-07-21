@@ -1747,6 +1747,20 @@ body {
   border: 1px solid rgba(234, 179, 8, 0.35);
 }
 
+/* Marks a whole-team (team-based) entry in the Player column, distinguishing
+   it from a missing value. */
+.fund-team-level {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  background: rgba(148, 187, 233, 0.1);
+  border: 1px solid var(--card-border);
+}
+
 /* Cards for the fundraisers the user has created, each with a running raised
    total and (when a goal is set) a progress bar. */
 .fund-list {

@@ -29,19 +29,21 @@ export type FundraiserOption = {
   event_date: string | null; // YYYY-MM-DD
 };
 
-// A saved fundraiser entry joined with its fundraiser, player, team, and
-// division. `amount` arrives from Postgres NUMERIC as a string (e.g. "150.00").
+// A saved fundraiser entry joined with its fundraiser, team, division, and —
+// for player-based fundraisers — its player. A team-based entry has
+// player_id/player_name NULL. `amount` arrives from Postgres NUMERIC as a
+// string (e.g. "150.00").
 export type FundraiserEntryRow = {
   id: number;
   raised_on: string; // YYYY-MM-DD
   amount: string;
   fundraiser_id: number;
   fundraiser_name: string;
-  player_id: number;
-  player_name: string;
   team_id: number;
   team_name: string;
   division: DivisionSlug;
+  player_id: number | null;
+  player_name: string | null;
 };
 
 const MONTHS = [

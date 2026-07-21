@@ -58,15 +58,15 @@ export default async function FundraiserTrackerPage() {
           fe.amount::text    AS amount,
           f.id               AS fundraiser_id,
           f.name             AS fundraiser_name,
-          pl.id              AS player_id,
-          pl.player_name,
           t.id               AS team_id,
           t.name             AS team_name,
-          t.division
+          t.division,
+          pl.id              AS player_id,
+          pl.player_name
         FROM fundraiser_entries fe
-        JOIN fundraisers f ON f.id = fe.fundraiser_id
-        JOIN players pl    ON pl.id = fe.player_id
-        JOIN teams t       ON t.id = pl.team_id
+        JOIN fundraisers f  ON f.id = fe.fundraiser_id
+        JOIN teams t        ON t.id = fe.team_id
+        LEFT JOIN players pl ON pl.id = fe.player_id
         WHERE t.company_id = ${session.companyId}
         ORDER BY fe.raised_on, fe.id
       `,

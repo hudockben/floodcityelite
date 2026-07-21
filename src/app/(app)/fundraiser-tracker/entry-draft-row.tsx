@@ -13,6 +13,10 @@ export type DraftInitial = {
   playerId: string;
 };
 
+// Sentinel <option> value for a whole-team (team-based) entry, distinct from a
+// real player id and from the empty "nothing picked yet" value.
+const TEAM_LEVEL = "__team__";
+
 // Today's date as YYYY-MM-DD in the browser's local time zone. Draft rows only
 // ever render on the client (they appear after an "Add Entry" click), so this
 // runs in the browser and cannot cause an SSR hydration mismatch.
@@ -86,9 +90,12 @@ export default function EntryDraftRow({
 
   function save() {
     setError(null);
+    // "Whole team" (the sentinel) logs a team-based entry with no player.
+    const teamLevel = playerId === TEAM_LEVEL;
     startTransition(async () => {
       const res = await addFundraiserEntryAction({
-        playerId,
+        teamId,
+        playerId: teamLevel ? "" : playerId,
         fundraiserId,
         raisedOn: date,
         amount,
@@ -160,16 +167,15 @@ export default function EntryDraftRow({
             className="pay-select"
             value={playerId}
             disabled={teamId === ""}
-            aria-label="Player name"
+            aria-label="Player or whole team"
             onChange={(e) => setPlayerId(e.target.value)}
           >
             <option value="" disabled>
-              {teamId === ""
-                ? "Pick a team first"
-                : playersInTeam.length === 0
-                  ? "No players on this team"
-                  : "Player…"}
+              {teamId === "" ? "Pick a team first" : "Player or team…"}
             </option>
+            {teamId !== "" ? (
+              <option value={TEAM_LEVEL}>— Whole team —</option>
+            ) : null}
             {playersInTeam.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.player_name}

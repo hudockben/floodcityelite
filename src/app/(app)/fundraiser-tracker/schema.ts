@@ -46,12 +46,17 @@ async function provision(): Promise<void> {
 
   await db`CREATE INDEX IF NOT EXISTS idx_fundraisers_company_id ON fundraisers (company_id)`;
 
-  // A fundraiser entry ties an amount raised to both a player and a fundraiser.
+  // A fundraiser entry ties an amount raised to a fundraiser and a team. For
+  // player-based fundraisers it also references a specific player; team-based
+  // fundraisers leave player_id NULL. team_id is stored directly (rather than
+  // derived through the player) so both kinds share one query and both
+  // cascade-delete with their team.
   await db`
     CREATE TABLE IF NOT EXISTS fundraiser_entries (
       id             SERIAL        PRIMARY KEY,
       fundraiser_id  INTEGER       NOT NULL REFERENCES fundraisers(id) ON DELETE CASCADE,
-      player_id      INTEGER       NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      team_id        INTEGER       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      player_id      INTEGER       REFERENCES players(id) ON DELETE CASCADE,
       raised_on      DATE          NOT NULL DEFAULT CURRENT_DATE,
       amount         NUMERIC(10,2) NOT NULL DEFAULT 0,
       created_at     TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -59,6 +64,20 @@ async function provision(): Promise<void> {
     )
   `;
 
+  // Migrate databases whose fundraiser_entries predate team-level entries: the
+  // table originally had player_id NOT NULL and no team_id. Add team_id,
+  // backfill it from each existing entry's player, then relax player_id so
+  // whole-team entries (player_id NULL) are allowed. All idempotent.
+  await db`ALTER TABLE fundraiser_entries ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE`;
+  await db`
+    UPDATE fundraiser_entries fe
+    SET team_id = pl.team_id
+    FROM players pl
+    WHERE fe.player_id = pl.id AND fe.team_id IS NULL
+  `;
+  await db`ALTER TABLE fundraiser_entries ALTER COLUMN player_id DROP NOT NULL`;
+
   await db`CREATE INDEX IF NOT EXISTS idx_fundraiser_entries_fundraiser_id ON fundraiser_entries (fundraiser_id)`;
+  await db`CREATE INDEX IF NOT EXISTS idx_fundraiser_entries_team_id ON fundraiser_entries (team_id)`;
   await db`CREATE INDEX IF NOT EXISTS idx_fundraiser_entries_player_id ON fundraiser_entries (player_id)`;
 }
