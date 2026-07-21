@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { saveBudgetAction, type FormState } from "./actions";
 import {
+  currentBalance,
   formatMoney,
   fundraisingPerPlayer,
   parseMoney,
@@ -21,6 +22,8 @@ export type BudgetTeam = {
   sport: Sport;
   divisionLabel: string;
   rosterCount: number;
+  /** Total scheduled cost for this team (Schedules tab total), in dollars. */
+  scheduledCost: number;
   saved: SavedBudget;
 };
 
@@ -68,14 +71,7 @@ function MoneyInput({
   );
 }
 
-export default function TeamBudgetCard({
-  team,
-  // Current balance is fed by the Schedules tab once it's built; null until then.
-  currentBalance,
-}: {
-  team: BudgetTeam;
-  currentBalance: number | null;
-}) {
+export default function TeamBudgetCard({ team }: { team: BudgetTeam }) {
   const [tuition, setTuition] = useState(moneyToInput(team.saved.tuitionPerPlayer));
   const [portion, setPortion] = useState(
     moneyToInput(team.saved.portionToTeamBudget),
@@ -113,15 +109,21 @@ export default function TeamBudgetCard({
   const payingCount = resolvePayingCount(override, team.rosterCount);
   const tuitionTotal = totalTuition(payingCount, tuitionNum);
   const starting = startingBalance(payingCount, portionNum);
-  const fundraise = fundraisingPerPlayer(currentBalance, payingCount);
+  // Current balance nets this team's total scheduled cost (from the Schedules
+  // tab) out of the starting balance; fundraising then covers any shortfall.
+  const current = currentBalance(starting, team.scheduledCost);
+  const fundraise = fundraisingPerPlayer(current, payingCount);
 
   const dirty =
     tuitionNum !== baseline.tuitionPerPlayer ||
     portionNum !== baseline.portionToTeamBudget ||
     override !== baseline.payingPlayersOverride;
 
-  const isConfigured =
-    baseline.tuitionPerPlayer > 0 || baseline.portionToTeamBudget > 0;
+  // Current balance / fundraising are only meaningful once the team has a real
+  // starting-balance basis (a per-player portion AND paying players). Until
+  // then the sheet would present un-entered inputs as a deficit, so we gate
+  // those rows and the summary figure on it.
+  const configured = starting > 0;
 
   return (
     <details className="team-group budget-group">
@@ -133,10 +135,14 @@ export default function TeamBudgetCard({
         </span>
         <span className="division-badge">{team.divisionLabel}</span>
         <span className="budget-summary">
-          {isConfigured ? (
+          {configured ? (
             <>
-              <span className="budget-summary-label">Starting balance</span>
-              <span className="budget-summary-value">{formatMoney(starting)}</span>
+              <span className="budget-summary-label">Current balance</span>
+              <span
+                className={`budget-summary-value${current < 0 ? " bs-negative" : ""}`}
+              >
+                {formatMoney(current)}
+              </span>
             </>
           ) : (
             <span className="budget-summary-empty">Set up budget</span>
@@ -222,25 +228,34 @@ export default function TeamBudgetCard({
               </tr>
 
               <tr className="bs-current">
-                <th scope="row">Current Balance</th>
-                <td className="bs-value">
-                  {currentBalance == null ? (
-                    <span className="bs-pending">Pending — from Schedules</span>
-                  ) : (
-                    formatMoney(currentBalance)
-                  )}
-                </td>
+                <th scope="row">
+                  Current Balance
+                  {configured ? (
+                    <span className="bs-note">
+                      less {formatMoney(team.scheduledCost)} scheduled
+                    </span>
+                  ) : null}
+                </th>
+                {configured ? (
+                  <td className={`bs-value${current < 0 ? " bs-negative" : ""}`}>
+                    {formatMoney(current)}
+                  </td>
+                ) : (
+                  <td className="bs-value bs-idle">
+                    <span className="bs-muted">Set up the budget above</span>
+                  </td>
+                )}
               </tr>
 
               <tr className="bs-fundraise">
                 <th scope="row">Fundraising amount needed per Player</th>
-                <td className="bs-value">
-                  {fundraise == null ? (
-                    <span className="bs-pending">Pending — from Schedules</span>
-                  ) : (
-                    formatMoney(fundraise)
-                  )}
-                </td>
+                {configured ? (
+                  <td className="bs-value">{formatMoney(fundraise)}</td>
+                ) : (
+                  <td className="bs-value bs-idle">
+                    <span className="bs-muted">—</span>
+                  </td>
+                )}
               </tr>
             </tbody>
           </table>
@@ -260,8 +275,9 @@ export default function TeamBudgetCard({
             </p>
           ) : null}
           <p className="budget-hint">
-            Current balance and fundraising fill in automatically once the
-            Schedules tab is built out.
+            Current balance = starting balance minus this team&apos;s total
+            scheduled cost on the Schedules tab. Fundraising covers any
+            shortfall, split across paying players.
           </p>
         </div>
       </form>

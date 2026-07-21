@@ -22,6 +22,9 @@ export type TeamBudgetRow = {
   portion_to_team_budget: number | null;
   /** Optional override for the paying-player count; NULL uses the roster. */
   paying_players: number | null;
+  /** Sum of every scheduled event's cost for this team (the Schedules tab
+   *  total), in dollars. 0 when the team has no events. */
+  scheduled_cost: number;
 };
 
 // The saved inputs handed to the client card (already coalesced to numbers).
@@ -87,20 +90,26 @@ export function startingBalance(
 }
 
 /**
- * Fundraising needed per player, once a current balance is known.
- *
- * Current balance is fed by the Schedules tab (tournament/game costs draw the
- * team budget down), which isn't built yet — so this returns null until a
- * balance is supplied. When it is: a negative balance means the team is short
- * and each paying player raises an equal share to get back to zero; a
- * non-negative balance needs no fundraising. Refine this formula here once
- * Schedules defines exactly how expenses roll up.
+ * Current team-budget balance: the starting balance less every scheduled cost
+ * from the Schedules tab (the same per-team total shown there). The subtraction
+ * is done in integer cents so it stays exact and never yields a stray negative
+ * zero from float drift (e.g. an exactly-funded team showing "-$0.00").
+ */
+export function currentBalance(starting: number, scheduledCost: number): number {
+  const cents = Math.round(starting * 100) - Math.round(scheduledCost * 100);
+  return cents / 100;
+}
+
+/**
+ * Fundraising needed per player. The current balance already nets out every
+ * scheduled cost, so a negative balance means the team is short and each paying
+ * player raises an equal share to get back to zero; a non-negative balance
+ * needs no fundraising.
  */
 export function fundraisingPerPlayer(
-  currentBalance: number | null,
+  balance: number,
   payingCount: number,
-): number | null {
-  if (currentBalance == null) return null;
+): number {
   if (payingCount <= 0) return 0;
-  return currentBalance < 0 ? Math.abs(currentBalance) / payingCount : 0;
+  return balance < 0 ? Math.abs(balance) / payingCount : 0;
 }

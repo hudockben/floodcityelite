@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { ensureTeamsSchema } from "../teams/schema";
+import { ensureSchedulesSchema } from "../schedules/schema";
 import { ensureBudgetsSchema } from "./schema";
 import { divisionLabel, type TeamBudgetRow } from "./budget";
 import TeamBudgetCard, { type BudgetTeam } from "./team-budget-card";
@@ -18,9 +19,10 @@ export default async function BudgetsPage() {
 
   try {
     // Ensure the roster tables exist first (the FK target), then the budgets
-    // table. Both are idempotent and memoized.
+    // and schedule tables. All idempotent and memoized.
     await ensureTeamsSchema();
     await ensureBudgetsSchema();
+    await ensureSchedulesSchema();
 
     const result = await sql()`
       SELECT
@@ -31,7 +33,9 @@ export default async function BudgetsPage() {
         (SELECT count(*) FROM players p WHERE p.team_id = t.id)::int AS player_count,
         b.tuition_per_player::float8     AS tuition_per_player,
         b.portion_to_team_budget::float8 AS portion_to_team_budget,
-        b.paying_players                 AS paying_players
+        b.paying_players                 AS paying_players,
+        (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e WHERE e.team_id = t.id)::float8
+                                         AS scheduled_cost
       FROM teams t
       LEFT JOIN team_budgets b ON b.team_id = t.id
       WHERE t.company_id = ${session.companyId}
@@ -49,6 +53,7 @@ export default async function BudgetsPage() {
     sport: r.sport,
     divisionLabel: divisionLabel(r.division),
     rosterCount: r.player_count,
+    scheduledCost: r.scheduled_cost ?? 0,
     saved: {
       tuitionPerPlayer: r.tuition_per_player ?? 0,
       portionToTeamBudget: r.portion_to_team_budget ?? 0,
@@ -90,8 +95,8 @@ export default async function BudgetsPage() {
             <h2 className="step-title">Team budgets</h2>
             <p>
               {teams.length} {teams.length === 1 ? "team" : "teams"}. Current
-              balance and fundraising activate once the Schedules tab is built
-              out.
+              balance is each team&apos;s starting balance minus its total
+              scheduled cost from the Schedules tab.
             </p>
           </div>
 
@@ -109,13 +114,7 @@ export default async function BudgetsPage() {
           ) : (
             <div className="team-groups">
               {teams.map((team) => (
-                <TeamBudgetCard
-                  key={team.id}
-                  team={team}
-                  // Wired from the Schedules tab once it exists — null shows the
-                  // Current Balance / Fundraising rows as "Pending" for now.
-                  currentBalance={null}
-                />
+                <TeamBudgetCard key={team.id} team={team} />
               ))}
             </div>
           )}

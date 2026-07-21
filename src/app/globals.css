@@ -1051,8 +1051,25 @@ body {
   font-weight: 700;
 }
 
-/* Rows awaiting the Schedules tab render their value as muted "Pending" text. */
-.bs-pending {
+/* A negative current balance (scheduled costs exceed the starting balance)
+   reads as a warning instead of the neutral amber. */
+.budget-sheet .bs-current .bs-value.bs-negative {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.budget-summary-value.bs-negative {
+  color: var(--danger);
+}
+
+/* Before a team's budget is set up, the result rows carry no figure — drop the
+   amber/green highlight and show a muted placeholder instead. */
+.budget-sheet .bs-current .bs-value.bs-idle,
+.budget-sheet .bs-fundraise .bs-value.bs-idle {
+  background: transparent;
+}
+
+.bs-muted {
   font-weight: 500;
   font-size: 0.8rem;
   font-style: italic;
