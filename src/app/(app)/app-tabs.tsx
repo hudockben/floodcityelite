@@ -8,6 +8,8 @@ const TABS = [
   { href: "/teams", label: "Teams" },
   { href: "/payment-tracker", label: "Payment Tracker" },
   { href: "/budgets", label: "Budgets" },
+  { href: "/fundraiser-tracker", label: "Fundraiser Tracker" },
+  { href: "/program-camps", label: "Program/Camps" },
   { href: "/schedules", label: "Schedules" },
   { href: "/contact-info", label: "Contact Info" },
   { href: "/yard-tournaments", label: "Yard Tournaments" },

@@ -5,6 +5,8 @@ const SECTIONS = [
   { href: "/teams", label: "Teams", icon: "⚾", desc: "Rosters by division and team" },
   { href: "/payment-tracker", label: "Payment Tracker", icon: "💳", desc: "Dues, invoices, and payments" },
   { href: "/budgets", label: "Budgets", icon: "📊", desc: "Plan and monitor team budgets" },
+  { href: "/fundraiser-tracker", label: "Fundraiser Tracker", icon: "💰", desc: "Campaigns, goals, and donations" },
+  { href: "/program-camps", label: "Program/Camps", icon: "🏕️", desc: "Programs, clinics, and camps" },
   { href: "/schedules", label: "Schedules", icon: "🗓️", desc: "Practices, games, and events" },
   { href: "/contact-info", label: "Contact Info", icon: "📇", desc: "Players, families, and staff" },
   { href: "/yard-tournaments", label: "Yard Tournaments", icon: "🏆", desc: "Brackets and results" },
