@@ -5,7 +5,8 @@ import Link from "next/link";
 import ConfirmButton from "../teams/confirm-button";
 import { DIVISIONS } from "../teams/divisions";
 import { deletePaymentAction } from "./actions";
-import PaymentDraftRow from "./payment-draft-row";
+import PaymentDraftRow, { type DraftInitial } from "./payment-draft-row";
+import PaymentSearch, { type PlayerMatch } from "./payment-search";
 import {
   formatDate,
   formatMoney,
@@ -14,6 +15,10 @@ import {
   type PlayerOption,
   type TeamOption,
 } from "./payments";
+
+// A draft (unsaved) row. `initial` is set when the row is seeded from the
+// search bar so its Division/Team/Player start filled in.
+type Draft = { id: number; initial?: DraftInitial };
 
 // Date, Division, Team, Player, Type, Check #, Amount, Total, Actions.
 const COL_COUNT = 9;
@@ -31,16 +36,27 @@ export default function PaymentTracker({
   players: PlayerOption[];
   payments: PaymentRow[];
 }) {
-  // Draft (unsaved) rows added by "Add Payment", tracked by a stable key.
-  const [drafts, setDrafts] = useState<number[]>([]);
+  // Draft (unsaved) rows added by "Add Payment" or the search bar, each with a
+  // stable key.
+  const [drafts, setDrafts] = useState<Draft[]>([]);
   const nextDraftId = useRef(1);
 
-  function addDraft() {
-    setDrafts((cur) => [...cur, nextDraftId.current++]);
+  function addDraft(initial?: DraftInitial) {
+    setDrafts((cur) => [...cur, { id: nextDraftId.current++, initial }]);
   }
 
   function removeDraft(id: number) {
-    setDrafts((cur) => cur.filter((d) => d !== id));
+    setDrafts((cur) => cur.filter((d) => d.id !== id));
+  }
+
+  // Picking a player from the search bar seeds a pre-filled draft row so only
+  // the payment type and amount are left to enter.
+  function handlePick(match: PlayerMatch) {
+    addDraft({
+      division: match.team.division,
+      teamId: String(match.team.id),
+      playerId: String(match.player.id),
+    });
   }
 
   // The Total column accumulates across saved payments in display order, so the
@@ -82,6 +98,12 @@ export default function PaymentTracker({
         </div>
       ) : (
         <>
+          <PaymentSearch
+            teams={teams}
+            players={players}
+            onPick={handlePick}
+          />
+
           <div className="pay-scroll">
             <table className="pay-table">
               <colgroup>
@@ -166,12 +188,13 @@ export default function PaymentTracker({
                   </tr>
                 ))}
 
-                {drafts.map((id) => (
+                {drafts.map((draft) => (
                   <PaymentDraftRow
-                    key={id}
-                    id={id}
+                    key={draft.id}
+                    id={draft.id}
                     teams={teams}
                     players={players}
+                    initial={draft.initial}
                     onRemove={removeDraft}
                     onSaved={removeDraft}
                   />
@@ -193,7 +216,7 @@ export default function PaymentTracker({
             <button
               type="button"
               className="btn-add-payment"
-              onClick={addDraft}
+              onClick={() => addDraft()}
             >
               <span aria-hidden="true">+</span> Add Payment
             </button>
