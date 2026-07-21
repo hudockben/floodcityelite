@@ -34,7 +34,7 @@ export async function loginAction(
 
   await createSession(user);
   // redirect() throws internally, so keep it outside the try/catch above.
-  redirect("/dashboard");
+  redirect("/homeplate");
 }
 
 export async function logoutAction(): Promise<void> {
