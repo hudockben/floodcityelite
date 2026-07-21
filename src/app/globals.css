@@ -1307,6 +1307,134 @@ body {
 }
 
 /* ---- Payment Tracker ---- */
+
+/* Search-to-pay: type a player or team, pick a result, and a pre-filled draft
+   row appears so only the type and amount are left to enter. */
+.pay-search {
+  position: relative;
+  margin-top: 22px;
+  max-width: 460px;
+}
+
+.pay-search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.pay-search-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.pay-search-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+}
+
+.pay-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 11px 0;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.pay-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.pay-search-clear {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 1.15rem;
+  line-height: 1;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.pay-search-clear:hover {
+  color: var(--text);
+  background: rgba(148, 187, 233, 0.12);
+}
+
+/* Results dropdown; overlays the table below with an opaque backdrop. */
+.pay-search-list {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--roster-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+  max-height: 320px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.pay-search-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 9px 12px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pay-search-option:hover,
+.pay-search-option.is-active {
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.pay-search-player {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pay-search-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.pay-search-empty {
+  padding: 14px 12px;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
 .pay-scroll {
   margin-top: 22px;
   overflow-x: auto;

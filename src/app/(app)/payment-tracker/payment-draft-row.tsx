@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { DIVISIONS, type DivisionSlug } from "../teams/divisions";
 import { addPaymentAction } from "./actions";
 import {
@@ -8,6 +8,14 @@ import {
   type PlayerOption,
   type TeamOption,
 } from "./payments";
+
+// A Division → Team → Player selection used to seed a draft row (e.g. from the
+// search bar). Ids are strings to match the <select> values.
+export type DraftInitial = {
+  division: DivisionSlug;
+  teamId: string;
+  playerId: string;
+};
 
 // Today's date as YYYY-MM-DD in the browser's local time zone. Draft rows only
 // ever render on the client (they appear after an "Add Payment" click), so this
@@ -22,24 +30,40 @@ export default function PaymentDraftRow({
   id,
   teams,
   players,
+  initial,
   onRemove,
   onSaved,
 }: {
   id: number;
   teams: TeamOption[];
   players: PlayerOption[];
+  initial?: DraftInitial;
   onRemove: (id: number) => void;
   onSaved: (id: number) => void;
 }) {
   const [date, setDate] = useState<string>(() => todayISO());
-  const [division, setDivision] = useState<DivisionSlug | "">("");
-  const [teamId, setTeamId] = useState("");
-  const [playerId, setPlayerId] = useState("");
+  const [division, setDivision] = useState<DivisionSlug | "">(
+    initial?.division ?? "",
+  );
+  const [teamId, setTeamId] = useState(initial?.teamId ?? "");
+  const [playerId, setPlayerId] = useState(initial?.playerId ?? "");
   const [paymentType, setPaymentType] = useState("");
   const [checkNumber, setCheckNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // When the row is seeded from the search bar the player is already chosen, so
+  // drop the user straight into the amount field and bring the row into view.
+  const rowRef = useRef<HTMLTableRowElement>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!initial) return;
+    amountRef.current?.focus();
+    rowRef.current?.scrollIntoView({ block: "nearest" });
+    // Seed once on mount; later prop changes shouldn't yank focus back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Cascade: teams narrow to the chosen division, players to the chosen team.
   const teamsInDivision = division
@@ -77,7 +101,7 @@ export default function PaymentDraftRow({
 
   return (
     <>
-      <tr className="pay-draft-row">
+      <tr className="pay-draft-row" ref={rowRef}>
         <td>
           <input
             type="date"
@@ -194,6 +218,7 @@ export default function PaymentDraftRow({
 
         <td className="pay-num">
           <input
+            ref={amountRef}
             type="number"
             min="0"
             step="0.01"
