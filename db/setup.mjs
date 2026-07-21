@@ -75,6 +75,47 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_users_company_id ON users (company_id)`;
 
+  // Teams belong to a company, live in a division, and are assigned a sport.
+  await sql`
+    CREATE TABLE IF NOT EXISTS teams (
+      id          SERIAL PRIMARY KEY,
+      company_id  INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      name        VARCHAR(120) NOT NULL,
+      division    VARCHAR(32)  NOT NULL
+                    CHECK (division IN ('spring-summer-baseball', 'softball', 'fall-baseball')),
+      sport       VARCHAR(16)  NOT NULL DEFAULT 'baseball'
+                    CHECK (sport IN ('baseball', 'softball')),
+      created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+      updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_teams_company_division ON teams (company_id, division)`;
+
+  // Players (roster rows) belong to a team. Only player_name is required.
+  await sql`
+    CREATE TABLE IF NOT EXISTS players (
+      id                  SERIAL PRIMARY KEY,
+      team_id             INTEGER      NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      player_name         VARCHAR(160) NOT NULL,
+      grad_year           SMALLINT,
+      date_of_birth       DATE,
+      height              VARCHAR(24),
+      weight              SMALLINT,
+      primary_position    VARCHAR(48),
+      secondary_position  VARCHAR(48),
+      high_school         VARCHAR(160),
+      parent_phone        VARCHAR(40),
+      parent_email        VARCHAR(160),
+      parent_name         VARCHAR(160),
+      closest_facility    VARCHAR(160),
+      created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
+      updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_players_team_id ON players (team_id)`;
+
   console.log(`→ Ensuring company "${COMPANY_NAME}" (code: ${COMPANY_CODE})…`);
   const companyRows = await sql`
     INSERT INTO companies (code, name)

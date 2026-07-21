@@ -107,7 +107,8 @@ body {
   letter-spacing: 0.02em;
 }
 
-.field input {
+.field input,
+.field select {
   width: 100%;
   padding: 12px 14px;
   font-size: 0.98rem;
@@ -121,11 +122,23 @@ body {
     box-shadow 0.15s ease;
 }
 
+.field select {
+  cursor: pointer;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 34px;
+}
+
 .field input::placeholder {
   color: #5f7690;
 }
 
-.field input:focus {
+.field input:focus,
+.field select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
 }
@@ -455,4 +468,429 @@ body {
 .home-card-desc {
   font-size: 0.83rem;
   color: var(--text-muted);
+}
+
+/* ---- Teams ---- */
+.teams {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.muted-note {
+  margin: 18px 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.step-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+}
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #04121f;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+}
+
+/* Division selector (sub-tabs) */
+.subtabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.subtab {
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--card-border);
+  background: var(--field-bg);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.subtab:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.subtab.active {
+  color: #04121f;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  border-color: transparent;
+}
+
+/* Create-team form */
+.team-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.team-form .field {
+  flex: 1 1 220px;
+}
+
+.team-form-btn {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 12px 22px;
+}
+
+.team-form-msg,
+.player-form-msg {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+/* Team chips */
+.team-chips {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.team-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--field-bg);
+}
+
+.team-chip-name {
+  font-weight: 700;
+}
+
+.team-chip-count {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.sport-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.sport-baseball {
+  color: #bfe6ff;
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.sport-softball {
+  color: #ffe3a8;
+  background: rgba(250, 204, 21, 0.14);
+  border-color: rgba(250, 204, 21, 0.35);
+}
+
+.chip-delete {
+  margin-left: auto;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--danger);
+  background: transparent;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.chip-delete:hover {
+  background: var(--danger-bg);
+  border-color: rgba(220, 38, 38, 0.5);
+}
+
+/* Add-player form */
+.player-form {
+  margin-top: 20px;
+}
+
+.player-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 14px;
+}
+
+.player-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.player-form-actions .btn {
+  width: auto;
+  padding: 12px 24px;
+}
+
+/* Roster table */
+.roster-scroll {
+  margin-top: 22px;
+  overflow-x: auto;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  scrollbar-width: thin;
+}
+
+.roster {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: max-content;
+  font-size: 0.86rem;
+}
+
+.roster thead th {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  white-space: nowrap;
+  padding: 12px 14px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: rgba(8, 20, 36, 0.85);
+  border-bottom: 1px solid var(--card-border);
+}
+
+.roster tbody td {
+  padding: 11px 14px;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  vertical-align: middle;
+}
+
+.roster tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.roster tbody tr:hover td {
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.roster .col-team {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.roster .col-name {
+  font-weight: 600;
+}
+
+.cell-empty {
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+.col-actions {
+  width: 1%;
+}
+
+.row-delete {
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--danger);
+  background: transparent;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.row-delete:hover {
+  background: var(--danger-bg);
+  border-color: rgba(220, 38, 38, 0.5);
+}
+
+/* Collapsible team groups */
+.team-groups {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.team-group {
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--field-bg);
+  overflow: hidden;
+}
+
+.team-group-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+/* Hide the native disclosure triangle (we draw our own caret). */
+.team-group-summary::-webkit-details-marker {
+  display: none;
+}
+.team-group-summary::marker {
+  content: "";
+}
+
+.team-group-summary:hover {
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.team-group[open] > .team-group-summary {
+  border-bottom: 1px solid var(--card-border);
+}
+
+.tg-caret {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.team-group[open] > .team-group-summary .tg-caret {
+  transform: rotate(45deg);
+}
+
+.tg-name {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.tg-count {
+  margin-left: auto;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.tg-empty {
+  margin: 0;
+  padding: 16px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* The roster table sits flush inside an expanded team group. */
+.team-group .roster-scroll {
+  margin-top: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+/* Row actions (Edit / Remove) */
+.row-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.row-edit {
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.row-edit:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.55);
+}
+
+.btn-secondary {
+  padding: 12px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(8, 20, 36, 0.6);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Inline edit form (expands within a roster row) */
+.player-edit-row > td {
+  padding: 0;
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.player-edit-form {
+  padding: 18px 16px;
+  border-left: 3px solid var(--accent);
+}
+
+.player-edit-head {
+  margin-bottom: 14px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.player-edit-head strong {
+  color: var(--text);
 }

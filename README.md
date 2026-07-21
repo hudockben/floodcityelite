@@ -25,13 +25,20 @@ with a **company code**, **username**, and **password**.
 
 ## Database tables
 
-Two tables back the login (see [`db/schema.sql`](db/schema.sql)):
+Four tables back the app (see [`db/schema.sql`](db/schema.sql)):
 
 - **`companies`** — one row per organization. Login matches on `code`
   (e.g. `fce`).
 - **`users`** — belongs to a company via `company_id`. A username is unique
   *within* a company. Stores `password_hash`, `role`, `is_active`, and
   `last_login_at`.
+- **`teams`** — belongs to a company. Each team lives in a `division`
+  (`spring-summer-baseball`, `softball`, or `fall-baseball`) and is assigned a
+  `sport` (`baseball` or `softball`). This powers the **Teams** tab.
+- **`players`** — roster rows that belong to a team via `team_id`
+  (`ON DELETE CASCADE`). Only `player_name` is required; the rest (grad year,
+  date of birth, height, weight, positions, high school, parent contact,
+  closest facility) can be filled in over time.
 
 ## Getting started
 

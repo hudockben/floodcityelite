@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/session";
 
 const SECTIONS = [
+  { href: "/teams", label: "Teams", icon: "⚾", desc: "Rosters by division and team" },
   { href: "/payment-tracker", label: "Payment Tracker", icon: "💳", desc: "Dues, invoices, and payments" },
   { href: "/budgets", label: "Budgets", icon: "📊", desc: "Plan and monitor team budgets" },
   { href: "/schedules", label: "Schedules", icon: "🗓️", desc: "Practices, games, and events" },
