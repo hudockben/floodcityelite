@@ -133,6 +133,39 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_payments_player_id ON payments (player_id)`;
 
+  // One budget row per team. The paying-player count defaults to the roster
+  // size (players); paying_players overrides it when not everyone pays.
+  await sql`
+    CREATE TABLE IF NOT EXISTS team_budgets (
+      team_id                 INTEGER       PRIMARY KEY REFERENCES teams(id) ON DELETE CASCADE,
+      tuition_per_player      NUMERIC(12,2) NOT NULL DEFAULT 0,
+      portion_to_team_budget  NUMERIC(12,2) NOT NULL DEFAULT 0,
+      paying_players          INTEGER,
+      created_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at              TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  // Schedule events (tournaments/games) belong to a team. Only event_name is
+  // required; cost is optional and summed per team on the Schedules tab.
+  await sql`
+    CREATE TABLE IF NOT EXISTS schedule_events (
+      id          SERIAL PRIMARY KEY,
+      team_id     INTEGER       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      event_host  VARCHAR(160),
+      event_date  DATE,
+      event_name  VARCHAR(200)  NOT NULL,
+      location    VARCHAR(200),
+      cost        NUMERIC(10, 2),
+      status      VARCHAR(16)   NOT NULL DEFAULT 'registered'
+                    CHECK (status IN ('registered', 'paid', 'waitlisted')),
+      created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_schedule_events_team_id ON schedule_events (team_id)`;
+
   console.log(`→ Ensuring company "${COMPANY_NAME}" (code: ${COMPANY_CODE})…`);
   const companyRows = await sql`
     INSERT INTO companies (code, name)

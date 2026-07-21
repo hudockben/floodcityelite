@@ -10,6 +10,10 @@
   --danger-bg: rgba(220, 38, 38, 0.14);
   --card-border: rgba(148, 187, 233, 0.18);
   --field-bg: rgba(8, 20, 36, 0.55);
+  /* Opaque backdrops for the roster so the frozen first column blends. */
+  --roster-bg: #0e2036;
+  --roster-head-bg: #0a1a2c;
+  --roster-hover-bg: #14273e;
 }
 
 * {
@@ -281,9 +285,9 @@ body {
 
 /* ---- Authenticated app shell ---- */
 .shell {
-  max-width: 1120px;
+  max-width: 2000px;
   margin: 0 auto;
-  padding: 0 20px 48px;
+  padding: 0 16px 48px;
 }
 
 .appbar {
@@ -673,31 +677,34 @@ body {
   border: 1px solid var(--card-border);
   border-radius: 12px;
   scrollbar-width: thin;
+  background: var(--roster-bg);
 }
 
 .roster {
   border-collapse: collapse;
-  width: 100%;
-  min-width: max-content;
-  font-size: 0.86rem;
+  /* Size columns to their content (don't stretch to fill) so columns stay
+     tight and the table scrolls only when it genuinely overflows. */
+  width: max-content;
+  font-size: 0.84rem;
 }
 
 .roster thead th {
   position: sticky;
   top: 0;
+  z-index: 2;
   text-align: left;
   white-space: nowrap;
-  padding: 12px 14px;
+  padding: 10px 12px;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-muted);
-  background: rgba(8, 20, 36, 0.85);
+  background: var(--roster-head-bg);
   border-bottom: 1px solid var(--card-border);
 }
 
 .roster tbody td {
-  padding: 11px 14px;
+  padding: 9px 12px;
   white-space: nowrap;
   border-bottom: 1px solid rgba(148, 187, 233, 0.08);
   vertical-align: middle;
@@ -707,8 +714,30 @@ body {
   border-bottom: none;
 }
 
-.roster tbody tr:hover td {
-  background: rgba(56, 189, 248, 0.05);
+.roster tbody tr:not(.player-edit-row):hover td {
+  background: var(--roster-hover-bg);
+}
+
+/* Freeze the first column (Player Name) while scrolling sideways. The
+   full-width edit row is excluded so it keeps spanning every column. */
+.roster thead th:first-child,
+.roster tbody tr:not(.player-edit-row) td:first-child {
+  position: sticky;
+  left: 0;
+  box-shadow: 1px 0 0 var(--card-border);
+}
+
+.roster tbody tr:not(.player-edit-row) td:first-child {
+  z-index: 1;
+  background: var(--roster-bg);
+}
+
+.roster tbody tr:not(.player-edit-row):hover td:first-child {
+  background: var(--roster-hover-bg);
+}
+
+.roster thead th:first-child {
+  z-index: 3;
 }
 
 .roster .col-team {
@@ -892,6 +921,371 @@ body {
 }
 
 .player-edit-head strong {
+  color: var(--text);
+}
+
+/* ---- Budgets ---- */
+/* Each team is a collapsible card (reusing .team-group) that expands into a
+   spreadsheet-style budget sheet. */
+.budget-group .division-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  background: rgba(148, 187, 233, 0.1);
+  border: 1px solid var(--card-border);
+  white-space: nowrap;
+}
+
+/* Right-aligned figure in the collapsed summary. */
+.budget-summary {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.budget-summary-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.budget-summary-value {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.budget-summary-empty {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.budget-body {
+  padding: 6px 16px 18px;
+}
+
+.budget-sheet-scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.budget-sheet {
+  width: 100%;
+  max-width: 560px;
+  border-collapse: collapse;
+  margin-top: 6px;
+  font-size: 0.9rem;
+}
+
+.budget-sheet th[scope="row"] {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text);
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  vertical-align: middle;
+}
+
+.budget-sheet td {
+  text-align: right;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Section header rows ("Team Budget", "Player Expense"). */
+.budget-sheet .bs-head th {
+  padding: 16px 14px 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--card-border);
+}
+
+/* The very first section header sits flush with the top of the sheet. */
+.budget-sheet .bs-head:first-child th {
+  padding-top: 4px;
+}
+
+/* Small "from roster (N)" / "manual override" note under a row label. */
+.bs-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* Computed subtotal rows. */
+.budget-sheet .bs-total th[scope="row"],
+.budget-sheet .bs-total .bs-value {
+  font-weight: 700;
+}
+
+.bs-value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Highlighted result rows — echo the source sheet's yellow current balance
+   and green fundraising cells, tuned for the dark theme. */
+.budget-sheet .bs-current .bs-value {
+  background: rgba(250, 204, 21, 0.16);
+  color: #ffe9a8;
+  font-weight: 700;
+}
+
+.budget-sheet .bs-fundraise .bs-value {
+  background: rgba(52, 211, 153, 0.16);
+  color: #b7f5d8;
+  font-weight: 700;
+}
+
+/* Rows awaiting the Schedules tab render their value as muted "Pending" text. */
+.bs-pending {
+  font-weight: 500;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+/* Inputs inside the sheet. */
+.budget-input {
+  width: 128px;
+  max-width: 100%;
+  padding: 8px 10px;
+  text-align: right;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  outline: none;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.budget-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.budget-money {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.budget-money-sign {
+  position: absolute;
+  left: 10px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+.budget-input-money {
+  padding-left: 22px;
+}
+
+.budget-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.budget-save-btn {
+  width: auto;
+  margin-top: 0;
+  padding: 10px 22px;
+}
+
+.budget-msg {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.budget-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ---- Schedules ---- */
+
+/* Links inside empty-state copy (e.g. "…create one in the Teams tab"). */
+.empty-sub a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.empty-sub a:hover {
+  text-decoration: underline;
+}
+
+/* Total schedule cost shown in a team's collapsible summary bar. Sits at the
+   far right, just after the event count (which carries the auto margin). */
+.tg-total {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+/* Schedule table — same look as the roster, but no frozen first column
+   (it has far fewer columns) and a total row in the footer. */
+.sched {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.sched thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  text-align: left;
+  white-space: nowrap;
+  padding: 10px 12px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: var(--roster-head-bg);
+  border-bottom: 1px solid var(--card-border);
+}
+
+.sched tbody td {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  vertical-align: middle;
+}
+
+.sched tbody tr:not(.sched-edit-row):hover td {
+  background: var(--roster-hover-bg);
+}
+
+.sched .col-name {
+  font-weight: 600;
+}
+
+.sched .col-cost {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Footer total row */
+.sched-total-row td {
+  padding: 12px;
+  border-top: 1px solid var(--card-border);
+  background: var(--roster-head-bg);
+}
+
+.sched-total-label {
+  text-align: right;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.sched-total-value {
+  font-weight: 800;
+  color: var(--accent);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Inline Registered/Paid/Waitlisted dropdown */
+.status-form {
+  margin: 0;
+}
+
+.status-select {
+  appearance: none;
+  padding: 5px 26px 5px 11px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  outline: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 14px) 55%, calc(100% - 10px) 55%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+.status-select:hover {
+  filter: brightness(1.1);
+}
+
+.status-select:focus {
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+/* Keep the expanded option list readable on every platform. */
+.status-select option {
+  color: var(--text);
+  background: var(--navy-800);
+}
+
+.status-registered {
+  color: #bfe6ff;
+  background-color: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.status-paid {
+  color: #bbf7d0;
+  background-color: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.status-waitlisted {
+  color: #ffe3a8;
+  background-color: rgba(250, 204, 21, 0.14);
+  border-color: rgba(250, 204, 21, 0.4);
+}
+
+/* Inline edit form (expands within a schedule row) */
+.sched-edit-row > td {
+  padding: 0;
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.sched-edit-form {
+  padding: 18px 16px;
+  border-left: 3px solid var(--accent);
+}
+
+.sched-edit-head {
+  margin-bottom: 14px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.sched-edit-head strong {
   color: var(--text);
 }
 
