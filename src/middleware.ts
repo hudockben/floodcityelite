@@ -35,9 +35,12 @@ export const config = {
     "/teams/:path*",
     "/payment-tracker/:path*",
     "/budgets/:path*",
+    "/fundraiser-tracker/:path*",
+    "/program-camps/:path*",
     "/schedules/:path*",
     "/contact-info/:path*",
     "/yard-tournaments/:path*",
+    "/hotels/:path*",
     "/inventory/:path*",
   ],
 };

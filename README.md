@@ -5,9 +5,10 @@ screen backed by a [Neon](https://neon.tech) Postgres database. Members sign in
 with a **company code**, **username**, and **password**.
 
 - Home screen (`/`) — the Flood City Elite login.
-- Member area — a protected tabbed shell (Homeplate, Payment Tracker, Budgets,
-  Schedules, Contact Info, Yard Tournaments, Inventory) shown after a
-  successful login and guarded by middleware.
+- Member area — a protected tabbed shell (Homeplate, Teams, Payment Tracker,
+  Budgets, Fundraiser Tracker, Program/Camps, Schedules, Contact Info, Yard
+  Tournaments, Hotels, Inventory) shown after a successful login and guarded by
+  middleware.
 - Auth — passwords are hashed with **bcrypt**; the session is a signed
   (JWT, HS256) **httpOnly** cookie.
 
