@@ -923,3 +923,169 @@ body {
 .player-edit-head strong {
   color: var(--text);
 }
+
+/* ---- Schedules ---- */
+
+/* Links inside empty-state copy (e.g. "…create one in the Teams tab"). */
+.empty-sub a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.empty-sub a:hover {
+  text-decoration: underline;
+}
+
+/* Total schedule cost shown in a team's collapsible summary bar. Sits at the
+   far right, just after the event count (which carries the auto margin). */
+.tg-total {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+/* Schedule table — same look as the roster, but no frozen first column
+   (it has far fewer columns) and a total row in the footer. */
+.sched {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.sched thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  text-align: left;
+  white-space: nowrap;
+  padding: 10px 12px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: var(--roster-head-bg);
+  border-bottom: 1px solid var(--card-border);
+}
+
+.sched tbody td {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  vertical-align: middle;
+}
+
+.sched tbody tr:not(.sched-edit-row):hover td {
+  background: var(--roster-hover-bg);
+}
+
+.sched .col-name {
+  font-weight: 600;
+}
+
+.sched .col-cost {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Footer total row */
+.sched-total-row td {
+  padding: 12px;
+  border-top: 1px solid var(--card-border);
+  background: var(--roster-head-bg);
+}
+
+.sched-total-label {
+  text-align: right;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.sched-total-value {
+  font-weight: 800;
+  color: var(--accent);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Inline Registered/Paid/Waitlisted dropdown */
+.status-form {
+  margin: 0;
+}
+
+.status-select {
+  appearance: none;
+  padding: 5px 26px 5px 11px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  outline: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 14px) 55%, calc(100% - 10px) 55%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+.status-select:hover {
+  filter: brightness(1.1);
+}
+
+.status-select:focus {
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+/* Keep the expanded option list readable on every platform. */
+.status-select option {
+  color: var(--text);
+  background: var(--navy-800);
+}
+
+.status-registered {
+  color: #bfe6ff;
+  background-color: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.status-paid {
+  color: #bbf7d0;
+  background-color: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.status-waitlisted {
+  color: #ffe3a8;
+  background-color: rgba(250, 204, 21, 0.14);
+  border-color: rgba(250, 204, 21, 0.4);
+}
+
+/* Inline edit form (expands within a schedule row) */
+.sched-edit-row > td {
+  padding: 0;
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.sched-edit-form {
+  padding: 18px 16px;
+  border-left: 3px solid var(--accent);
+}
+
+.sched-edit-head {
+  margin-bottom: 14px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.sched-edit-head strong {
+  color: var(--text);
+}
