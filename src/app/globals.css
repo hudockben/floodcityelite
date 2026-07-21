@@ -10,6 +10,10 @@
   --danger-bg: rgba(220, 38, 38, 0.14);
   --card-border: rgba(148, 187, 233, 0.18);
   --field-bg: rgba(8, 20, 36, 0.55);
+  /* Opaque backdrops for the roster so the frozen first column blends. */
+  --roster-bg: #0e2036;
+  --roster-head-bg: #0a1a2c;
+  --roster-hover-bg: #14273e;
 }
 
 * {
@@ -281,9 +285,9 @@ body {
 
 /* ---- Authenticated app shell ---- */
 .shell {
-  max-width: 1500px;
+  max-width: 2000px;
   margin: 0 auto;
-  padding: 0 20px 48px;
+  padding: 0 16px 48px;
 }
 
 .appbar {
@@ -673,18 +677,21 @@ body {
   border: 1px solid var(--card-border);
   border-radius: 12px;
   scrollbar-width: thin;
+  background: var(--roster-bg);
 }
 
 .roster {
   border-collapse: collapse;
-  width: 100%;
-  min-width: max-content;
+  /* Size columns to their content (don't stretch to fill) so columns stay
+     tight and the table scrolls only when it genuinely overflows. */
+  width: max-content;
   font-size: 0.84rem;
 }
 
 .roster thead th {
   position: sticky;
   top: 0;
+  z-index: 2;
   text-align: left;
   white-space: nowrap;
   padding: 10px 12px;
@@ -692,7 +699,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-muted);
-  background: rgba(8, 20, 36, 0.85);
+  background: var(--roster-head-bg);
   border-bottom: 1px solid var(--card-border);
 }
 
@@ -707,8 +714,30 @@ body {
   border-bottom: none;
 }
 
-.roster tbody tr:hover td {
-  background: rgba(56, 189, 248, 0.05);
+.roster tbody tr:not(.player-edit-row):hover td {
+  background: var(--roster-hover-bg);
+}
+
+/* Freeze the first column (Player Name) while scrolling sideways. The
+   full-width edit row is excluded so it keeps spanning every column. */
+.roster thead th:first-child,
+.roster tbody tr:not(.player-edit-row) td:first-child {
+  position: sticky;
+  left: 0;
+  box-shadow: 1px 0 0 var(--card-border);
+}
+
+.roster tbody tr:not(.player-edit-row) td:first-child {
+  z-index: 1;
+  background: var(--roster-bg);
+}
+
+.roster tbody tr:not(.player-edit-row):hover td:first-child {
+  background: var(--roster-hover-bg);
+}
+
+.roster thead th:first-child {
+  z-index: 3;
 }
 
 .roster .col-team {
