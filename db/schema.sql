@@ -79,6 +79,27 @@ CREATE TABLE IF NOT EXISTS players (
 
 CREATE INDEX IF NOT EXISTS idx_players_team_id ON players (team_id);
 
+-- ---------------------------------------------------------------------------
+-- Payments
+--
+-- Each payment is logged against a player (→ team → company) and powers the
+-- Payment Tracker tab. A payment records the date it was received, the type
+-- (check or cash), and the amount. Running and grand totals are computed from
+-- these rows — the "accumulating amount of payments received".
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS payments (
+    id            SERIAL        PRIMARY KEY,
+    player_id     INTEGER       NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    paid_on       DATE          NOT NULL DEFAULT CURRENT_DATE,
+    payment_type  VARCHAR(16)   NOT NULL DEFAULT 'cash'
+                    CHECK (payment_type IN ('check', 'cash')),
+    amount        NUMERIC(10,2) NOT NULL DEFAULT 0,
+    created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payments_player_id ON payments (player_id);
+
 -- Seed the Flood City Elite company (code: fce). Idempotent.
 INSERT INTO companies (code, name)
 VALUES ('fce', 'Flood City Elite')

@@ -116,6 +116,23 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_players_team_id ON players (team_id)`;
 
+  // Payments are logged against a player (→ team → company) and power the
+  // Payment Tracker tab.
+  await sql`
+    CREATE TABLE IF NOT EXISTS payments (
+      id            SERIAL        PRIMARY KEY,
+      player_id     INTEGER       NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      paid_on       DATE          NOT NULL DEFAULT CURRENT_DATE,
+      payment_type  VARCHAR(16)   NOT NULL DEFAULT 'cash'
+                      CHECK (payment_type IN ('check', 'cash')),
+      amount        NUMERIC(10,2) NOT NULL DEFAULT 0,
+      created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_payments_player_id ON payments (player_id)`;
+
   console.log(`→ Ensuring company "${COMPANY_NAME}" (code: ${COMPANY_CODE})…`);
   const companyRows = await sql`
     INSERT INTO companies (code, name)
