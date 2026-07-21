@@ -91,11 +91,13 @@ export function startingBalance(
 
 /**
  * Current team-budget balance: the starting balance less every scheduled cost
- * from the Schedules tab (the same per-team total shown there). Rounded to
- * whole cents so display and downstream math don't drift on float subtraction.
+ * from the Schedules tab (the same per-team total shown there). The subtraction
+ * is done in integer cents so it stays exact and never yields a stray negative
+ * zero from float drift (e.g. an exactly-funded team showing "-$0.00").
  */
 export function currentBalance(starting: number, scheduledCost: number): number {
-  return Math.round((starting - scheduledCost) * 100) / 100;
+  const cents = Math.round(starting * 100) - Math.round(scheduledCost * 100);
+  return cents / 100;
 }
 
 /**

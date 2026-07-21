@@ -119,8 +119,11 @@ export default function TeamBudgetCard({ team }: { team: BudgetTeam }) {
     portionNum !== baseline.portionToTeamBudget ||
     override !== baseline.payingPlayersOverride;
 
-  const isConfigured =
-    baseline.tuitionPerPlayer > 0 || baseline.portionToTeamBudget > 0;
+  // Current balance / fundraising are only meaningful once the team has a real
+  // starting-balance basis (a per-player portion AND paying players). Until
+  // then the sheet would present un-entered inputs as a deficit, so we gate
+  // those rows and the summary figure on it.
+  const configured = starting > 0;
 
   return (
     <details className="team-group budget-group">
@@ -132,7 +135,7 @@ export default function TeamBudgetCard({ team }: { team: BudgetTeam }) {
         </span>
         <span className="division-badge">{team.divisionLabel}</span>
         <span className="budget-summary">
-          {isConfigured ? (
+          {configured ? (
             <>
               <span className="budget-summary-label">Current balance</span>
               <span
@@ -227,18 +230,32 @@ export default function TeamBudgetCard({ team }: { team: BudgetTeam }) {
               <tr className="bs-current">
                 <th scope="row">
                   Current Balance
-                  <span className="bs-note">
-                    less {formatMoney(team.scheduledCost)} scheduled
-                  </span>
+                  {configured ? (
+                    <span className="bs-note">
+                      less {formatMoney(team.scheduledCost)} scheduled
+                    </span>
+                  ) : null}
                 </th>
-                <td className={`bs-value${current < 0 ? " bs-negative" : ""}`}>
-                  {formatMoney(current)}
-                </td>
+                {configured ? (
+                  <td className={`bs-value${current < 0 ? " bs-negative" : ""}`}>
+                    {formatMoney(current)}
+                  </td>
+                ) : (
+                  <td className="bs-value bs-idle">
+                    <span className="bs-muted">Set up the budget above</span>
+                  </td>
+                )}
               </tr>
 
               <tr className="bs-fundraise">
                 <th scope="row">Fundraising amount needed per Player</th>
-                <td className="bs-value">{formatMoney(fundraise)}</td>
+                {configured ? (
+                  <td className="bs-value">{formatMoney(fundraise)}</td>
+                ) : (
+                  <td className="bs-value bs-idle">
+                    <span className="bs-muted">—</span>
+                  </td>
+                )}
               </tr>
             </tbody>
           </table>

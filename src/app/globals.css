@@ -1062,6 +1062,20 @@ body {
   color: var(--danger);
 }
 
+/* Before a team's budget is set up, the result rows carry no figure — drop the
+   amber/green highlight and show a muted placeholder instead. */
+.budget-sheet .bs-current .bs-value.bs-idle,
+.budget-sheet .bs-fundraise .bs-value.bs-idle {
+  background: transparent;
+}
+
+.bs-muted {
+  font-weight: 500;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
 /* Inputs inside the sheet. */
 .budget-input {
   width: 128px;
