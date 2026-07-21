@@ -1,0 +1,94 @@
+# Flood City Elite — Member Portal
+
+A [Next.js](https://nextjs.org) (App Router) app with a branded home/login
+screen backed by a [Neon](https://neon.tech) Postgres database. Members sign in
+with a **company code**, **username**, and **password**.
+
+- Home screen (`/`) — the Flood City Elite login.
+- Dashboard (`/dashboard`) — a protected page shown after a successful login.
+- Auth — passwords are hashed with **bcrypt**; the session is a signed
+  (JWT) **httpOnly** cookie.
+
+## Login credentials
+
+| Field        | Value                        |
+| ------------ | ---------------------------- |
+| Company code | `fce`                        |
+| Username     | `admin` (default seed)       |
+| Password     | `FloodCity2026!` (default)   |
+
+> The username/password above are created by the seed step and should be
+> changed after the first login. The company code for Flood City Elite is
+> always `fce`.
+
+## Database tables
+
+Two tables back the login (see [`db/schema.sql`](db/schema.sql)):
+
+- **`companies`** — one row per organization. Login matches on `code`
+  (e.g. `fce`).
+- **`users`** — belongs to a company via `company_id`. A username is unique
+  *within* a company. Stores `password_hash`, `role`, `is_active`, and
+  `last_login_at`.
+
+## Getting started
+
+1. **Install dependencies**
+
+   ```bash
+   npm install
+   ```
+
+2. **Configure environment** — copy the example and fill it in:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   - `DATABASE_URL` — your Neon connection string (Neon console → **Connect** →
+     pooled connection string).
+   - `SESSION_SECRET` — a random secret: `openssl rand -base64 32`.
+
+3. **Create the tables and seed the admin user**
+
+   ```bash
+   npm run db:setup
+   ```
+
+   This creates the tables, ensures the `fce` company exists, and creates the
+   default admin user. It prints the credentials when it finishes.
+
+   > Prefer to do it by hand? Paste [`db/schema.sql`](db/schema.sql) into the
+   > Neon **SQL Editor** instead — then create a user with a bcrypt hash.
+
+4. **Run the app**
+
+   ```bash
+   npm run dev
+   ```
+
+   Open <http://localhost:3000> and sign in.
+
+## Adding more users
+
+Each user belongs to the `fce` company. To add one, insert a row into `users`
+with a bcrypt-hashed password. The quickest way is to reuse the seed pattern in
+[`db/setup.mjs`](db/setup.mjs), or generate a hash:
+
+```bash
+node -e "import('bcryptjs').then(b => b.default.hash(process.argv[1], 10).then(console.log))" 'their-password'
+```
+
+then:
+
+```sql
+INSERT INTO users (company_id, username, password_hash, full_name, role)
+VALUES (
+  (SELECT id FROM companies WHERE code = 'fce'),
+  'coach', '<paste-hash>', 'Coach Name', 'coach'
+);
+```
+
+## Tech
+
+Next.js 15 · React 19 · `@neondatabase/serverless` · `bcryptjs` · `jose`
