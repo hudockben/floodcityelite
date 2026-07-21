@@ -25,7 +25,7 @@ with a **company code**, **username**, and **password**.
 
 ## Database tables
 
-Four tables back the app (see [`db/schema.sql`](db/schema.sql)):
+Five tables back the app (see [`db/schema.sql`](db/schema.sql)):
 
 - **`companies`** — one row per organization. Login matches on `code`
   (e.g. `fce`).
@@ -39,6 +39,10 @@ Four tables back the app (see [`db/schema.sql`](db/schema.sql)):
   (`ON DELETE CASCADE`). Only `player_name` is required; the rest (grad year,
   date of birth, height, weight, positions, high school, parent contact,
   closest facility) can be filled in over time.
+- **`payments`** — payments logged against a player via `player_id`
+  (`ON DELETE CASCADE`). Each row records `paid_on`, a `payment_type` (`check`
+  or `cash`), and an `amount`. This powers the **Payment Tracker** tab, whose
+  Total column accumulates the payments received.
 
 ## Getting started
 

@@ -1288,3 +1288,269 @@ body {
 .sched-edit-head strong {
   color: var(--text);
 }
+
+/* ---- Payment Tracker ---- */
+.pay-scroll {
+  margin-top: 22px;
+  overflow-x: auto;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  scrollbar-width: thin;
+}
+
+.pay-table {
+  border-collapse: collapse;
+  /* Fixed layout so column widths are deterministic: the data-entry row's
+     inputs/selects fill their column instead of stretching the table to fit
+     long option text (which would push the Save button off screen). Columns
+     get their widths from the <colgroup>. Above min-width the extra space is
+     shared out proportionally; below it, .pay-scroll scrolls horizontally. */
+  table-layout: fixed;
+  width: 100%;
+  min-width: 890px;
+  font-size: 0.86rem;
+}
+
+/* Column widths (box-sizing: border-box, so these include cell padding). */
+.pc-date { width: 134px; }
+.pc-div { width: 118px; }
+.pc-team { width: 118px; }
+.pc-player { width: 108px; }
+.pc-type { width: 100px; }
+.pc-amount { width: 92px; }
+.pc-total { width: 94px; }
+.pc-actions { width: 126px; }
+
+/* Truncate long text (division/team/player) with an ellipsis; the full value
+   stays available via a title tooltip and in the dropdown when editing. */
+.pay-trunc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pay-table thead th {
+  text-align: left;
+  white-space: nowrap;
+  padding: 12px 10px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: rgba(8, 20, 36, 0.85);
+  border-bottom: 1px solid var(--card-border);
+}
+
+.pay-table tbody td {
+  padding: 10px 10px;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  vertical-align: middle;
+}
+
+.pay-table tbody tr:not(.pay-error-row):hover td {
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.pay-nowrap {
+  white-space: nowrap;
+}
+
+.pay-table .col-name {
+  font-weight: 600;
+}
+
+.pay-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-running {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.pay-empty {
+  padding: 34px 14px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* Compact inputs/selects inside a draft (unsaved) row. They fill their fixed
+   column (see .pc-* widths) rather than sizing to their content. */
+.pay-input,
+.pay-select {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.pay-select {
+  cursor: pointer;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 26px;
+}
+
+.pay-amount {
+  text-align: right;
+}
+
+.pay-input:focus,
+.pay-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.pay-input:disabled,
+.pay-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pay-draft-row td {
+  background: rgba(56, 189, 248, 0.04);
+}
+
+.pay-draft-total {
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+/* Payment-type badge on saved rows */
+.pay-type {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.pay-type-check {
+  color: #bfe6ff;
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.pay-type-cash {
+  color: #bbf7d0;
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+/* Totals footer */
+.pay-total-row td {
+  padding: 14px;
+  border-top: 1px solid var(--card-border);
+  background: rgba(8, 20, 36, 0.6);
+}
+
+.pay-total-label {
+  text-align: right;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.74rem;
+}
+
+.pay-grand {
+  font-weight: 800;
+  font-size: 1rem;
+  color: #7ee2a8;
+}
+
+/* Add Payment button + summary count */
+.pay-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.btn-add-payment {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #052e16;
+  background: linear-gradient(180deg, #4ade80, #22c55e);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition:
+    filter 0.15s ease,
+    transform 0.05s ease;
+}
+
+.btn-add-payment span[aria-hidden] {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.btn-add-payment:hover {
+  filter: brightness(1.06);
+}
+
+.btn-add-payment:active {
+  transform: translateY(1px);
+}
+
+.pay-count {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* Save action on a draft row (green, matches Add Payment) */
+.row-save {
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #052e16;
+  background: linear-gradient(180deg, #4ade80, #22c55e);
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.row-save:hover {
+  filter: brightness(1.06);
+}
+
+.row-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pay-error-row td {
+  padding: 0 14px 12px;
+}
+
+.pay-error {
+  margin: 0;
+}
+
+.inline-link {
+  color: var(--accent);
+  text-decoration: underline;
+}
