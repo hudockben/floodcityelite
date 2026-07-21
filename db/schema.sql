@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS payments (
     paid_on       DATE          NOT NULL DEFAULT CURRENT_DATE,
     payment_type  VARCHAR(16)   NOT NULL DEFAULT 'cash'
                     CHECK (payment_type IN ('check', 'cash')),
+    check_number  VARCHAR(32),
     amount        NUMERIC(10,2) NOT NULL DEFAULT 0,
     created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ   NOT NULL DEFAULT now()

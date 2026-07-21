@@ -1324,19 +1324,20 @@ body {
      shared out proportionally; below it, .pay-scroll scrolls horizontally. */
   table-layout: fixed;
   width: 100%;
-  min-width: 890px;
+  min-width: 948px;
   font-size: 0.86rem;
 }
 
 /* Column widths (box-sizing: border-box, so these include cell padding). */
-.pc-date { width: 134px; }
-.pc-div { width: 118px; }
-.pc-team { width: 118px; }
-.pc-player { width: 108px; }
-.pc-type { width: 100px; }
-.pc-amount { width: 92px; }
-.pc-total { width: 94px; }
-.pc-actions { width: 126px; }
+.pc-date { width: 128px; }
+.pc-div { width: 112px; }
+.pc-team { width: 112px; }
+.pc-player { width: 104px; }
+.pc-type { width: 96px; }
+.pc-check { width: 90px; }
+.pc-amount { width: 90px; }
+.pc-total { width: 92px; }
+.pc-actions { width: 124px; }
 
 /* Truncate long text (division/team/player) with an ellipsis; the full value
    stays available via a title tooltip and in the dropdown when editing. */
@@ -1384,6 +1385,16 @@ body {
 .pay-running {
   font-weight: 600;
   color: var(--accent);
+}
+
+.pay-check {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pay-dash {
+  color: var(--text-muted);
+  opacity: 0.55;
 }
 
 .pay-empty {
