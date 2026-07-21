@@ -745,3 +745,86 @@ body {
   background: var(--danger-bg);
   border-color: rgba(220, 38, 38, 0.5);
 }
+
+/* Collapsible team groups */
+.team-groups {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.team-group {
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--field-bg);
+  overflow: hidden;
+}
+
+.team-group-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+/* Hide the native disclosure triangle (we draw our own caret). */
+.team-group-summary::-webkit-details-marker {
+  display: none;
+}
+.team-group-summary::marker {
+  content: "";
+}
+
+.team-group-summary:hover {
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.team-group[open] > .team-group-summary {
+  border-bottom: 1px solid var(--card-border);
+}
+
+.tg-caret {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.team-group[open] > .team-group-summary .tg-caret {
+  transform: rotate(45deg);
+}
+
+.tg-name {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.tg-count {
+  margin-left: auto;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.tg-empty {
+  margin: 0;
+  padding: 16px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* The roster table sits flush inside an expanded team group. */
+.team-group .roster-scroll {
+  margin-top: 0;
+  border: 0;
+  border-radius: 0;
+}

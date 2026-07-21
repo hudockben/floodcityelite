@@ -10,7 +10,6 @@ import CreateTeamForm from "./create-team-form";
 import {
   DIVISIONS,
   PLAYER_FIELDS,
-  ROSTER_HEADERS,
   resolveDivision,
   sportLabel,
   type PlayerRow,
@@ -93,6 +92,14 @@ export default async function TeamsPage({
     name: t.name,
     sport: t.sport,
   }));
+
+  // Group the roster by team so each team can be shown as a collapsible row.
+  const playersByTeam = new Map<number, PlayerRow[]>();
+  for (const p of players) {
+    const list = playersByTeam.get(p.team_id);
+    if (list) list.push(p);
+    else playersByTeam.set(p.team_id, [p]);
+  }
 
   return (
     <div className="teams">
@@ -204,63 +211,96 @@ export default async function TeamsPage({
           </p>
         </div>
 
-        {players.length === 0 ? (
+        {teams.length === 0 ? (
           <div className="empty">
             <div className="empty-icon" aria-hidden="true">
               ⚾
             </div>
-            <p className="empty-title">No players yet</p>
+            <p className="empty-title">No teams yet</p>
             <p className="empty-sub">
               Create a team and add players to build out this roster.
             </p>
           </div>
         ) : (
-          <div className="roster-scroll">
-            <table className="roster">
-              <thead>
-                <tr>
-                  {ROSTER_HEADERS.map((h) => (
-                    <th key={h}>{h}</th>
-                  ))}
-                  <th className="col-actions">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {players.map((row) => (
-                  <tr key={row.id}>
-                    <td className="col-team">{row.team_name}</td>
-                    {PLAYER_FIELDS.map((f) => {
-                      const value = row[f.key as keyof PlayerRow];
-                      const empty = value == null || value === "";
-                      return (
-                        <td
-                          key={f.key}
-                          className={f.key === "player_name" ? "col-name" : undefined}
-                        >
-                          {empty ? (
-                            <span className="cell-empty">—</span>
-                          ) : (
-                            String(value)
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className="col-actions">
-                      <ConfirmButton
-                        action={deletePlayerAction}
-                        hidden={{ playerId: row.id, division: division.slug }}
-                        confirmText={`Remove ${row.player_name} from the roster?`}
-                        className="row-delete"
-                      >
-                        Remove
-                      </ConfirmButton>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="team-groups">
+            {teams.map((t) => {
+              const teamPlayers = playersByTeam.get(t.id) ?? [];
+              return (
+                <details key={t.id} className="team-group">
+                  <summary className="team-group-summary">
+                    <span className="tg-caret" aria-hidden="true" />
+                    <span className="tg-name">{t.name}</span>
+                    <span className={`sport-badge sport-${t.sport}`}>
+                      {sportLabel(t.sport)}
+                    </span>
+                    <span className="tg-count">
+                      {teamPlayers.length}{" "}
+                      {teamPlayers.length === 1 ? "player" : "players"}
+                    </span>
+                  </summary>
+
+                  {teamPlayers.length === 0 ? (
+                    <p className="tg-empty">
+                      No players on this team yet — add one in step 2.
+                    </p>
+                  ) : (
+                    <div className="roster-scroll">
+                      <table className="roster">
+                        <thead>
+                          <tr>
+                            {PLAYER_FIELDS.map((f) => (
+                              <th key={f.key}>{f.label}</th>
+                            ))}
+                            <th className="col-actions">
+                              <span className="sr-only">Actions</span>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {teamPlayers.map((row) => (
+                            <tr key={row.id}>
+                              {PLAYER_FIELDS.map((f) => {
+                                const value = row[f.key as keyof PlayerRow];
+                                const empty = value == null || value === "";
+                                return (
+                                  <td
+                                    key={f.key}
+                                    className={
+                                      f.key === "player_name"
+                                        ? "col-name"
+                                        : undefined
+                                    }
+                                  >
+                                    {empty ? (
+                                      <span className="cell-empty">—</span>
+                                    ) : (
+                                      String(value)
+                                    )}
+                                  </td>
+                                );
+                              })}
+                              <td className="col-actions">
+                                <ConfirmButton
+                                  action={deletePlayerAction}
+                                  hidden={{
+                                    playerId: row.id,
+                                    division: division.slug,
+                                  }}
+                                  confirmText={`Remove ${row.player_name} from the roster?`}
+                                  className="row-delete"
+                                >
+                                  Remove
+                                </ConfirmButton>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </details>
+              );
+            })}
           </div>
         )}
       </section>
