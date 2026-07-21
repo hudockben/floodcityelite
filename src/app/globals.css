@@ -923,3 +923,202 @@ body {
 .player-edit-head strong {
   color: var(--text);
 }
+
+/* ---- Budgets ---- */
+/* Each team is a collapsible card (reusing .team-group) that expands into a
+   spreadsheet-style budget sheet. */
+.budget-group .division-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  background: rgba(148, 187, 233, 0.1);
+  border: 1px solid var(--card-border);
+  white-space: nowrap;
+}
+
+/* Right-aligned figure in the collapsed summary. */
+.budget-summary {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.budget-summary-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.budget-summary-value {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.budget-summary-empty {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.budget-body {
+  padding: 6px 16px 18px;
+}
+
+.budget-sheet-scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.budget-sheet {
+  width: 100%;
+  max-width: 560px;
+  border-collapse: collapse;
+  margin-top: 6px;
+  font-size: 0.9rem;
+}
+
+.budget-sheet th[scope="row"] {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text);
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  vertical-align: middle;
+}
+
+.budget-sheet td {
+  text-align: right;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Section header rows ("Team Budget", "Player Expense"). */
+.budget-sheet .bs-head th {
+  padding: 16px 14px 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--card-border);
+}
+
+/* The very first section header sits flush with the top of the sheet. */
+.budget-sheet .bs-head:first-child th {
+  padding-top: 4px;
+}
+
+/* Small "from roster (N)" / "manual override" note under a row label. */
+.bs-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* Computed subtotal rows. */
+.budget-sheet .bs-total th[scope="row"],
+.budget-sheet .bs-total .bs-value {
+  font-weight: 700;
+}
+
+.bs-value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Highlighted result rows — echo the source sheet's yellow current balance
+   and green fundraising cells, tuned for the dark theme. */
+.budget-sheet .bs-current .bs-value {
+  background: rgba(250, 204, 21, 0.16);
+  color: #ffe9a8;
+  font-weight: 700;
+}
+
+.budget-sheet .bs-fundraise .bs-value {
+  background: rgba(52, 211, 153, 0.16);
+  color: #b7f5d8;
+  font-weight: 700;
+}
+
+/* Rows awaiting the Schedules tab render their value as muted "Pending" text. */
+.bs-pending {
+  font-weight: 500;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+/* Inputs inside the sheet. */
+.budget-input {
+  width: 128px;
+  max-width: 100%;
+  padding: 8px 10px;
+  text-align: right;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  outline: none;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.budget-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.budget-money {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.budget-money-sign {
+  position: absolute;
+  left: 10px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+.budget-input-money {
+  padding-left: 22px;
+}
+
+.budget-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.budget-save-btn {
+  width: auto;
+  margin-top: 0;
+  padding: 10px 22px;
+}
+
+.budget-msg {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.budget-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
