@@ -2,6 +2,13 @@ import bcrypt from "bcryptjs";
 import { sql } from "@/lib/db";
 import type { SessionUser } from "@/lib/session";
 
+// A bcrypt hash of a random value that no real password will match. It is
+// used to run a comparison even on the failure paths, so that "no such user"
+// / "inactive account" cost the same wall-clock time as "wrong password" and
+// cannot be told apart by measuring response latency (login enumeration).
+const DUMMY_PASSWORD_HASH =
+  "$2b$10$2WN6VZW8p.kDVeCJ59QgweIZeRgN/hW463.kSxcnhnbEu8oh6aF02";
+
 /**
  * Verify a login. Returns the session user on success, or null when the
  * company code / username / password combination is invalid or the account
@@ -33,13 +40,17 @@ export async function authenticate(
     LIMIT 1
   `;
 
-  if (rows.length === 0) return null;
-  const row = rows[0] as Record<string, unknown>;
+  const row =
+    rows.length > 0 ? (rows[0] as Record<string, unknown>) : null;
+  const active = row ? Boolean(row.is_active) : false;
 
-  if (!row.is_active) return null;
+  // Always run exactly one bcrypt comparison so every failure mode takes the
+  // same amount of time. Use the real hash for an active user, otherwise a
+  // fixed dummy hash that never matches.
+  const hash = row && active ? String(row.password_hash) : DUMMY_PASSWORD_HASH;
+  const passwordMatches = await bcrypt.compare(password, hash);
 
-  const ok = await bcrypt.compare(password, String(row.password_hash));
-  if (!ok) return null;
+  if (!row || !active || !passwordMatches) return null;
 
   await db`UPDATE users SET last_login_at = now() WHERE id = ${row.user_id as number}`;
 
