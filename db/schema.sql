@@ -144,6 +144,44 @@ CREATE TABLE IF NOT EXISTS schedule_events (
 
 CREATE INDEX IF NOT EXISTS idx_schedule_events_team_id ON schedule_events (team_id);
 
+-- ---------------------------------------------------------------------------
+-- Fundraisers
+--
+-- A fundraiser is a campaign/event owned by a company (e.g. "Spring Car
+-- Wash"), optionally with a goal and a date. Each fundraiser_entry ties an
+-- amount raised to a fundraiser and a team; player-based fundraisers also name
+-- a specific player, while team-based fundraisers leave player_id NULL. The
+-- Fundraiser Tracker tab shows per-fundraiser and grand totals from these
+-- rows. Only the fundraiser name and an entry's amount are required.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS fundraisers (
+    id          SERIAL        PRIMARY KEY,
+    company_id  INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name        VARCHAR(160)  NOT NULL,
+    goal        NUMERIC(10,2),
+    event_date  DATE,
+    created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_fundraisers_company_id ON fundraisers (company_id);
+
+CREATE TABLE IF NOT EXISTS fundraiser_entries (
+    id             SERIAL        PRIMARY KEY,
+    fundraiser_id  INTEGER       NOT NULL REFERENCES fundraisers(id) ON DELETE CASCADE,
+    team_id        INTEGER       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    player_id      INTEGER       REFERENCES players(id) ON DELETE CASCADE,
+    raised_on      DATE          NOT NULL DEFAULT CURRENT_DATE,
+    amount         NUMERIC(10,2) NOT NULL DEFAULT 0,
+    created_at     TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_fundraiser_entries_fundraiser_id ON fundraiser_entries (fundraiser_id);
+CREATE INDEX IF NOT EXISTS idx_fundraiser_entries_team_id ON fundraiser_entries (team_id);
+CREATE INDEX IF NOT EXISTS idx_fundraiser_entries_player_id ON fundraiser_entries (player_id);
+
 -- Seed the Flood City Elite company (code: fce). Idempotent.
 INSERT INTO companies (code, name)
 VALUES ('fce', 'Flood City Elite')

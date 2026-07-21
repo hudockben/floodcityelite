@@ -1710,3 +1710,123 @@ body {
   color: var(--accent);
   text-decoration: underline;
 }
+
+/* ---- Fundraiser Tracker ---- */
+
+/* The entries grid reuses the Payment Tracker's .pay-* table styles; only the
+   column widths differ (a Fundraiser column replaces Type + Check #). The
+   min-width equals the sum of the .fc-* column widths below, so at the
+   breakpoint each draft-row input fills its column exactly (like .pay-table). */
+.fund-table {
+  min-width: 1004px;
+}
+
+.fc-date { width: 132px; }
+.fc-div { width: 120px; }
+.fc-team { width: 128px; }
+.fc-player { width: 128px; }
+.fc-fund { width: 168px; }
+.fc-amount { width: 100px; }
+.fc-total { width: 104px; }
+.fc-actions { width: 124px; }
+
+/* Fundraiser name shown as a badge on saved entry rows. */
+.fund-badge {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fde68a;
+  background: rgba(234, 179, 8, 0.14);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+}
+
+/* Marks a whole-team (team-based) entry in the Player column, distinguishing
+   it from a missing value. */
+.fund-team-level {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  background: rgba(148, 187, 233, 0.1);
+  border: 1px solid var(--card-border);
+}
+
+/* Cards for the fundraisers the user has created, each with a running raised
+   total and (when a goal is set) a progress bar. */
+.fund-list {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.fund-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+}
+
+.fund-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.fund-item-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.fund-item-date {
+  margin-top: -4px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.fund-item-raised {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.fund-raised-amt {
+  font-weight: 800;
+  color: #7ee2a8;
+  font-variant-numeric: tabular-nums;
+}
+
+.fund-raised-goal {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.fund-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 187, 233, 0.14);
+  overflow: hidden;
+}
+
+.fund-progress-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4ade80, #22c55e);
+}

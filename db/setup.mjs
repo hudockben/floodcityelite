@@ -170,6 +170,54 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_schedule_events_team_id ON schedule_events (team_id)`;
 
+  // A fundraiser is a campaign/event owned by a company. Only the name is
+  // required; goal and event_date are optional.
+  await sql`
+    CREATE TABLE IF NOT EXISTS fundraisers (
+      id          SERIAL        PRIMARY KEY,
+      company_id  INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      name        VARCHAR(160)  NOT NULL,
+      goal        NUMERIC(10,2),
+      event_date  DATE,
+      created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_fundraisers_company_id ON fundraisers (company_id)`;
+
+  // A fundraiser entry ties an amount raised to a fundraiser and a team;
+  // player-based fundraisers also name a player, while team-based fundraisers
+  // leave player_id NULL. Powers the Fundraiser Tracker tab's totals.
+  await sql`
+    CREATE TABLE IF NOT EXISTS fundraiser_entries (
+      id             SERIAL        PRIMARY KEY,
+      fundraiser_id  INTEGER       NOT NULL REFERENCES fundraisers(id) ON DELETE CASCADE,
+      team_id        INTEGER       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      player_id      INTEGER       REFERENCES players(id) ON DELETE CASCADE,
+      raised_on      DATE          NOT NULL DEFAULT CURRENT_DATE,
+      amount         NUMERIC(10,2) NOT NULL DEFAULT 0,
+      created_at     TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at     TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  // Migrate fundraiser_entries created before team-level entries existed: add
+  // team_id, backfill it from each entry's player, and relax player_id so
+  // whole-team entries are allowed.
+  await sql`ALTER TABLE fundraiser_entries ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE`;
+  await sql`
+    UPDATE fundraiser_entries fe
+    SET team_id = pl.team_id
+    FROM players pl
+    WHERE fe.player_id = pl.id AND fe.team_id IS NULL
+  `;
+  await sql`ALTER TABLE fundraiser_entries ALTER COLUMN player_id DROP NOT NULL`;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_fundraiser_entries_fundraiser_id ON fundraiser_entries (fundraiser_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_fundraiser_entries_team_id ON fundraiser_entries (team_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_fundraiser_entries_player_id ON fundraiser_entries (player_id)`;
+
   console.log(`→ Ensuring company "${COMPANY_NAME}" (code: ${COMPANY_CODE})…`);
   const companyRows = await sql`
     INSERT INTO companies (code, name)
