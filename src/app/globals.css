@@ -471,42 +471,249 @@ body {
   gap: 22px;
 }
 
-.home-grid {
+/* Slim welcome banner (no meta grid). */
+.hp-welcome .panel-head p {
+  margin-top: 4px;
+}
+
+/* Two-up row for Recent payments + Budgets to watch; stacks on narrow screens. */
+.hp-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 22px;
 }
 
-.home-card {
-  display: block;
-  padding: 20px;
-  border-radius: 14px;
-  background: rgba(15, 30, 52, 0.72);
-  border: 1px solid var(--card-border);
-  text-decoration: none;
-  color: var(--text);
-  transition: border-color 0.15s ease, transform 0.05s ease;
+/* Section header with a title block on the left and a "view all" link right. */
+.hp-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 6px;
 }
 
-.home-card:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
-}
-
-.home-card-icon {
-  font-size: 1.7rem;
-  line-height: 1;
-  margin-bottom: 12px;
-}
-
-.home-card-label {
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.home-card-desc {
-  font-size: 0.83rem;
+.hp-sub {
+  margin: 0;
   color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.hp-viewall {
+  flex-shrink: 0;
+  white-space: nowrap;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding-top: 4px;
+}
+
+.hp-viewall:hover {
+  text-decoration: underline;
+}
+
+/* A section's rows. */
+.hp-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hp-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 2px;
+  border-top: 1px solid var(--card-border);
+}
+
+.hp-row:first-child {
+  border-top: none;
+}
+
+.hp-row-budget {
+  align-items: flex-start;
+}
+
+/* Budget rows are top-aligned with a meter below, so let the context line wrap
+   instead of truncating "…% of $X used". */
+.hp-row-budget .hp-row-sub {
+  white-space: normal;
+}
+
+/* Calendar date chip on tournament rows. */
+.hp-datechip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+}
+
+.hp-datechip .m {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.hp-datechip .d {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.hp-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.hp-row-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hp-row-sub {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hp-team {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.hp-dot {
+  margin: 0 6px;
+  opacity: 0.5;
+}
+
+.hp-row-side {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  text-align: right;
+}
+
+.hp-amount {
+  font-weight: 700;
+  font-size: 0.98rem;
+}
+
+.hp-amount-pos {
+  color: #bbf7d0;
+}
+
+.hp-amount-neg {
+  color: var(--danger);
+}
+
+/* Status / label pills (reuse the schedule status palette). */
+.hp-pill {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.hp-pill-registered {
+  color: #bfe6ff;
+  background-color: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.hp-pill-paid {
+  color: #bbf7d0;
+  background-color: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.hp-pill-waitlisted,
+.hp-pill-warn {
+  color: #ffe3a8;
+  background-color: rgba(250, 204, 21, 0.14);
+  border-color: rgba(250, 204, 21, 0.4);
+}
+
+.hp-pill-over {
+  color: var(--danger);
+  background-color: var(--danger-bg);
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+/* Budget usage meter. */
+.hp-meter {
+  margin-top: 8px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--field-bg);
+  overflow: hidden;
+}
+
+.hp-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.hp-meter.warn > span {
+  background: linear-gradient(90deg, #facc15, #f59e0b);
+}
+
+.hp-meter.over > span {
+  background: linear-gradient(90deg, #f87171, #dc2626);
+}
+
+/* Compact in-panel empty state and footer link. */
+.hp-empty {
+  margin-top: 16px;
+  padding: 22px;
+  border: 1px dashed var(--card-border);
+  border-radius: 12px;
+  background: rgba(8, 20, 36, 0.4);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.hp-empty a,
+.hp-more a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.hp-empty a:hover,
+.hp-more a:hover {
+  text-decoration: underline;
+}
+
+.hp-more {
+  margin: 14px 0 0;
+  font-size: 0.88rem;
 }
 
 /* ---- Teams ---- */
