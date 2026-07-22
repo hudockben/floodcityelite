@@ -70,12 +70,13 @@ body {
   text-align: center;
 }
 
+/* Landscape wordmark: fix the width and let height follow the aspect ratio so
+   the full "Flood City Elite · Baseball + Softball" mark shows uncropped. */
 .brand .logo {
-  width: 96px;
-  height: 96px;
-  border-radius: 18px;
+  width: min(300px, 100%);
+  height: auto;
+  border-radius: 14px;
   border: 1px solid var(--card-border);
-  object-fit: cover;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
 }
 
@@ -343,11 +344,12 @@ body {
   font-size: 1.05rem;
 }
 
+/* Compact landscape wordmark in the header: fix the height, width follows. */
 .appbar-logo {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  object-fit: cover;
+  height: 36px;
+  width: auto;
+  max-width: 200px;
+  border-radius: 7px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
 }
 

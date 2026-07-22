@@ -13,9 +13,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <header className="appbar">
-        <Link href="/homeplate" className="appbar-brand">
+        {/* The wordmark logo carries the name, so no separate text label is
+            needed; the img alt gives the link its accessible name. */}
+        <Link href="/homeplate" className="appbar-brand" aria-label="Flood City Elite — Homeplate">
           <FloodCityLogo className="appbar-logo" />
-          <span>FLOOD CITY ELITE</span>
         </Link>
 
         <div className="appbar-user">
