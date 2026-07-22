@@ -71,9 +71,12 @@ body {
 }
 
 .brand .logo {
-  width: 60px;
-  height: 60px;
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45));
+  width: 96px;
+  height: 96px;
+  border-radius: 18px;
+  border: 1px solid var(--card-border);
+  object-fit: cover;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
 }
 
 .brand h1 {
@@ -311,9 +314,11 @@ body {
 }
 
 .appbar-logo {
-  width: 30px;
-  height: 30px;
-  filter: drop-shadow(0 4px 9px rgba(0, 0, 0, 0.4));
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
 }
 
 .appbar-user {

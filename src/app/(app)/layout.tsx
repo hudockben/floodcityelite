@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { logoutAction } from "../actions";
-import BallBatLogo from "../logo";
+import FloodCityLogo from "../logo";
 import AppTabs from "./app-tabs";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
@@ -14,7 +14,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     <div className="shell">
       <header className="appbar">
         <Link href="/homeplate" className="appbar-brand">
-          <BallBatLogo className="appbar-logo" />
+          <FloodCityLogo className="appbar-logo" />
           <span>FLOOD CITY ELITE</span>
         </Link>
 
