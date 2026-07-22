@@ -43,7 +43,8 @@ export type EventField = {
 
 export const EVENT_FIELDS: EventField[] = [
   { key: "event_host", label: "Event Host", type: "text", placeholder: "e.g. USSSA" },
-  { key: "event_date", label: "Date", type: "date" },
+  { key: "event_date", label: "Start Date", type: "date" },
+  { key: "event_end_date", label: "End Date", type: "date" },
   {
     key: "event_name",
     label: "Event Name",
@@ -54,6 +55,11 @@ export const EVENT_FIELDS: EventField[] = [
   { key: "location", label: "Location", type: "text", placeholder: "City, ST" },
   { key: "cost", label: "Cost", type: "money", placeholder: "500.00" },
 ];
+
+// Column index of the money "cost" field within EVENT_FIELDS. The Schedules
+// table's "Total Cost" footer row uses it to place the total under the Cost
+// column no matter how many fields precede it.
+export const COST_FIELD_INDEX = EVENT_FIELDS.findIndex((f) => f.type === "money");
 
 // Schedule table headers, in order: every event field, then the status
 // dropdown, then a per-team total. The Actions column has no visible label.
@@ -70,6 +76,7 @@ export type ScheduleEventRow = {
   team_id: number;
   event_host: string | null;
   event_date: string | null;
+  event_end_date: string | null;
   event_name: string;
   location: string | null;
   cost: string | null;

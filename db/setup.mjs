@@ -174,21 +174,27 @@ async function main() {
   // required; cost is optional and summed per team on the Schedules tab.
   await sql`
     CREATE TABLE IF NOT EXISTS schedule_events (
-      id          SERIAL PRIMARY KEY,
-      team_id     INTEGER       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-      event_host  VARCHAR(160),
-      event_date  DATE,
-      event_name  VARCHAR(200)  NOT NULL,
-      location    VARCHAR(200),
-      cost        NUMERIC(10, 2),
-      status      VARCHAR(16)   NOT NULL DEFAULT 'registered'
-                    CHECK (status IN ('registered', 'paid', 'waitlisted')),
-      created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
-      updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
+      id              SERIAL PRIMARY KEY,
+      team_id         INTEGER       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      event_host      VARCHAR(160),
+      event_date      DATE,
+      event_end_date  DATE,
+      event_name      VARCHAR(200)  NOT NULL,
+      location        VARCHAR(200),
+      cost            NUMERIC(10, 2),
+      status          VARCHAR(16)   NOT NULL DEFAULT 'registered'
+                        CHECK (status IN ('registered', 'paid', 'waitlisted')),
+      created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
   `;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_schedule_events_team_id ON schedule_events (team_id)`;
+
+  // Backfill event_end_date on databases that created `schedule_events` before
+  // the tournament end date existed. The column is nullable, so single-day
+  // events simply leave it empty.
+  await sql`ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS event_end_date DATE`;
 
   // A fundraiser is a campaign/event owned by a company. Only the name is
   // required; goal and event_date are optional.

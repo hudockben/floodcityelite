@@ -62,11 +62,12 @@ export async function addEventAction(
 
     await sql()`
       INSERT INTO schedule_events (
-        team_id, event_host, event_date, event_name, location, cost, status
+        team_id, event_host, event_date, event_end_date, event_name, location, cost, status
       ) VALUES (
         ${teamId},
         ${text(formData, "event_host")},
         ${isoDate(formData, "event_date")},
+        ${isoDate(formData, "event_end_date")},
         ${eventName},
         ${text(formData, "location")},
         ${money(formData, "cost")},
@@ -105,13 +106,14 @@ export async function updateEventAction(
     // Scope the update to an event whose team belongs to this company.
     const updated = await sql()`
       UPDATE schedule_events SET
-        event_host = ${text(formData, "event_host")},
-        event_date = ${isoDate(formData, "event_date")},
-        event_name = ${eventName},
-        location   = ${text(formData, "location")},
-        cost       = ${money(formData, "cost")},
-        status     = ${status},
-        updated_at = now()
+        event_host     = ${text(formData, "event_host")},
+        event_date     = ${isoDate(formData, "event_date")},
+        event_end_date = ${isoDate(formData, "event_end_date")},
+        event_name     = ${eventName},
+        location       = ${text(formData, "location")},
+        cost           = ${money(formData, "cost")},
+        status         = ${status},
+        updated_at     = now()
       WHERE id = ${eventId}
         AND team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})
       RETURNING id

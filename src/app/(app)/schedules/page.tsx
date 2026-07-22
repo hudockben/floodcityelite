@@ -11,6 +11,7 @@ import { ensureSchedulesSchema } from "./schema";
 import AddEventForm from "./add-event-form";
 import EventRow from "./event-row";
 import {
+  COST_FIELD_INDEX,
   SCHEDULE_HEADERS,
   costToCents,
   formatCents,
@@ -63,6 +64,7 @@ export default async function SchedulesPage({
           e.team_id,
           e.event_host,
           e.event_date::text AS event_date,
+          e.event_end_date::text AS event_end_date,
           e.event_name,
           e.location,
           e.cost::text AS cost,
@@ -232,13 +234,18 @@ export default async function SchedulesPage({
                             </tbody>
                             <tfoot>
                               <tr className="sched-total-row">
-                                <td colSpan={4} className="sched-total-label">
+                                <td
+                                  colSpan={COST_FIELD_INDEX}
+                                  className="sched-total-label"
+                                >
                                   Total Cost
                                 </td>
                                 <td className="col-cost sched-total-value">
                                   {total}
                                 </td>
-                                <td colSpan={2} />
+                                <td
+                                  colSpan={SCHEDULE_HEADERS.length - COST_FIELD_INDEX}
+                                />
                               </tr>
                             </tfoot>
                           </table>

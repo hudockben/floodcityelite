@@ -152,17 +152,18 @@ CREATE INDEX IF NOT EXISTS idx_team_expenses_team_id ON team_expenses (team_id);
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS schedule_events (
-    id          SERIAL PRIMARY KEY,
-    team_id     INTEGER       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    event_host  VARCHAR(160),
-    event_date  DATE,
-    event_name  VARCHAR(200)  NOT NULL,
-    location    VARCHAR(200),
-    cost        NUMERIC(10, 2),
-    status      VARCHAR(16)   NOT NULL DEFAULT 'registered'
-                  CHECK (status IN ('registered', 'paid', 'waitlisted')),
-    created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
+    id              SERIAL PRIMARY KEY,
+    team_id         INTEGER       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    event_host      VARCHAR(160),
+    event_date      DATE,
+    event_end_date  DATE,
+    event_name      VARCHAR(200)  NOT NULL,
+    location        VARCHAR(200),
+    cost            NUMERIC(10, 2),
+    status          VARCHAR(16)   NOT NULL DEFAULT 'registered'
+                      CHECK (status IN ('registered', 'paid', 'waitlisted')),
+    created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_schedule_events_team_id ON schedule_events (team_id);
