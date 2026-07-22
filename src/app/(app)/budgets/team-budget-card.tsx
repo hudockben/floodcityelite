@@ -13,8 +13,10 @@ import {
   totalTuition,
   type ExpenseRow,
   type SavedBudget,
+  type TournamentRow,
 } from "./budget";
 import TeamExpenses from "./team-expenses";
+import TeamTournaments from "./team-tournaments";
 import { sportLabel, type Sport } from "../teams/divisions";
 
 const initialState: FormState = {};
@@ -29,6 +31,8 @@ export type BudgetTeam = {
   saved: SavedBudget;
   /** Expenses logged against this team (newest first). */
   expenses: ExpenseRow[];
+  /** This team's Schedules-tab tournaments (by date); read-only here. */
+  tournaments: TournamentRow[];
 };
 
 /** Blank string ↔ null; otherwise a non-negative integer. */
@@ -314,6 +318,10 @@ export default function TeamBudgetCard({
           </form>
 
           <div className="budget-col-expenses">
+            <TeamTournaments
+              tournaments={team.tournaments}
+              division={division}
+            />
             <TeamExpenses
               teamId={team.id}
               division={division}

@@ -1594,6 +1594,77 @@ body {
   color: var(--text-muted);
 }
 
+/* ---- Scheduled tournaments (Budgets tab, above Team Expenses) ---- */
+/* A read-only mirror of the team's Schedules-tab tournaments so the scheduled
+   cost the sheet subtracts is itemized in the same column. Reuses the
+   .expenses-table look; a divider separates it from the Team Expenses block
+   below so the two read as distinct sub-sections whether the columns sit side
+   by side or wrap and stack. */
+.team-tournaments {
+  min-width: 0;
+  margin-bottom: 22px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.tournaments-table .tour-name {
+  min-width: 0;
+}
+
+.tour-name-main {
+  display: block;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tour-name-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.tournaments-table .tour-status-cell {
+  white-space: nowrap;
+}
+
+/* Read-only status pill (no dropdown affordance). Colors come from the shared
+   .status-<value> classes the Schedules tab uses, so a tournament's status
+   reads identically in both places. */
+.tour-status {
+  display: inline-block;
+  padding: 3px 11px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+/* Footer total — the scheduled cost the sheet subtracts from the balance,
+   shown as a deduction to echo the "less $X scheduled" line on the left. */
+.tour-total-row td {
+  padding: 11px 12px;
+  border-top: 1px solid var(--card-border);
+  background: var(--roster-head-bg);
+}
+
+.tour-total-label {
+  text-align: right;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.tour-total-value {
+  color: #fca5a5;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Inline expense editor (expands within an expenses-table row). */
 .expense-edit-row > td {
   padding: 0;
@@ -1907,6 +1978,19 @@ body {
   font-weight: 800;
   color: #0f2742;
   border-top: 1.5px solid #cbd5e1;
+}
+
+/* Scheduled-tournaments block sits above the expense log in the print report's
+   right column; give the two a little breathing room when both are present. */
+.print-schedule {
+  margin-bottom: 20px;
+}
+
+.print-tour-meta {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.72rem;
+  color: #64748b;
 }
 
 /* Print rules: drop the app chrome and the toolbar; let the paper fill the
