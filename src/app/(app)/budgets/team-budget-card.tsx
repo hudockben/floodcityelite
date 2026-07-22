@@ -291,6 +291,14 @@ export default function TeamBudgetCard({
               >
                 {pending ? "Saving…" : dirty ? "Save budget" : "Saved"}
               </button>
+              <a
+                className="budget-print-link"
+                href={`/budgets/print?division=${division}&team=${team.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                🖨 Print / Save PDF
+              </a>
               {state?.error ? (
                 <p className="error budget-msg" role="alert">
                   {state.error}

@@ -1400,6 +1400,333 @@ body {
   margin-top: 14px;
 }
 
+/* Division-wide "Print all" button sits opposite the section heading. */
+.budgets-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.budgets-print-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  font-size: 0.85rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* Per-team "Print / Save PDF" link in the budget actions row. */
+.budget-print-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  padding: 8px 4px;
+}
+
+.budget-print-link:hover {
+  text-decoration: underline;
+}
+
+/* ---- Budget print / PDF view ---- */
+/* A light "paper" document that reads well on screen (inside the dark app) and
+   prints/saves to PDF cleanly. @media print (below) strips the app chrome. */
+.print-view {
+  color: #111827;
+}
+
+.print-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 4px 0 16px;
+}
+
+.print-back {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.print-doc {
+  background: #ffffff;
+  color: #111827;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 36px 40px;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.print-doc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #0f2742;
+  margin-bottom: 22px;
+}
+
+.print-brand {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #0ea5e9;
+}
+
+.print-doc-title {
+  margin: 4px 0 2px;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f2742;
+}
+
+.print-doc-scope {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.print-doc-meta {
+  margin: 0;
+  text-align: right;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.print-note {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.print-note.small {
+  font-size: 0.82rem;
+  margin: 4px 0 0;
+}
+
+/* One team block; each starts on a new page when printing multiple teams. */
+.print-team {
+  margin-bottom: 28px;
+  break-inside: avoid;
+}
+
+.print-team-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 14px;
+}
+
+.print-team-name {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f2742;
+}
+
+.print-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #0369a1;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.print-team-balance {
+  margin-left: auto;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #047857;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.print-team-balance small {
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+}
+
+.print-team-balance.neg {
+  color: #b91c1c;
+}
+
+.print-team-balance.idle {
+  color: #6b7280;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.print-cols {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(300px, 1.4fr);
+  gap: 28px;
+  align-items: start;
+}
+
+/* Budget breakdown table */
+.print-budget {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.print-budget th,
+.print-budget td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #eef1f4;
+  text-align: left;
+}
+
+.print-budget td {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.print-budget tr.ph th {
+  padding-top: 12px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #64748b;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.print-budget tr.pt th,
+.print-budget tr.pt td {
+  font-weight: 700;
+}
+
+.print-budget tr.pcur th,
+.print-budget tr.pcur td {
+  font-weight: 800;
+  background: #fef9c3;
+}
+
+.print-budget tr.pcur td.neg {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.print-budget tr.pfund th,
+.print-budget tr.pfund td {
+  font-weight: 700;
+  background: #dcfce7;
+}
+
+/* Expense log table */
+.print-sub {
+  margin: 0 0 8px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #64748b;
+}
+
+.print-exp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.print-exp-table th {
+  text-align: left;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  padding: 6px 8px;
+  border-bottom: 1.5px solid #cbd5e1;
+}
+
+.print-exp-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #eef1f4;
+}
+
+.print-exp-table .amt {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.print-exp-table tfoot td {
+  border-bottom: none;
+  border-top: 1px solid #e5e7eb;
+  color: #4b5563;
+  font-size: 0.8rem;
+}
+
+.print-exp-table tfoot tr.net td {
+  font-weight: 800;
+  color: #0f2742;
+  border-top: 1.5px solid #cbd5e1;
+}
+
+/* Print rules: drop the app chrome and the toolbar; let the paper fill the
+   page and give each team its own sheet. */
+@media print {
+  .appbar,
+  .tabs,
+  .print-toolbar {
+    display: none !important;
+  }
+
+  .shell,
+  .content {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  .print-doc {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .print-team {
+    break-inside: avoid;
+  }
+
+  .print-team + .print-team {
+    break-before: page;
+  }
+}
+
 /* ---- Schedules ---- */
 
 /* Links inside empty-state copy (e.g. "…create one in the Teams tab"). */

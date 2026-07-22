@@ -148,13 +148,25 @@ export default async function BudgetsPage({
         </section>
       ) : (
         <section className="panel">
-          <div className="panel-head">
-            <h2 className="step-title">{division.label} budgets</h2>
-            <p>
-              {teams.length} {teams.length === 1 ? "team" : "teams"}. Current
-              balance is each team&apos;s starting balance minus its total
-              scheduled cost from the Schedules tab.
-            </p>
+          <div className="panel-head budgets-panel-head">
+            <div>
+              <h2 className="step-title">{division.label} budgets</h2>
+              <p>
+                {teams.length} {teams.length === 1 ? "team" : "teams"}. Current
+                balance is each team&apos;s starting balance minus its total
+                scheduled cost from the Schedules tab and its paid expenses.
+              </p>
+            </div>
+            {teams.length > 0 ? (
+              <a
+                className="btn-secondary budgets-print-btn"
+                href={`/budgets/print?division=${division.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                🖨 Print all / Save PDF
+              </a>
+            ) : null}
           </div>
 
           {teams.length === 0 ? (
