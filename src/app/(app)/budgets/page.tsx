@@ -6,7 +6,7 @@ import { DIVISIONS, resolveDivision } from "../teams/divisions";
 import { ensureTeamsSchema } from "../teams/schema";
 import { ensureSchedulesSchema } from "../schedules/schema";
 import { ensureBudgetsSchema } from "./schema";
-import { type ExpenseRow, type TeamBudgetRow } from "./budget";
+import { type ExpenseRow, type TeamBudgetRow, type TournamentRow } from "./budget";
 import TeamBudgetCard, { type BudgetTeam } from "./team-budget-card";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +28,7 @@ export default async function BudgetsPage({
 
   let rows: TeamBudgetRow[] = [];
   let expenses: ExpenseRow[] = [];
+  let tournaments: TournamentRow[] = [];
   let loadError = false;
 
   try {
@@ -37,7 +38,7 @@ export default async function BudgetsPage({
     await ensureBudgetsSchema();
     await ensureSchedulesSchema();
 
-    const [budgetRows, expenseRows] = await Promise.all([
+    const [budgetRows, expenseRows, tournamentRows] = await Promise.all([
       sql()`
         SELECT
           t.id,
@@ -70,10 +71,31 @@ export default async function BudgetsPage({
           AND t.division = ${division.slug}
         ORDER BY x.expense_date DESC NULLS LAST, x.id DESC
       `,
+      // Each team's Schedules-tab tournaments, so the scheduled cost that comes
+      // off the balance is itemized right under the budget. Read-only here —
+      // ordered like the Schedules tab (by date) for a familiar, matching total.
+      sql()`
+        SELECT
+          e.id,
+          e.team_id,
+          e.event_host,
+          e.event_date::text     AS event_date,
+          e.event_end_date::text AS event_end_date,
+          e.event_name,
+          e.location,
+          e.cost::text           AS cost,
+          e.status
+        FROM schedule_events e
+        JOIN teams t ON t.id = e.team_id
+        WHERE t.company_id = ${session.companyId}
+          AND t.division = ${division.slug}
+        ORDER BY e.event_date NULLS LAST, e.id
+      `,
     ]);
 
     rows = budgetRows as TeamBudgetRow[];
     expenses = expenseRows as ExpenseRow[];
+    tournaments = tournamentRows as TournamentRow[];
   } catch (err) {
     console.error("Budgets page load error:", err);
     loadError = true;
@@ -85,6 +107,15 @@ export default async function BudgetsPage({
     const list = expensesByTeam.get(e.team_id);
     if (list) list.push(e);
     else expensesByTeam.set(e.team_id, [e]);
+  }
+
+  // Group the scheduled tournaments the same way so each card lists only its
+  // own team's events under the expense section.
+  const tournamentsByTeam = new Map<number, TournamentRow[]>();
+  for (const t of tournaments) {
+    const list = tournamentsByTeam.get(t.team_id);
+    if (list) list.push(t);
+    else tournamentsByTeam.set(t.team_id, [t]);
   }
 
   const teams: BudgetTeam[] = rows.map((r) => ({
@@ -99,6 +130,7 @@ export default async function BudgetsPage({
       payingPlayersOverride: r.paying_players ?? null,
     },
     expenses: expensesByTeam.get(r.id) ?? [],
+    tournaments: tournamentsByTeam.get(r.id) ?? [],
   }));
 
   return (
