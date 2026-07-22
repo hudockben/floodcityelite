@@ -927,17 +927,6 @@ body {
 /* ---- Budgets ---- */
 /* Each team is a collapsible card (reusing .team-group) that expands into a
    spreadsheet-style budget sheet. */
-.budget-group .division-badge {
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--text-muted);
-  background: rgba(148, 187, 233, 0.1);
-  border: 1px solid var(--card-border);
-  white-space: nowrap;
-}
 
 /* Right-aligned figure in the collapsed summary. */
 .budget-summary {
