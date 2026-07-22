@@ -38,6 +38,7 @@ type UpcomingEventRow = {
   id: number;
   event_host: string | null;
   event_date: string; // YYYY-MM-DD (never null — filtered in the query)
+  event_end_date: string | null; // YYYY-MM-DD, or null for a single-day event
   event_name: string;
   location: string | null;
   cost: string | null;
@@ -98,6 +99,24 @@ function dateParts(iso: string): { month: string; day: string; weekday: string }
   return { month, day, weekday };
 }
 
+// Compact date range for a multi-day tournament, e.g. "Jul 21 – 23" (same
+// month), "Jul 30 – Aug 2" (same year), or "Dec 30, 2026 – Jan 2, 2027"
+// (spanning years). Returns null when there's no later end date, so single-day
+// events fall back to just the weekday.
+function dateRangeText(start: string, end: string | null): string | null {
+  if (!end || end <= start) return null;
+  const s = /^(\d{4})-(\d{2})-(\d{2})/.exec(start);
+  const e = /^(\d{4})-(\d{2})-(\d{2})/.exec(end);
+  if (!s || !e) return null;
+  const sMon = MONTHS[Number(s[2]) - 1] ?? "";
+  const eMon = MONTHS[Number(e[2]) - 1] ?? "";
+  const sDay = String(Number(s[3]));
+  const eDay = String(Number(e[3]));
+  if (s[1] === e[1] && s[2] === e[2]) return `${sMon} ${sDay} – ${eDay}`;
+  if (s[1] === e[1]) return `${sMon} ${sDay} – ${eMon} ${eDay}`;
+  return `${sMon} ${sDay}, ${s[1]} – ${eMon} ${eDay}, ${e[1]}`;
+}
+
 function divisionLabel(slug: DivisionSlug): string {
   return DIVISIONS.find((d) => d.slug === slug)?.label ?? slug;
 }
@@ -128,6 +147,7 @@ export default async function HomeplatePage() {
           e.id,
           e.event_host,
           e.event_date::text AS event_date,
+          e.event_end_date::text AS event_end_date,
           e.event_name,
           e.location,
           e.cost::text AS cost,
@@ -264,7 +284,10 @@ export default async function HomeplatePage() {
               <ul className="hp-list">
                 {upcoming.map((e) => {
                   const { month, day, weekday } = dateParts(e.event_date);
-                  const meta = [weekday, e.event_host, e.location]
+                  // Show the full span for multi-day tournaments; otherwise the
+                  // start weekday, as before.
+                  const range = dateRangeText(e.event_date, e.event_end_date);
+                  const meta = [range ?? weekday, e.event_host, e.location]
                     .filter(Boolean)
                     .join(" · ");
                   return (

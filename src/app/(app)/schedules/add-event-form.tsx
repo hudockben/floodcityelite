@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { addEventAction, type FormState } from "./actions";
-import { EVENT_FIELDS, STATUSES, type EventField } from "./events";
+import { EVENT_FIELDS, STATUSES, STATUS_HEADER, type EventField } from "./events";
 import { sportLabel } from "../teams/divisions";
 
 const initialState: FormState = {};
@@ -77,7 +77,7 @@ export default function AddEventForm({
         ))}
 
         <div className="field">
-          <label htmlFor="event-status">Registered/Paid/Waitlisted</label>
+          <label htmlFor="event-status">{STATUS_HEADER}</label>
           <select id="event-status" name="status" defaultValue="registered">
             {STATUSES.map((s) => (
               <option key={s.value} value={s.value}>

@@ -658,6 +658,18 @@ body {
   border-color: rgba(250, 204, 21, 0.4);
 }
 
+.hp-pill-rainout {
+  color: #cbd5e1;
+  background-color: rgba(148, 163, 184, 0.16);
+  border-color: rgba(148, 163, 184, 0.42);
+}
+
+.hp-pill-refund {
+  color: #e5d4ff;
+  background-color: rgba(168, 85, 247, 0.16);
+  border-color: rgba(168, 85, 247, 0.42);
+}
+
 .hp-pill-over {
   color: var(--danger);
   background-color: var(--danger-bg);
@@ -2024,7 +2036,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Inline Registered/Paid/Waitlisted dropdown */
+/* Inline status dropdown */
 .status-form {
   margin: 0;
 }
@@ -2077,6 +2089,20 @@ body {
   color: #ffe3a8;
   background-color: rgba(250, 204, 21, 0.14);
   border-color: rgba(250, 204, 21, 0.4);
+}
+
+/* Rained out — a washed-out slate. */
+.status-rainout {
+  color: #cbd5e1;
+  background-color: rgba(148, 163, 184, 0.16);
+  border-color: rgba(148, 163, 184, 0.42);
+}
+
+/* Refund — violet, distinct from the green "paid". */
+.status-refund {
+  color: #e5d4ff;
+  background-color: rgba(168, 85, 247, 0.16);
+  border-color: rgba(168, 85, 247, 0.42);
 }
 
 /* Inline edit form (expands within a schedule row) */

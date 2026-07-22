@@ -9,18 +9,26 @@
 // ---------------------------------------------------------------------------
 
 // The registration status of a scheduled event, as offered in the dropdown.
-export type EventStatus = "registered" | "paid" | "waitlisted";
+export type EventStatus =
+  | "registered"
+  | "paid"
+  | "waitlisted"
+  | "rainout"
+  | "refund";
 
 export const STATUSES: { value: EventStatus; label: string }[] = [
   { value: "registered", label: "Registered" },
   { value: "paid", label: "Paid" },
   { value: "waitlisted", label: "Waitlisted" },
+  { value: "rainout", label: "Rain Out" },
+  { value: "refund", label: "Refund" },
 ];
 
 export const DEFAULT_STATUS: EventStatus = "registered";
 
+// Derived from STATUSES so it can never drift from the offered options.
 export function isEventStatus(value: string): value is EventStatus {
-  return value === "registered" || value === "paid" || value === "waitlisted";
+  return STATUSES.some((s) => s.value === value);
 }
 
 export function statusLabel(value: string): string {
@@ -61,11 +69,16 @@ export const EVENT_FIELDS: EventField[] = [
 // column no matter how many fields precede it.
 export const COST_FIELD_INDEX = EVENT_FIELDS.findIndex((f) => f.type === "money");
 
+// Header/label for the status dropdown. Shared by the schedule table header
+// and the add/edit form field labels so they stay in sync; kept short since
+// the dropdown now offers five options.
+export const STATUS_HEADER = "Status";
+
 // Schedule table headers, in order: every event field, then the status
 // dropdown, then a per-team total. The Actions column has no visible label.
 export const SCHEDULE_HEADERS = [
   ...EVENT_FIELDS.map((f) => f.label),
-  "Registered/Paid/Waitlisted",
+  STATUS_HEADER,
 ];
 
 // Shape returned by the schedule query (snake_case columns from Postgres).

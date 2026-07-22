@@ -11,6 +11,7 @@ import StatusSelect from "./status-select";
 import {
   EVENT_FIELDS,
   STATUSES,
+  STATUS_HEADER,
   formatDate,
   formatMoney,
   type EventField,
@@ -101,7 +102,7 @@ export default function EventRow({
 
               <div className="field">
                 <label htmlFor={`edit-${event.id}-status`}>
-                  Registered/Paid/Waitlisted
+                  {STATUS_HEADER}
                 </label>
                 <select
                   id={`edit-${event.id}-status`}

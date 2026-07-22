@@ -4,7 +4,7 @@ import { useState } from "react";
 import { updateStatusAction } from "./actions";
 import { STATUSES, type EventStatus } from "./events";
 
-// The inline Registered/Paid/Waitlisted dropdown shown in each schedule row.
+// The inline status dropdown shown in each schedule row.
 // Changing it submits the (void) server action immediately; local state gives
 // instant colour feedback while the page revalidates in the background.
 export default function StatusSelect({

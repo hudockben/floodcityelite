@@ -40,7 +40,7 @@ async function provision(): Promise<void> {
       location        VARCHAR(200),
       cost            NUMERIC(10, 2),
       status          VARCHAR(16)   NOT NULL DEFAULT 'registered'
-                        CHECK (status IN ('registered', 'paid', 'waitlisted')),
+                        CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund')),
       created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
       updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
@@ -51,4 +51,14 @@ async function provision(): Promise<void> {
   // Add the tournament end date to databases whose schedule_events table
   // predates it. Nullable and idempotent, mirroring db/setup.mjs.
   await db`ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS event_end_date DATE`;
+
+  // Widen the status CHECK to allow the Rain Out / Refund options on databases
+  // created before they existed. Postgres names an unnamed inline column CHECK
+  // <table>_<column>_check, so drop that and re-add the full option list.
+  await db`ALTER TABLE schedule_events DROP CONSTRAINT IF EXISTS schedule_events_status_check`;
+  await db`
+    ALTER TABLE schedule_events
+      ADD CONSTRAINT schedule_events_status_check
+      CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund'))
+  `;
 }

@@ -183,7 +183,7 @@ async function main() {
       location        VARCHAR(200),
       cost            NUMERIC(10, 2),
       status          VARCHAR(16)   NOT NULL DEFAULT 'registered'
-                        CHECK (status IN ('registered', 'paid', 'waitlisted')),
+                        CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund')),
       created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
       updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
@@ -195,6 +195,16 @@ async function main() {
   // the tournament end date existed. The column is nullable, so single-day
   // events simply leave it empty.
   await sql`ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS event_end_date DATE`;
+
+  // Widen the status CHECK on databases created before the Rain Out / Refund
+  // options existed. An unnamed inline column CHECK is named
+  // <table>_<column>_check by Postgres, so drop that and re-add the full list.
+  await sql`ALTER TABLE schedule_events DROP CONSTRAINT IF EXISTS schedule_events_status_check`;
+  await sql`
+    ALTER TABLE schedule_events
+      ADD CONSTRAINT schedule_events_status_check
+      CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund'))
+  `;
 
   // A fundraiser is a campaign/event owned by a company. Only the name is
   // required; goal and event_date are optional.

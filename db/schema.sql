@@ -161,7 +161,7 @@ CREATE TABLE IF NOT EXISTS schedule_events (
     location        VARCHAR(200),
     cost            NUMERIC(10, 2),
     status          VARCHAR(16)   NOT NULL DEFAULT 'registered'
-                      CHECK (status IN ('registered', 'paid', 'waitlisted')),
+                      CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund')),
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
