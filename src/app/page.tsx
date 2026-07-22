@@ -17,11 +17,6 @@ export default async function HomePage() {
         </div>
 
         <LoginForm />
-
-        <p className="hint">
-          Sign in with company code <code>fce</code>, plus your username and
-          password.
-        </p>
       </div>
     </main>
   );
