@@ -9,9 +9,12 @@ import {
   parseMoney,
   resolvePayingCount,
   startingBalance,
+  summarizeExpenses,
   totalTuition,
+  type ExpenseRow,
   type SavedBudget,
 } from "./budget";
+import TeamExpenses from "./team-expenses";
 import { sportLabel, type Sport } from "../teams/divisions";
 
 const initialState: FormState = {};
@@ -24,6 +27,8 @@ export type BudgetTeam = {
   /** Total scheduled cost for this team (Schedules tab total), in dollars. */
   scheduledCost: number;
   saved: SavedBudget;
+  /** Expenses logged against this team (newest first). */
+  expenses: ExpenseRow[];
 };
 
 /** Blank string ↔ null; otherwise a non-negative integer. */
@@ -70,7 +75,13 @@ function MoneyInput({
   );
 }
 
-export default function TeamBudgetCard({ team }: { team: BudgetTeam }) {
+export default function TeamBudgetCard({
+  team,
+  division,
+}: {
+  team: BudgetTeam;
+  division: string;
+}) {
   const [tuition, setTuition] = useState(moneyToInput(team.saved.tuitionPerPlayer));
   const [portion, setPortion] = useState(
     moneyToInput(team.saved.portionToTeamBudget),
@@ -108,9 +119,15 @@ export default function TeamBudgetCard({ team }: { team: BudgetTeam }) {
   const payingCount = resolvePayingCount(override, team.rosterCount);
   const tuitionTotal = totalTuition(payingCount, tuitionNum);
   const starting = startingBalance(payingCount, portionNum);
+  // Net expense impact (paid minus refunds) that comes off the starting balance
+  // alongside scheduled costs. Not-paid expenses are excluded — they're tracked
+  // but don't move the balance until marked paid.
+  const expenseTotals = summarizeExpenses(team.expenses);
+  const expenseNet = expenseTotals.netCents / 100;
   // Current balance nets this team's total scheduled cost (from the Schedules
-  // tab) out of the starting balance; fundraising then covers any shortfall.
-  const current = currentBalance(starting, team.scheduledCost);
+  // tab) and its net expenses out of the starting balance; fundraising then
+  // covers any shortfall.
+  const current = currentBalance(starting, team.scheduledCost, expenseNet);
   const fundraise = fundraisingPerPlayer(current, payingCount);
 
   const dirty =
@@ -148,137 +165,155 @@ export default function TeamBudgetCard({ team }: { team: BudgetTeam }) {
         </span>
       </summary>
 
-      <form action={formAction} className="budget-body">
-        <input type="hidden" name="teamId" value={team.id} />
+      <div className="budget-body">
+        <div className="budget-columns">
+          <form action={formAction} className="budget-col-sheet">
+            <input type="hidden" name="teamId" value={team.id} />
 
-        <div className="budget-sheet-scroll">
-          <table className="budget-sheet">
-            <tbody>
-              <tr className="bs-head">
-                <th colSpan={2} scope="colgroup">
-                  Team Budget
-                </th>
-              </tr>
+            <div className="budget-sheet-scroll">
+              <table className="budget-sheet">
+                <tbody>
+                  <tr className="bs-head">
+                    <th colSpan={2} scope="colgroup">
+                      Team Budget
+                    </th>
+                  </tr>
 
-              <tr>
-                <th scope="row">
-                  # of paying Players
-                  <span className="bs-note">
-                    {override == null
-                      ? `from roster (${team.rosterCount})`
-                      : "manual override"}
-                  </span>
-                </th>
-                <td>
-                  <input
-                    className="budget-input"
-                    name="paying_players"
-                    type="number"
-                    min={0}
-                    step={1}
-                    inputMode="numeric"
-                    aria-label="Number of paying players (leave blank to use the roster count)"
-                    placeholder={String(team.rosterCount)}
-                    value={paying}
-                    onChange={(e) => setPaying(e.target.value)}
-                  />
-                </td>
-              </tr>
+                  <tr>
+                    <th scope="row">
+                      # of paying Players
+                      <span className="bs-note">
+                        {override == null
+                          ? `from roster (${team.rosterCount})`
+                          : "manual override"}
+                      </span>
+                    </th>
+                    <td>
+                      <input
+                        className="budget-input"
+                        name="paying_players"
+                        type="number"
+                        min={0}
+                        step={1}
+                        inputMode="numeric"
+                        aria-label="Number of paying players (leave blank to use the roster count)"
+                        placeholder={String(team.rosterCount)}
+                        value={paying}
+                        onChange={(e) => setPaying(e.target.value)}
+                      />
+                    </td>
+                  </tr>
 
-              <tr>
-                <th scope="row">Tuition Per Player</th>
-                <td>
-                  <MoneyInput
-                    name="tuition_per_player"
-                    value={tuition}
-                    onChange={setTuition}
-                    ariaLabel="Tuition per player"
-                  />
-                </td>
-              </tr>
+                  <tr>
+                    <th scope="row">Tuition Per Player</th>
+                    <td>
+                      <MoneyInput
+                        name="tuition_per_player"
+                        value={tuition}
+                        onChange={setTuition}
+                        ariaLabel="Tuition per player"
+                      />
+                    </td>
+                  </tr>
 
-              <tr className="bs-total">
-                <th scope="row">Total Team Tuition</th>
-                <td className="bs-value">{formatMoney(tuitionTotal)}</td>
-              </tr>
+                  <tr className="bs-total">
+                    <th scope="row">Total Team Tuition</th>
+                    <td className="bs-value">{formatMoney(tuitionTotal)}</td>
+                  </tr>
 
-              <tr className="bs-head">
-                <th colSpan={2} scope="colgroup">
-                  Player Expense
-                </th>
-              </tr>
+                  <tr className="bs-head">
+                    <th colSpan={2} scope="colgroup">
+                      Player Expense
+                    </th>
+                  </tr>
 
-              <tr>
-                <th scope="row">Portion to team budget</th>
-                <td>
-                  <MoneyInput
-                    name="portion_to_team_budget"
-                    value={portion}
-                    onChange={setPortion}
-                    ariaLabel="Portion of tuition that goes to the team budget, per player"
-                  />
-                </td>
-              </tr>
+                  <tr>
+                    <th scope="row">Portion to team budget</th>
+                    <td>
+                      <MoneyInput
+                        name="portion_to_team_budget"
+                        value={portion}
+                        onChange={setPortion}
+                        ariaLabel="Portion of tuition that goes to the team budget, per player"
+                      />
+                    </td>
+                  </tr>
 
-              <tr className="bs-total">
-                <th scope="row">Starting Balance-Team Budget</th>
-                <td className="bs-value">{formatMoney(starting)}</td>
-              </tr>
+                  <tr className="bs-total">
+                    <th scope="row">Starting Balance-Team Budget</th>
+                    <td className="bs-value">{formatMoney(starting)}</td>
+                  </tr>
 
-              <tr className="bs-current">
-                <th scope="row">
-                  Current Balance
-                  {configured ? (
-                    <span className="bs-note">
-                      less {formatMoney(team.scheduledCost)} scheduled
-                    </span>
-                  ) : null}
-                </th>
-                {configured ? (
-                  <td className={`bs-value${current < 0 ? " bs-negative" : ""}`}>
-                    {formatMoney(current)}
-                  </td>
-                ) : (
-                  <td className="bs-value bs-idle">
-                    <span className="bs-muted">Set up the budget above</span>
-                  </td>
-                )}
-              </tr>
+                  <tr className="bs-current">
+                    <th scope="row">
+                      Current Balance
+                      {configured ? (
+                        <span className="bs-note">
+                          less {formatMoney(team.scheduledCost)} scheduled
+                          {expenseNet > 0
+                            ? ` · ${formatMoney(expenseNet)} expenses`
+                            : expenseNet < 0
+                              ? ` · ${formatMoney(-expenseNet)} net refund`
+                              : ""}
+                        </span>
+                      ) : null}
+                    </th>
+                    {configured ? (
+                      <td className={`bs-value${current < 0 ? " bs-negative" : ""}`}>
+                        {formatMoney(current)}
+                      </td>
+                    ) : (
+                      <td className="bs-value bs-idle">
+                        <span className="bs-muted">Set up the budget above</span>
+                      </td>
+                    )}
+                  </tr>
 
-              <tr className="bs-fundraise">
-                <th scope="row">Fundraising amount needed per Player</th>
-                {configured ? (
-                  <td className="bs-value">{formatMoney(fundraise)}</td>
-                ) : (
-                  <td className="bs-value bs-idle">
-                    <span className="bs-muted">—</span>
-                  </td>
-                )}
-              </tr>
-            </tbody>
-          </table>
+                  <tr className="bs-fundraise">
+                    <th scope="row">Fundraising amount needed per Player</th>
+                    {configured ? (
+                      <td className="bs-value">{formatMoney(fundraise)}</td>
+                    ) : (
+                      <td className="bs-value bs-idle">
+                        <span className="bs-muted">—</span>
+                      </td>
+                    )}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="budget-actions">
+              <button
+                type="submit"
+                className="btn budget-save-btn"
+                disabled={pending || !dirty}
+              >
+                {pending ? "Saving…" : dirty ? "Save budget" : "Saved"}
+              </button>
+              {state?.error ? (
+                <p className="error budget-msg" role="alert">
+                  {state.error}
+                </p>
+              ) : null}
+              <p className="budget-hint">
+                Current balance = starting balance minus this team&apos;s total
+                scheduled cost on the Schedules tab and its paid expenses (less
+                refunds). Fundraising covers any shortfall, split across paying
+                players.
+              </p>
+            </div>
+          </form>
+
+          <div className="budget-col-expenses">
+            <TeamExpenses
+              teamId={team.id}
+              division={division}
+              expenses={team.expenses}
+            />
+          </div>
         </div>
-
-        <div className="budget-actions">
-          <button
-            type="submit"
-            className="btn budget-save-btn"
-            disabled={pending || !dirty}
-          >
-            {pending ? "Saving…" : dirty ? "Save budget" : "Saved"}
-          </button>
-          {state?.error ? (
-            <p className="error budget-msg" role="alert">
-              {state.error}
-            </p>
-          ) : null}
-          <p className="budget-hint">
-            Current balance = starting balance minus this team&apos;s total
-            scheduled cost on the Schedules tab. Fundraising covers any
-            shortfall, split across paying players.
-          </p>
-        </div>
-      </form>
+      </div>
     </details>
   );
 }

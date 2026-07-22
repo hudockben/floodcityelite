@@ -35,6 +35,45 @@ export type SavedBudget = {
   payingPlayersOverride: number | null;
 };
 
+// ---- team expenses --------------------------------------------------------
+//
+// Ad-hoc costs logged against a team on the Budgets tab (a coach's hotel, gas,
+// gear, etc.). The status decides how the expense hits the current balance:
+//   • paid     → deducted from the balance (money spent)
+//   • refund   → credited back to the balance (money returned)
+//   • not_paid → tracked only; no effect on the balance until marked paid
+// `key` (the DB `status` value) is also the value submitted by the dropdown.
+
+export type ExpenseStatus = "paid" | "not_paid" | "refund";
+
+export const EXPENSE_STATUSES: { value: ExpenseStatus; label: string }[] = [
+  { value: "paid", label: "Paid" },
+  { value: "not_paid", label: "Not Paid" },
+  { value: "refund", label: "Refund" },
+];
+
+export const DEFAULT_EXPENSE_STATUS: ExpenseStatus = "paid";
+
+export function isExpenseStatus(value: string): value is ExpenseStatus {
+  return value === "paid" || value === "not_paid" || value === "refund";
+}
+
+export function expenseStatusLabel(value: string): string {
+  return EXPENSE_STATUSES.find((s) => s.value === value)?.label ?? value;
+}
+
+// Shape returned by the expenses query (snake_case columns from Postgres).
+// `amount` comes back as text (NUMERIC cast to text) so we format it and sum it
+// in integer cents without floating-point surprises.
+export type ExpenseRow = {
+  id: number;
+  team_id: number;
+  expense_date: string | null;
+  vendor: string | null;
+  amount: string | null;
+  status: ExpenseStatus;
+};
+
 // ---- formatting -----------------------------------------------------------
 
 const USD = new Intl.NumberFormat("en-US", {
@@ -48,6 +87,22 @@ const USD = new Intl.NumberFormat("en-US", {
 export function formatMoney(n: number): string {
   // Guard against NaN/Infinity from bad input so the sheet never shows "$NaN".
   return USD.format(Number.isFinite(n) ? n : 0);
+}
+
+// Deterministic date formatting (no locale/timezone lookups) so server- and
+// client-rendered expense rows always match — the rows hydrate as client
+// components, so a locale-dependent formatter could cause a mismatch.
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+/** "2026-07-21" → "Jul 21, 2026". Empty/invalid → em dash. */
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  return `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}, ${m[1]}`;
 }
 
 /**
@@ -86,13 +141,72 @@ export function startingBalance(
 
 /**
  * Current team-budget balance: the starting balance less every scheduled cost
- * from the Schedules tab (the same per-team total shown there). The subtraction
- * is done in integer cents so it stays exact and never yields a stray negative
- * zero from float drift (e.g. an exactly-funded team showing "-$0.00").
+ * from the Schedules tab (the same per-team total shown there) and less the net
+ * of logged expenses (paid amounts minus refunds). `expenseNet` defaults to 0
+ * so existing callers stay correct, and it may be negative (refunds exceeding
+ * paid expenses), which lifts the balance back up. The arithmetic is done in
+ * integer cents so it stays exact and never yields a stray negative zero from
+ * float drift (e.g. an exactly-funded team showing "-$0.00").
  */
-export function currentBalance(starting: number, scheduledCost: number): number {
-  const cents = Math.round(starting * 100) - Math.round(scheduledCost * 100);
+export function currentBalance(
+  starting: number,
+  scheduledCost: number,
+  expenseNet: number = 0,
+): number {
+  const cents =
+    Math.round(starting * 100) -
+    Math.round(scheduledCost * 100) -
+    Math.round(expenseNet * 100);
   return cents / 100;
+}
+
+// ---- expense math ---------------------------------------------------------
+
+/** Parse a stored amount (string|number|null) into integer cents, or 0. */
+export function amountToCents(value: string | number | null | undefined): number {
+  if (value == null || value === "") return 0;
+  const n =
+    typeof value === "number"
+      ? value
+      : Number.parseFloat(String(value).replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(n) ? Math.round(n * 100) : 0;
+}
+
+/** Format integer cents as USD, e.g. 123450 → "$1,234.50". */
+export function formatCents(cents: number): string {
+  return formatMoney(cents / 100);
+}
+
+// Per-team roll-up of logged expenses, in integer cents. `paid` is deducted
+// from the balance and `refund` is credited back, so `net` (paid − refund) is
+// the amount the expenses actually remove from the team budget; `notPaid` is
+// tracked only and never enters `net`.
+export type ExpenseTotals = {
+  paidCents: number;
+  refundCents: number;
+  notPaidCents: number;
+  /** paid − refund, the net dollars (in cents) removed from the budget. */
+  netCents: number;
+};
+
+export function summarizeExpenses(
+  expenses: { amount: string | number | null; status: ExpenseStatus }[],
+): ExpenseTotals {
+  let paidCents = 0;
+  let refundCents = 0;
+  let notPaidCents = 0;
+  for (const e of expenses) {
+    const cents = amountToCents(e.amount);
+    if (e.status === "paid") paidCents += cents;
+    else if (e.status === "refund") refundCents += cents;
+    else notPaidCents += cents;
+  }
+  return {
+    paidCents,
+    refundCents,
+    notPaidCents,
+    netCents: paidCents - refundCents,
+  };
 }
 
 /**

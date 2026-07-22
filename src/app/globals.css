@@ -1164,6 +1164,242 @@ body {
   color: var(--text-muted);
 }
 
+/* Two-column body: the budget sheet on the left, the expenses log on the
+   right. Flex-wrap (no media query, matching the rest of the app) lets the
+   expenses panel drop below the sheet on narrow screens. */
+.budget-columns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 28px;
+}
+
+.budget-col-sheet {
+  flex: 1 1 340px;
+  min-width: 0;
+  max-width: 560px;
+}
+
+.budget-col-expenses {
+  flex: 2 1 420px;
+  min-width: 0;
+}
+
+/* ---- Team expenses (Budgets tab, right column) ---- */
+/* No divider border: the panel reads as its own column via the 28px gap and
+   its "Team Expenses" header, and that stays clean whether the columns sit
+   side by side or wrap and stack (no media queries, matching the app). */
+.team-expenses {
+  min-width: 0;
+}
+
+.expenses-head {
+  margin-bottom: 14px;
+}
+
+.expenses-title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.expenses-sub {
+  margin: 6px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.expense-add-form {
+  margin-bottom: 18px;
+}
+
+.expense-add-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.expense-add-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.expense-add-btn {
+  width: auto;
+  margin-top: 0;
+  padding: 9px 20px;
+}
+
+.expense-form-msg {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.expenses-scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.expenses-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.expenses-table thead th {
+  text-align: left;
+  white-space: nowrap;
+  padding: 9px 12px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: var(--roster-head-bg);
+  border-bottom: 1px solid var(--card-border);
+}
+
+.expenses-table tbody td {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  vertical-align: middle;
+}
+
+.expenses-table tbody tr:not(.expense-edit-row):hover td {
+  background: var(--roster-hover-bg);
+}
+
+.expenses-table .exp-vendor {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.expenses-table .exp-date {
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.expenses-table th.exp-amount,
+.expenses-table td.exp-amount {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Expense status pill: red = money out (paid), amber = pending (not paid),
+   green = money back (refund). Reuses the .status-select base. */
+.expense-status-paid {
+  color: #fecaca;
+  background-color: rgba(248, 113, 113, 0.14);
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+.expense-status-not_paid {
+  color: #ffe3a8;
+  background-color: rgba(250, 204, 21, 0.14);
+  border-color: rgba(250, 204, 21, 0.4);
+}
+
+.expense-status-refund {
+  color: #bbf7d0;
+  background-color: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.expenses-empty {
+  margin: 4px 0 0;
+  padding: 14px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  border: 1px dashed var(--card-border);
+  border-radius: 10px;
+  text-align: center;
+}
+
+/* Per-team roll-up beneath the table. */
+.expenses-totals {
+  margin: 14px 0 0;
+  display: grid;
+  gap: 6px;
+  max-width: 360px;
+}
+
+.et-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 0.82rem;
+}
+
+.et-row dt {
+  color: var(--text-muted);
+}
+
+.et-row dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.et-net {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--card-border);
+  font-size: 0.9rem;
+}
+
+.et-net dt {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.et-deduct {
+  color: #fca5a5;
+}
+
+.et-deduct-strong {
+  color: #fca5a5;
+  font-weight: 800;
+}
+
+.et-credit {
+  color: #b7f5d8;
+}
+
+.et-muted {
+  color: var(--text-muted);
+}
+
+/* Inline expense editor (expands within an expenses-table row). */
+.expense-edit-row > td {
+  padding: 0;
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.expense-edit-form {
+  padding: 16px 14px;
+  border-left: 3px solid var(--accent);
+}
+
+.expense-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.expense-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
 /* ---- Schedules ---- */
 
 /* Links inside empty-state copy (e.g. "…create one in the Teams tab"). */

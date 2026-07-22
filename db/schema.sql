@@ -119,6 +119,29 @@ CREATE TABLE IF NOT EXISTS team_budgets (
     updated_at              TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
+-- Team expenses
+--
+-- Ad-hoc costs logged against a team on the Budgets tab (a coach's hotel, gas,
+-- gear, etc.). Each row records a date, the vendor, a total cost, and a status.
+-- A 'paid' expense is deducted from the team's current balance; a 'refund' is
+-- credited back to it; a 'not_paid' expense is tracked but leaves the balance
+-- unchanged until it's marked paid. The per-team totals are computed at read
+-- time, not stored.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS team_expenses (
+    id            SERIAL        PRIMARY KEY,
+    team_id       INTEGER       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    expense_date  DATE,
+    vendor        VARCHAR(200),
+    amount        NUMERIC(12,2) NOT NULL DEFAULT 0,
+    status        VARCHAR(16)   NOT NULL DEFAULT 'paid'
+                    CHECK (status IN ('paid', 'not_paid', 'refund')),
+    created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_expenses_team_id ON team_expenses (team_id);
+
 -- ---------------------------------------------------------------------------
 -- Schedules
 --

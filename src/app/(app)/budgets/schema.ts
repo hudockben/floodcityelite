@@ -39,4 +39,24 @@ async function provision(): Promise<void> {
       updated_at              TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
   `;
+
+  // Ad-hoc expenses logged against a team (a coach's hotel, gas, gear, etc.).
+  // Each row carries a date, vendor, amount, and a status: 'paid' is deducted
+  // from the team's current balance, 'refund' is credited back, and 'not_paid'
+  // is tracked without touching the balance. Totals are computed at read time.
+  await db`
+    CREATE TABLE IF NOT EXISTS team_expenses (
+      id            SERIAL        PRIMARY KEY,
+      team_id       INTEGER       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      expense_date  DATE,
+      vendor        VARCHAR(200),
+      amount        NUMERIC(12,2) NOT NULL DEFAULT 0,
+      status        VARCHAR(16)   NOT NULL DEFAULT 'paid'
+                      CHECK (status IN ('paid', 'not_paid', 'refund')),
+      created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await db`CREATE INDEX IF NOT EXISTS idx_team_expenses_team_id ON team_expenses (team_id)`;
 }

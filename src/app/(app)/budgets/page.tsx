@@ -6,7 +6,7 @@ import { DIVISIONS, resolveDivision } from "../teams/divisions";
 import { ensureTeamsSchema } from "../teams/schema";
 import { ensureSchedulesSchema } from "../schedules/schema";
 import { ensureBudgetsSchema } from "./schema";
-import { type TeamBudgetRow } from "./budget";
+import { type ExpenseRow, type TeamBudgetRow } from "./budget";
 import TeamBudgetCard, { type BudgetTeam } from "./team-budget-card";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +27,7 @@ export default async function BudgetsPage({
   const division = resolveDivision(firstParam(params.division));
 
   let rows: TeamBudgetRow[] = [];
+  let expenses: ExpenseRow[] = [];
   let loadError = false;
 
   try {
@@ -36,28 +37,54 @@ export default async function BudgetsPage({
     await ensureBudgetsSchema();
     await ensureSchedulesSchema();
 
-    const result = await sql()`
-      SELECT
-        t.id,
-        t.name,
-        t.division,
-        t.sport,
-        (SELECT count(*) FROM players p WHERE p.team_id = t.id)::int AS player_count,
-        b.tuition_per_player::float8     AS tuition_per_player,
-        b.portion_to_team_budget::float8 AS portion_to_team_budget,
-        b.paying_players                 AS paying_players,
-        (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e WHERE e.team_id = t.id)::float8
-                                         AS scheduled_cost
-      FROM teams t
-      LEFT JOIN team_budgets b ON b.team_id = t.id
-      WHERE t.company_id = ${session.companyId}
-        AND t.division = ${division.slug}
-      ORDER BY t.name
-    `;
-    rows = result as TeamBudgetRow[];
+    const [budgetRows, expenseRows] = await Promise.all([
+      sql()`
+        SELECT
+          t.id,
+          t.name,
+          t.division,
+          t.sport,
+          (SELECT count(*) FROM players p WHERE p.team_id = t.id)::int AS player_count,
+          b.tuition_per_player::float8     AS tuition_per_player,
+          b.portion_to_team_budget::float8 AS portion_to_team_budget,
+          b.paying_players                 AS paying_players,
+          (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e WHERE e.team_id = t.id)::float8
+                                           AS scheduled_cost
+        FROM teams t
+        LEFT JOIN team_budgets b ON b.team_id = t.id
+        WHERE t.company_id = ${session.companyId}
+          AND t.division = ${division.slug}
+        ORDER BY t.name
+      `,
+      sql()`
+        SELECT
+          x.id,
+          x.team_id,
+          x.expense_date::text AS expense_date,
+          x.vendor,
+          x.amount::text       AS amount,
+          x.status
+        FROM team_expenses x
+        JOIN teams t ON t.id = x.team_id
+        WHERE t.company_id = ${session.companyId}
+          AND t.division = ${division.slug}
+        ORDER BY x.expense_date DESC NULLS LAST, x.id DESC
+      `,
+    ]);
+
+    rows = budgetRows as TeamBudgetRow[];
+    expenses = expenseRows as ExpenseRow[];
   } catch (err) {
     console.error("Budgets page load error:", err);
     loadError = true;
+  }
+
+  // Group each team's expenses so every card gets just its own rows.
+  const expensesByTeam = new Map<number, ExpenseRow[]>();
+  for (const e of expenses) {
+    const list = expensesByTeam.get(e.team_id);
+    if (list) list.push(e);
+    else expensesByTeam.set(e.team_id, [e]);
   }
 
   const teams: BudgetTeam[] = rows.map((r) => ({
@@ -71,6 +98,7 @@ export default async function BudgetsPage({
       portionToTeamBudget: r.portion_to_team_budget ?? 0,
       payingPlayersOverride: r.paying_players ?? null,
     },
+    expenses: expensesByTeam.get(r.id) ?? [],
   }));
 
   return (
@@ -144,7 +172,11 @@ export default async function BudgetsPage({
           ) : (
             <div className="team-groups">
               {teams.map((team) => (
-                <TeamBudgetCard key={team.id} team={team} />
+                <TeamBudgetCard
+                  key={team.id}
+                  team={team}
+                  division={division.slug}
+                />
               ))}
             </div>
           )}

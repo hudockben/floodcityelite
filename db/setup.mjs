@@ -150,6 +150,26 @@ async function main() {
     )
   `;
 
+  // Ad-hoc team expenses logged on the Budgets tab (a coach's hotel, gas,
+  // gear, etc.). A 'paid' row is deducted from the team's current balance, a
+  // 'refund' is credited back, and a 'not_paid' row is tracked without changing
+  // the balance until it's marked paid.
+  await sql`
+    CREATE TABLE IF NOT EXISTS team_expenses (
+      id            SERIAL        PRIMARY KEY,
+      team_id       INTEGER       NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      expense_date  DATE,
+      vendor        VARCHAR(200),
+      amount        NUMERIC(12,2) NOT NULL DEFAULT 0,
+      status        VARCHAR(16)   NOT NULL DEFAULT 'paid'
+                      CHECK (status IN ('paid', 'not_paid', 'refund')),
+      created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_team_expenses_team_id ON team_expenses (team_id)`;
+
   // Schedule events (tournaments/games) belong to a team. Only event_name is
   // required; cost is optional and summed per team on the Schedules tab.
   await sql`
