@@ -7,7 +7,7 @@
 // server-side rendering stay in sync.
 // ---------------------------------------------------------------------------
 
-import { resolveDivision, type DivisionSlug, type Sport } from "../teams/divisions";
+import { type DivisionSlug, type Sport } from "../teams/divisions";
 
 // Row shape returned by the Budgets page query: a team, its roster count, and
 // its saved budget inputs (NULL when the team has no budget row yet).
@@ -34,11 +34,6 @@ export type SavedBudget = {
   /** null → fall back to the roster count. */
   payingPlayersOverride: number | null;
 };
-
-/** Human-readable label for a division slug (reuses the Teams definitions). */
-export function divisionLabel(slug: string): string {
-  return resolveDivision(slug).label;
-}
 
 // ---- formatting -----------------------------------------------------------
 

@@ -2,17 +2,29 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { DIVISIONS, resolveDivision } from "../teams/divisions";
 import { ensureTeamsSchema } from "../teams/schema";
 import { ensureSchedulesSchema } from "../schedules/schema";
 import { ensureBudgetsSchema } from "./schema";
-import { divisionLabel, type TeamBudgetRow } from "./budget";
+import { type TeamBudgetRow } from "./budget";
 import TeamBudgetCard, { type BudgetTeam } from "./team-budget-card";
 
 export const dynamic = "force-dynamic";
 
-export default async function BudgetsPage() {
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function BudgetsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ division?: string | string[] }>;
+}) {
   const session = await getSession();
   if (!session) redirect("/");
+
+  const params = await searchParams;
+  const division = resolveDivision(firstParam(params.division));
 
   let rows: TeamBudgetRow[] = [];
   let loadError = false;
@@ -39,7 +51,8 @@ export default async function BudgetsPage() {
       FROM teams t
       LEFT JOIN team_budgets b ON b.team_id = t.id
       WHERE t.company_id = ${session.companyId}
-      ORDER BY t.division, t.name
+        AND t.division = ${division.slug}
+      ORDER BY t.name
     `;
     rows = result as TeamBudgetRow[];
   } catch (err) {
@@ -51,7 +64,6 @@ export default async function BudgetsPage() {
     id: r.id,
     name: r.name,
     sport: r.sport,
-    divisionLabel: divisionLabel(r.division),
     rosterCount: r.player_count,
     scheduledCost: r.scheduled_cost ?? 0,
     saved: {
@@ -67,12 +79,29 @@ export default async function BudgetsPage() {
         <div className="panel-head">
           <h1>Budgets</h1>
           <p>
-            One budget per team. Expand a team to set tuition and the per-player
-            portion that goes to the team budget — totals update as you type.
-            The paying-player count comes from each team&apos;s roster on the
-            Teams tab.
+            One budget per team. Pick a division, then expand a team to set
+            tuition and the per-player portion that goes to the team budget —
+            totals update as you type. The paying-player count comes from each
+            team&apos;s roster on the Teams tab.
           </p>
         </div>
+
+        {/* Division selector */}
+        <nav className="subtabs" aria-label="Division">
+          {DIVISIONS.map((d) => {
+            const active = d.slug === division.slug;
+            return (
+              <Link
+                key={d.slug}
+                href={`/budgets?division=${d.slug}`}
+                className={`subtab${active ? " active" : ""}`}
+                aria-current={active ? "page" : undefined}
+              >
+                {d.label}
+              </Link>
+            );
+          })}
+        </nav>
       </section>
 
       {loadError ? (
@@ -92,7 +121,7 @@ export default async function BudgetsPage() {
       ) : (
         <section className="panel">
           <div className="panel-head">
-            <h2 className="step-title">Team budgets</h2>
+            <h2 className="step-title">{division.label} budgets</h2>
             <p>
               {teams.length} {teams.length === 1 ? "team" : "teams"}. Current
               balance is each team&apos;s starting balance minus its total
@@ -105,10 +134,11 @@ export default async function BudgetsPage() {
               <div className="empty-icon" aria-hidden="true">
                 📊
               </div>
-              <p className="empty-title">No teams yet</p>
+              <p className="empty-title">No teams in this division yet</p>
               <p className="empty-sub">
-                Create teams on the <Link href="/teams">Teams tab</Link> and
-                they&apos;ll show up here, ready to budget.
+                Create a team in the{" "}
+                <Link href={`/teams?division=${division.slug}`}>Teams tab</Link>{" "}
+                and it&apos;ll show up here, ready to budget.
               </p>
             </div>
           ) : (

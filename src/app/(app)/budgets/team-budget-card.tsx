@@ -20,7 +20,6 @@ export type BudgetTeam = {
   id: number;
   name: string;
   sport: Sport;
-  divisionLabel: string;
   rosterCount: number;
   /** Total scheduled cost for this team (Schedules tab total), in dollars. */
   scheduledCost: number;
@@ -133,7 +132,6 @@ export default function TeamBudgetCard({ team }: { team: BudgetTeam }) {
         <span className={`sport-badge sport-${team.sport}`}>
           {sportLabel(team.sport)}
         </span>
-        <span className="division-badge">{team.divisionLabel}</span>
         <span className="budget-summary">
           {configured ? (
             <>
