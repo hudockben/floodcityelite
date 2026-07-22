@@ -70,21 +70,33 @@ body {
   text-align: center;
 }
 
-/* Landscape wordmark: fix the width and let height follow the aspect ratio so
-   the full "Flood City Elite · Baseball + Softball" mark shows uncropped. */
-.brand .logo {
-  width: min(300px, 100%);
-  height: auto;
-  border-radius: 14px;
-  border: 1px solid var(--card-border);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+/* Text wordmark used as the brand logo. The shared look lives in .wordmark;
+   each placement (.logo on the login card, .appbar-logo in the header) sets
+   only its own size. */
+.wordmark {
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 
-.brand h1 {
+/* Tint the wordmark with the brand's cyan→blue gradient where supported,
+   falling back to the flat accent color otherwise. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .wordmark {
+    background: linear-gradient(180deg, #cfeeff 0%, #38bdf8 55%, #0ea5e9 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+}
+
+/* Login card: large, and free to wrap to two centered lines on a narrow card. */
+.brand .logo {
   margin: 0;
-  font-size: 1.6rem;
-  letter-spacing: 0.04em;
-  font-weight: 700;
+  font-size: clamp(1.5rem, 7vw, 2.15rem);
+  line-height: 1.12;
 }
 
 .brand .tagline {
@@ -344,13 +356,10 @@ body {
   font-size: 1.05rem;
 }
 
-/* Compact landscape wordmark in the header: fix the height, width follows. */
+/* Compact wordmark in the header; stays on one line. */
 .appbar-logo {
-  height: 36px;
-  width: auto;
-  max-width: 200px;
-  border-radius: 7px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  font-size: 1.15rem;
+  white-space: nowrap;
 }
 
 .appbar-user {
