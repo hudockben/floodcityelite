@@ -218,6 +218,58 @@ async function main() {
   await sql`CREATE INDEX IF NOT EXISTS idx_fundraiser_entries_team_id ON fundraiser_entries (team_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_fundraiser_entries_player_id ON fundraiser_entries (player_id)`;
 
+  // A camp is a program/clinic/camp owned by a company. Only the name is
+  // required; location and event_date are optional. Camps keep their own
+  // roster, separate from teams.
+  await sql`
+    CREATE TABLE IF NOT EXISTS camps (
+      id          SERIAL        PRIMARY KEY,
+      company_id  INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      name        VARCHAR(160)  NOT NULL,
+      location    VARCHAR(200),
+      event_date  DATE,
+      created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_camps_company_id ON camps (company_id)`;
+
+  // A camp player is a roster row on a camp: the player's name plus the
+  // parent's name, a parent contact, and a location. Only player_name required.
+  await sql`
+    CREATE TABLE IF NOT EXISTS camp_players (
+      id              SERIAL        PRIMARY KEY,
+      camp_id         INTEGER       NOT NULL REFERENCES camps(id) ON DELETE CASCADE,
+      player_name     VARCHAR(160)  NOT NULL,
+      parent_name     VARCHAR(160),
+      parent_contact  VARCHAR(200),
+      location        VARCHAR(200),
+      created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_camp_players_camp_id ON camp_players (camp_id)`;
+
+  // A camp payment is logged against a camp player and mirrors `payments`.
+  // Powers the Program/Camps tab's per-player and per-camp totals.
+  await sql`
+    CREATE TABLE IF NOT EXISTS camp_payments (
+      id              SERIAL        PRIMARY KEY,
+      camp_player_id  INTEGER       NOT NULL REFERENCES camp_players(id) ON DELETE CASCADE,
+      paid_on         DATE          NOT NULL DEFAULT CURRENT_DATE,
+      payment_type    VARCHAR(16)   NOT NULL DEFAULT 'cash'
+                        CHECK (payment_type IN ('check', 'cash')),
+      check_number    VARCHAR(32),
+      amount          NUMERIC(10,2) NOT NULL DEFAULT 0,
+      created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_camp_payments_camp_player_id ON camp_payments (camp_player_id)`;
+
   console.log(`→ Ensuring company "${COMPANY_NAME}" (code: ${COMPANY_CODE})…`);
   const companyRows = await sql`
     INSERT INTO companies (code, name)
