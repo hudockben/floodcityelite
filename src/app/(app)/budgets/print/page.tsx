@@ -317,7 +317,9 @@ export default async function BudgetPrintPage({
                                     ) : null}
                                   </td>
                                   <td className="amt">
-                                    {formatCents(amountToCents(t.cost))}
+                                    {t.cost == null || t.cost === ""
+                                      ? "—"
+                                      : formatCents(amountToCents(t.cost))}
                                   </td>
                                   <td>{statusLabel(t.status)}</td>
                                 </tr>

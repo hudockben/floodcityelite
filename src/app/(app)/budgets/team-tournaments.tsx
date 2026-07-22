@@ -70,7 +70,11 @@ export default function TeamTournaments({
                       {meta ? <span className="tour-name-meta">{meta}</span> : null}
                     </td>
                     <td className="exp-amount">
-                      {formatCents(amountToCents(t.cost))}
+                      {t.cost == null || t.cost === "" ? (
+                        <span className="cell-empty">—</span>
+                      ) : (
+                        formatCents(amountToCents(t.cost))
+                      )}
                     </td>
                     <td className="tour-status-cell">
                       <span className={`tour-status status-${t.status}`}>
