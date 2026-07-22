@@ -160,12 +160,24 @@ export default async function SchedulesPage({
 
           {/* Schedule by team */}
           <section className="panel">
-            <div className="panel-head">
-              <h2 className="step-title">{division.label} schedule</h2>
-              <p>
-                {events.length} {events.length === 1 ? "event" : "events"} across{" "}
-                {teams.length} {teams.length === 1 ? "team" : "teams"}.
-              </p>
+            <div className="panel-head panel-head-row">
+              <div>
+                <h2 className="step-title">{division.label} schedule</h2>
+                <p>
+                  {events.length} {events.length === 1 ? "event" : "events"}{" "}
+                  across {teams.length} {teams.length === 1 ? "team" : "teams"}.
+                </p>
+              </div>
+              {teams.length > 0 ? (
+                <a
+                  className="btn-secondary print-all-btn"
+                  href={`/schedules/print?division=${division.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  🖨 Print all / Save PDF
+                </a>
+              ) : null}
             </div>
 
             {teams.length === 0 ? (
@@ -205,6 +217,19 @@ export default async function SchedulesPage({
                           Total {total}
                         </span>
                       </summary>
+
+                      {teamEvents.length > 0 ? (
+                        <div className="tg-print-row">
+                          <a
+                            className="team-print-link"
+                            href={`/schedules/print?division=${division.slug}&team=${t.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            🖨 Print / Save PDF
+                          </a>
+                        </div>
+                      ) : null}
 
                       {teamEvents.length === 0 ? (
                         <p className="tg-empty">

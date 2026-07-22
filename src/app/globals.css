@@ -1702,7 +1702,8 @@ body {
 }
 
 /* Division-wide "Print all" button sits opposite the section heading. */
-.budgets-panel-head {
+.budgets-panel-head,
+.panel-head-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1710,7 +1711,8 @@ body {
   flex-wrap: wrap;
 }
 
-.budgets-print-btn {
+.budgets-print-btn,
+.print-all-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1720,8 +1722,10 @@ body {
   white-space: nowrap;
 }
 
-/* Per-team "Print / Save PDF" link in the budget actions row. */
-.budget-print-link {
+/* Per-team "Print / Save PDF" link — in the budget actions row and in each
+   Teams/Schedules team group. */
+.budget-print-link,
+.team-print-link {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1732,8 +1736,17 @@ body {
   padding: 8px 4px;
 }
 
-.budget-print-link:hover {
+.budget-print-link:hover,
+.team-print-link:hover {
   text-decoration: underline;
+}
+
+/* Row that holds a team group's "Print / Save PDF" link, right-aligned just
+   inside the expanded group above its table. */
+.tg-print-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 4px 0;
 }
 
 /* ---- Budget print / PDF view ---- */
@@ -2004,9 +2017,135 @@ body {
   color: #64748b;
 }
 
+/* Player/event count shown next to a team name in the roster/schedule reports,
+   mirroring the "N players" chip on the tabs. */
+.print-team-count {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* The roster report is printed landscape (see the per-route @page rule), so let
+   its paper preview breathe a little wider on screen too. */
+.print-doc-wide {
+  max-width: 1180px;
+}
+
+/* Roster table: one team's players, one column per roster field. Compact so all
+   twelve columns fit a landscape sheet. */
+.print-roster {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  table-layout: fixed;
+}
+
+.print-roster th {
+  text-align: left;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  padding: 6px 6px;
+  border-bottom: 1.5px solid #cbd5e1;
+  vertical-align: bottom;
+}
+
+.print-roster td {
+  padding: 5px 6px;
+  border-bottom: 1px solid #eef1f4;
+  color: #111827;
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.print-roster .col-name {
+  font-weight: 700;
+  color: #0f2742;
+}
+
+/* Schedule table: one team's tournaments, mirroring the on-screen columns. */
+.print-sched {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.print-sched th {
+  text-align: left;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  padding: 6px 8px;
+  border-bottom: 1.5px solid #cbd5e1;
+}
+
+.print-sched td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #eef1f4;
+  color: #111827;
+  /* Let a long unbroken value (a spaceless venue/host token) wrap instead of
+     widening the table off the portrait page and clipping Cost/Status. */
+  overflow-wrap: anywhere;
+}
+
+.print-sched .amt {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.print-sched .col-name {
+  font-weight: 600;
+  color: #0f2742;
+}
+
+.print-sched tfoot td {
+  border-bottom: none;
+  border-top: 1.5px solid #cbd5e1;
+  font-weight: 800;
+  color: #0f2742;
+}
+
+/* Division grand-total banner under the last team when printing a whole
+   division's schedule. Kept legible on plain white (dark text, heavy top rule)
+   so it survives a print with background graphics turned off. */
+.print-grand {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 10px;
+  padding: 12px 4px 4px;
+  border-top: 2px solid #0f2742;
+  color: #0f2742;
+  break-inside: avoid;
+}
+
+.print-grand-label {
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.print-grand-value {
+  font-size: 1.2rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Print rules: drop the app chrome and the toolbar; let the paper fill the
    page and give each team its own sheet. */
 @media print {
+  /* Keep the designed badge/highlight colors in the saved PDF instead of
+     letting the browser drop them. */
+  .print-view {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   .appbar,
   .tabs,
   .print-toolbar {

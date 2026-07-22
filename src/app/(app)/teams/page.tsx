@@ -202,14 +202,26 @@ export default async function TeamsPage({
 
       {/* Step 3 — the roster */}
       <section className="panel">
-        <div className="panel-head">
-          <h2 className="step-title">
-            <span className="step-num">3</span> {division.label} roster
-          </h2>
-          <p>
-            {players.length} {players.length === 1 ? "player" : "players"} across{" "}
-            {teams.length} {teams.length === 1 ? "team" : "teams"}.
-          </p>
+        <div className="panel-head panel-head-row">
+          <div>
+            <h2 className="step-title">
+              <span className="step-num">3</span> {division.label} roster
+            </h2>
+            <p>
+              {players.length} {players.length === 1 ? "player" : "players"}{" "}
+              across {teams.length} {teams.length === 1 ? "team" : "teams"}.
+            </p>
+          </div>
+          {teams.length > 0 ? (
+            <a
+              className="btn-secondary print-all-btn"
+              href={`/teams/print?division=${division.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              🖨 Print all / Save PDF
+            </a>
+          ) : null}
         </div>
 
         {teams.length === 0 ? (
@@ -239,6 +251,19 @@ export default async function TeamsPage({
                       {teamPlayers.length === 1 ? "player" : "players"}
                     </span>
                   </summary>
+
+                  {teamPlayers.length > 0 ? (
+                    <div className="tg-print-row">
+                      <a
+                        className="team-print-link"
+                        href={`/teams/print?division=${division.slug}&team=${t.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        🖨 Print / Save PDF
+                      </a>
+                    </div>
+                  ) : null}
 
                   {teamPlayers.length === 0 ? (
                     <p className="tg-empty">
