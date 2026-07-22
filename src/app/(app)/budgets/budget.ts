@@ -8,6 +8,7 @@
 // ---------------------------------------------------------------------------
 
 import { type DivisionSlug, type Sport } from "../teams/divisions";
+import { type EventStatus } from "../schedules/events";
 
 // Row shape returned by the Budgets page query: a team, its roster count, and
 // its saved budget inputs (NULL when the team has no budget row yet).
@@ -74,6 +75,26 @@ export type ExpenseRow = {
   status: ExpenseStatus;
 };
 
+// ---- scheduled tournaments ------------------------------------------------
+//
+// Read-only view of a team's Schedules-tab tournaments, surfaced under the
+// Budgets tab so the scheduled cost that comes off the balance is itemized in
+// one place. Each row mirrors the schedule_events columns the budget cares
+// about; `cost` arrives as text (NUMERIC cast to text) so it sums in integer
+// cents like everything else here. These rows are display-only on the Budgets
+// tab — they're added and edited on the Schedules tab.
+export type TournamentRow = {
+  id: number;
+  team_id: number;
+  event_date: string | null;
+  event_end_date: string | null;
+  event_name: string;
+  event_host: string | null;
+  location: string | null;
+  cost: string | null;
+  status: EventStatus;
+};
+
 // ---- formatting -----------------------------------------------------------
 
 const USD = new Intl.NumberFormat("en-US", {
@@ -103,6 +124,33 @@ export function formatDate(iso: string | null | undefined): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   if (!m) return iso;
   return `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}, ${m[1]}`;
+}
+
+/**
+ * Compact date range for a (possibly multi-day) tournament. Single day →
+ * "Jul 21, 2026"; same month → "Jul 21 – 23, 2026"; same year, different month
+ * → "Jul 30 – Aug 2, 2026"; spanning years → "Dec 30, 2026 – Jan 2, 2027". A
+ * missing/earlier end date collapses to the single start date, and an empty
+ * start date is an em dash. Deterministic (no Date/locale) so the server- and
+ * client-rendered tournament rows always match.
+ */
+export function formatDateRange(
+  start: string | null | undefined,
+  end: string | null | undefined,
+): string {
+  if (!start) return "—";
+  const s = /^(\d{4})-(\d{2})-(\d{2})/.exec(start);
+  if (!s) return formatDate(start);
+  const e = end ? /^(\d{4})-(\d{2})-(\d{2})/.exec(end) : null;
+  // No usable end, or it isn't after the start → just the start date.
+  if (!e || end! <= start) return formatDate(start);
+  const sMon = MONTHS[Number(s[2]) - 1];
+  const eMon = MONTHS[Number(e[2]) - 1];
+  const sDay = Number(s[3]);
+  const eDay = Number(e[3]);
+  if (s[1] === e[1] && s[2] === e[2]) return `${sMon} ${sDay} – ${eDay}, ${s[1]}`;
+  if (s[1] === e[1]) return `${sMon} ${sDay} – ${eMon} ${eDay}, ${s[1]}`;
+  return `${sMon} ${sDay}, ${s[1]} – ${eMon} ${eDay}, ${e[1]}`;
 }
 
 /**

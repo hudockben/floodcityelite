@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { resolveDivision, sportLabel } from "../../teams/divisions";
 import { ensureTeamsSchema } from "../../teams/schema";
 import { ensureSchedulesSchema } from "../../schedules/schema";
+import { statusLabel } from "../../schedules/events";
 import { ensureBudgetsSchema } from "../schema";
 import {
   amountToCents,
@@ -11,6 +12,7 @@ import {
   expenseStatusLabel,
   formatCents,
   formatDate,
+  formatDateRange,
   formatMoney,
   fundraisingPerPlayer,
   resolvePayingCount,
@@ -19,6 +21,7 @@ import {
   totalTuition,
   type ExpenseRow,
   type TeamBudgetRow,
+  type TournamentRow,
 } from "../budget";
 import PrintControls from "./print-controls";
 
@@ -53,6 +56,7 @@ export default async function BudgetPrintPage({
 
   let rows: TeamBudgetRow[] = [];
   let expenses: ExpenseRow[] = [];
+  let tournaments: TournamentRow[] = [];
   let loadError = false;
 
   try {
@@ -60,7 +64,7 @@ export default async function BudgetPrintPage({
     await ensureBudgetsSchema();
     await ensureSchedulesSchema();
 
-    const [budgetRows, expenseRows] = await Promise.all([
+    const [budgetRows, expenseRows, tournamentRows] = await Promise.all([
       sql()`
         SELECT
           t.id,
@@ -93,10 +97,30 @@ export default async function BudgetPrintPage({
           AND t.division = ${division.slug}
         ORDER BY x.expense_date DESC NULLS LAST, x.id DESC
       `,
+      // Each team's scheduled tournaments, itemized so the printed report shows
+      // exactly what makes up the "less scheduled cost" line.
+      sql()`
+        SELECT
+          e.id,
+          e.team_id,
+          e.event_host,
+          e.event_date::text     AS event_date,
+          e.event_end_date::text AS event_end_date,
+          e.event_name,
+          e.location,
+          e.cost::text           AS cost,
+          e.status
+        FROM schedule_events e
+        JOIN teams t ON t.id = e.team_id
+        WHERE t.company_id = ${session.companyId}
+          AND t.division = ${division.slug}
+        ORDER BY e.event_date NULLS LAST, e.id
+      `,
     ]);
 
     rows = budgetRows as TeamBudgetRow[];
     expenses = expenseRows as ExpenseRow[];
+    tournaments = tournamentRows as TournamentRow[];
   } catch (err) {
     console.error("Budget print load error:", err);
     loadError = true;
@@ -112,6 +136,13 @@ export default async function BudgetPrintPage({
     const list = expensesByTeam.get(e.team_id);
     if (list) list.push(e);
     else expensesByTeam.set(e.team_id, [e]);
+  }
+
+  const tournamentsByTeam = new Map<number, TournamentRow[]>();
+  for (const t of tournaments) {
+    const list = tournamentsByTeam.get(t.team_id);
+    if (list) list.push(t);
+    else tournamentsByTeam.set(t.team_id, [t]);
   }
 
   const backHref = `/budgets?division=${division.slug}`;
@@ -155,6 +186,11 @@ export default async function BudgetPrintPage({
             const tuitionTotal = totalTuition(payingCount, tuitionPer);
             const starting = startingBalance(payingCount, portion);
             const scheduled = r.scheduled_cost ?? 0;
+            const teamTournaments = tournamentsByTeam.get(r.id) ?? [];
+            const scheduledCents = teamTournaments.reduce(
+              (sum, t) => sum + amountToCents(t.cost),
+              0,
+            );
             const teamExpenses = expensesByTeam.get(r.id) ?? [];
             const totals = summarizeExpenses(teamExpenses);
             const expenseNet = totals.netCents / 100;
@@ -241,8 +277,67 @@ export default async function BudgetPrintPage({
                     </tbody>
                   </table>
 
-                  {/* Expense log */}
+                  {/* Right column: scheduled tournaments, then the expense log */}
                   <div className="print-expenses">
+                    <div className="print-schedule">
+                      <h3 className="print-sub">Scheduled tournaments</h3>
+                      {teamTournaments.length === 0 ? (
+                        <p className="print-note small">
+                          No tournaments scheduled.
+                        </p>
+                      ) : (
+                        <table className="print-exp-table">
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Tournament</th>
+                              <th className="amt">Cost</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {teamTournaments.map((t) => {
+                              const meta = [t.event_host, t.location]
+                                .filter(Boolean)
+                                .join(" · ");
+                              return (
+                                <tr key={t.id}>
+                                  <td>
+                                    {formatDateRange(
+                                      t.event_date,
+                                      t.event_end_date,
+                                    )}
+                                  </td>
+                                  <td>
+                                    {t.event_name}
+                                    {meta ? (
+                                      <span className="print-tour-meta">
+                                        {meta}
+                                      </span>
+                                    ) : null}
+                                  </td>
+                                  <td className="amt">
+                                    {formatCents(amountToCents(t.cost))}
+                                  </td>
+                                  <td>{statusLabel(t.status)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                          <tfoot>
+                            <tr className="net">
+                              <td colSpan={2}>Total scheduled cost</td>
+                              <td className="amt">
+                                {scheduledCents > 0 ? "−" : ""}
+                                {formatCents(scheduledCents)}
+                              </td>
+                              <td />
+                            </tr>
+                          </tfoot>
+                        </table>
+                      )}
+                    </div>
+
                     <h3 className="print-sub">Expenses</h3>
                     {teamExpenses.length === 0 ? (
                       <p className="print-note small">No expenses logged.</p>
