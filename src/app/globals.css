@@ -1830,3 +1830,142 @@ body {
   border-radius: 999px;
   background: linear-gradient(90deg, #4ade80, #22c55e);
 }
+
+/* ---- Program/Camps ---- */
+
+/* Muted context suffix on a step heading (e.g. "· Winter Hitting Clinic"). */
+.step-context {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+}
+
+/* Selectable cards for the camps the user has created. Clicking a card selects
+   it; the selected camp's roster and payments show below. */
+.camp-list {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.camp-item {
+  position: relative;
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.camp-item.is-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+/* The main clickable area filling the card (everything but Remove). The right
+   padding leaves room for the absolutely-positioned Remove button. */
+.camp-item-select {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 14px 96px 14px 16px;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.camp-item-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.camp-item-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.camp-item-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.camp-item-stats {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.camp-collected {
+  font-weight: 800;
+  color: #7ee2a8;
+  font-variant-numeric: tabular-nums;
+}
+
+.camp-count {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.camp-item-delete {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+/* The roster and payments tables reuse the Payment Tracker's .pay-* table
+   styles; only the column widths differ. Each min-width equals the sum of its
+   column widths so at the breakpoint each input fills its column exactly. */
+.camp-roster-table {
+  min-width: 900px;
+}
+
+.crn-name { width: 150px; }
+.crn-parent { width: 150px; }
+.crn-contact { width: 170px; }
+.crn-location { width: 150px; }
+.crn-paid { width: 90px; }
+.crn-actions { width: 190px; }
+
+.camp-pay-table {
+  min-width: 820px;
+}
+
+.cpn-date { width: 132px; }
+.cpn-player { width: 150px; }
+.cpn-type { width: 110px; }
+.cpn-check { width: 100px; }
+.cpn-amount { width: 100px; }
+.cpn-total { width: 104px; }
+.cpn-actions { width: 124px; }
+
+/* Accent "Add payment" action on a roster row (matches .row-edit's look). */
+.camp-add-pay {
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 7px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.camp-add-pay:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.5);
+}

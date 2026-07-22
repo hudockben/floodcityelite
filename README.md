@@ -26,7 +26,8 @@ with a **company code**, **username**, and **password**.
 
 ## Database tables
 
-Five tables back the app (see [`db/schema.sql`](db/schema.sql)):
+Several tables back the app (see [`db/schema.sql`](db/schema.sql)); the core
+ones are:
 
 - **`companies`** — one row per organization. Login matches on `code`
   (e.g. `fce`).
@@ -45,6 +46,13 @@ Five tables back the app (see [`db/schema.sql`](db/schema.sql)):
   or `cash`), an optional `check_number` (for check payments), and an `amount`.
   This powers the **Payment Tracker** tab, whose Total column accumulates the
   payments received.
+- **`camps`**, **`camp_players`**, **`camp_payments`** — the **Program/Camps**
+  tab. A `camp` is a program/clinic owned by a company (name, optional location
+  and date). Each `camp_player` is a registration on that camp's roster
+  (`player_name` plus the parent's name, a parent contact, and a location) and
+  is independent of the Teams roster. A `camp_payment` is logged against a camp
+  player and mirrors `payments` (`paid_on`, `payment_type`, `check_number`,
+  `amount`), driving the per-player and per-camp totals.
 
 ## Getting started
 
