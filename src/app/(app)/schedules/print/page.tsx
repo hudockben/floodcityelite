@@ -5,9 +5,7 @@ import { resolveDivision, sportLabel } from "../../teams/divisions";
 import { ensureSchedulesSchema } from "../schema";
 import {
   EVENT_FIELDS,
-  STATUS_HEADER,
   formatDate,
-  statusLabel,
   type AttendanceRow,
   type GroupPlayer,
   type ScheduleEventRow,
@@ -18,7 +16,8 @@ import PrintControls from "./print-controls";
 export const dynamic = "force-dynamic";
 
 // The printed schedule is parent-facing, so it deliberately leaves out the
-// cost column and every money total that the on-screen Schedules tab shows.
+// cost column, every money total, and the registration status that the
+// on-screen Schedules tab shows.
 const PRINT_EVENT_FIELDS = EVENT_FIELDS.filter((f) => f.type !== "money");
 
 function firstParam(value: string | string[] | undefined): string | undefined {
@@ -238,7 +237,6 @@ export default async function SchedulesPrintPage({
                           {PRINT_EVENT_FIELDS.map((f) => (
                             <th key={f.key}>{f.label}</th>
                           ))}
-                          <th>{STATUS_HEADER}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -254,7 +252,6 @@ export default async function SchedulesPrintPage({
                                 {cellValue(f, e)}
                               </td>
                             ))}
-                            <td>{statusLabel(e.status)}</td>
                           </tr>
                         ))}
                       </tbody>
