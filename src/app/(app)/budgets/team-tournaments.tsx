@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { statusLabel } from "../schedules/events";
+import { eventCostCounts, statusLabel } from "../schedules/events";
 import {
   amountToCents,
   formatCents,
@@ -20,8 +20,11 @@ export default function TeamTournaments({
   division: string;
 }) {
   const scheduleHref = `/schedules?division=${division}`;
+  // Refunded tournaments are credited back, so they drop out of the scheduled
+  // cost that comes off the balance (they still appear in the list, marked
+  // "Refund", with their cost struck through).
   const totalCents = tournaments.reduce(
-    (sum, t) => sum + amountToCents(t.cost),
+    (sum, t) => sum + (eventCostCounts(t.status) ? amountToCents(t.cost) : 0),
     0,
   );
 
@@ -72,8 +75,15 @@ export default function TeamTournaments({
                     <td className="exp-amount">
                       {t.cost == null || t.cost === "" ? (
                         <span className="cell-empty">—</span>
-                      ) : (
+                      ) : eventCostCounts(t.status) ? (
                         formatCents(amountToCents(t.cost))
+                      ) : (
+                        <span
+                          className="cost-refunded"
+                          title="Refunded — credited back to the balance"
+                        >
+                          {formatCents(amountToCents(t.cost))}
+                        </span>
                       )}
                     </td>
                     <td className="tour-status-cell">

@@ -8,6 +8,16 @@ import { ensureSchedulesSchema } from "./schema";
 
 export type FormState = { ok?: boolean; error?: string };
 
+// An event's cost and status feed the Budgets tab's scheduled cost (and the
+// Homeplate "budgets at risk" figures), so anything that adds, edits, deletes,
+// or re-statuses an event must refresh those routes too — otherwise a refund
+// wouldn't credit back on the budget until it happened to re-fetch.
+function revalidateScheduleAndBudget(): void {
+  revalidatePath("/schedules");
+  revalidatePath("/budgets");
+  revalidatePath("/homeplate");
+}
+
 // --- form-value helpers ----------------------------------------------------
 
 function text(formData: FormData, key: string): string | null {
@@ -79,7 +89,7 @@ export async function addEventAction(
     return { error: "Could not add the event. Please try again." };
   }
 
-  revalidatePath("/schedules");
+  revalidateScheduleAndBudget();
   return { ok: true };
 }
 
@@ -124,7 +134,7 @@ export async function updateEventAction(
     return { error: "Could not save changes. Please try again." };
   }
 
-  revalidatePath("/schedules");
+  revalidateScheduleAndBudget();
   return { ok: true };
 }
 
@@ -153,7 +163,7 @@ export async function updateStatusAction(input: {
       AND team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})
   `;
 
-  revalidatePath("/schedules");
+  revalidateScheduleAndBudget();
 }
 
 // --- delete an event -------------------------------------------------------
@@ -172,7 +182,7 @@ export async function deleteEventAction(formData: FormData): Promise<void> {
       AND team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})
   `;
 
-  revalidatePath("/schedules");
+  revalidateScheduleAndBudget();
 }
 
 // --- groups / playing-time rotation ----------------------------------------

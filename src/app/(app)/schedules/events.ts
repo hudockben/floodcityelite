@@ -35,6 +35,19 @@ export function statusLabel(value: string): string {
   return STATUSES.find((s) => s.value === value)?.label ?? value;
 }
 
+/**
+ * Whether a scheduled event's cost counts toward the money a team has spent.
+ * A "refund" credits the money back, so a refunded event drops out of the
+ * Schedules "Total Cost", the Budgets scheduled cost (raising the balance), and
+ * the Homeplate at-risk figures. Every other status still counts its cost.
+ *
+ * Keep this in sync with the SQL that sums scheduled cost, which excludes
+ * refunds with `status <> 'refund'`.
+ */
+export function eventCostCounts(status: EventStatus): boolean {
+  return status !== "refund";
+}
+
 // An event/tournament field. `key` is BOTH the form input name and the DB
 // column, so the add-event form, the server insert, and the schedule table
 // stay aligned. `status` is handled separately (an inline dropdown), so it is

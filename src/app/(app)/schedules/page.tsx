@@ -15,6 +15,7 @@ import {
   COST_FIELD_INDEX,
   SCHEDULE_HEADERS,
   costToCents,
+  eventCostCounts,
   formatCents,
   type AttendanceRow,
   type GroupPlayer,
@@ -242,8 +243,11 @@ export default async function SchedulesPage({
                 {teams.map((t) => {
                   const teamEvents = eventsByTeam.get(t.id) ?? [];
                   const teamPlayers = playersByTeam.get(t.id) ?? [];
+                  // Refunded events are credited back, so their cost drops out
+                  // of the running total (matches the Budgets scheduled cost).
                   const totalCents = teamEvents.reduce(
-                    (sum, e) => sum + costToCents(e.cost),
+                    (sum, e) =>
+                      sum + (eventCostCounts(e.status) ? costToCents(e.cost) : 0),
                     0,
                   );
                   const total = formatCents(totalCents);
