@@ -117,6 +117,7 @@ export type ScheduleTeamRow = {
   division: string;
   sport: string;
   event_count: number;
+  roster_group_count: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -130,12 +131,15 @@ export type ScheduleTeamRow = {
 // rows and means a brand-new event starts with the whole roster attending.
 // ---------------------------------------------------------------------------
 
-// A roster player as shown in an event's Groups panel.
+// A roster player as shown in an event's Groups panel. `roster_group` is the
+// standing group (1..N) the coach has assigned the player to for
+// position-balanced rotations, or null when they haven't been grouped yet.
 export type GroupPlayer = {
   id: number;
   team_id: number;
   player_name: string;
   primary_position: string | null;
+  roster_group: number | null;
 };
 
 // One (event, player) attendance decision, as returned from the DB. Only
@@ -147,12 +151,90 @@ export type AttendanceRow = {
   attending: boolean;
 };
 
+// ---------------------------------------------------------------------------
+// Roster groups
+//
+// A coach can split the roster into standing groups (Group 1, Group 2, …) so
+// that position needs — a catcher and a pitcher in each — are paired up. Each
+// event then travels a combination of groups (e.g. Groups 1 & 2 one weekend,
+// 1 & 3 the next), which sets who's attending without toggling players one by
+// one. Group membership lives on the player (players.roster_group); which
+// groups play an event lives in event_groups; per-player exceptions still live
+// in event_attendance and always win.
+// ---------------------------------------------------------------------------
+
+// The most groups a coach can split a roster into. Kept small — a travel roster
+// rarely needs more than a handful of position-balanced groups.
+export const MAX_ROSTER_GROUPS = 8;
+
+// One row of event_groups: a group number set to play a given event. An event
+// with no rows falls back to the legacy "whole roster attends unless benched".
+export type EventGroupRow = {
+  event_id: number;
+  group_number: number;
+};
+
+// Normalise the group selection to a plain array. Accepts either a Set (client
+// optimistic state) or an array (server data) so both sides share the resolver.
+function toGroupArray(
+  selectedGroups: ReadonlySet<number> | readonly number[] | null | undefined,
+): readonly number[] {
+  if (!selectedGroups) return [];
+  return Array.isArray(selectedGroups) ? selectedGroups : [...selectedGroups];
+}
+
+/**
+ * Whether a player attends an event, absent any per-player override — i.e. what
+ * the event's group selection alone dictates. If the event has groups picked, a
+ * player attends only when their roster group is one of them (ungrouped players
+ * sit); with no groups picked, everyone attends (the legacy default).
+ */
+export function groupBaseline(
+  rosterGroup: number | null,
+  selectedGroups: ReadonlySet<number> | readonly number[] | null | undefined,
+): boolean {
+  const groups = toGroupArray(selectedGroups);
+  if (groups.length === 0) return true;
+  return rosterGroup != null && groups.includes(rosterGroup);
+}
+
+/**
+ * Resolve whether a player is attending an event.
+ *
+ * Precedence:
+ *   1. An explicit per-player override (an event_attendance row) always wins —
+ *      it's the coach's exception for this one player at this one event.
+ *   2. Otherwise the event's group selection decides (see groupBaseline).
+ *
+ * `override` is the stored attending value when a row exists, or null/undefined
+ * when there isn't one.
+ */
+export function resolveAttending(
+  rosterGroup: number | null,
+  override: boolean | null | undefined,
+  selectedGroups: ReadonlySet<number> | readonly number[] | null | undefined,
+): boolean {
+  if (override != null) return override;
+  return groupBaseline(rosterGroup, selectedGroups);
+}
+
+// "Group 3", "Groups 1 & 2", "Groups 1, 2 & 4" — for the panel heading/badge.
+export function groupsLabel(groups: readonly number[]): string {
+  const sorted = [...new Set(groups)].sort((a, b) => a - b);
+  if (sorted.length === 0) return "";
+  const noun = sorted.length === 1 ? "Group" : "Groups";
+  if (sorted.length === 1) return `${noun} ${sorted[0]}`;
+  const head = sorted.slice(0, -1).join(", ");
+  return `${noun} ${head} & ${sorted[sorted.length - 1]}`;
+}
+
 // Per-player attendance summary across a team's scheduled events, used by the
 // rotation planner's live fairness readout.
 export type PlayerAttendance = {
   id: number;
   player_name: string;
   attending: number; // number of the team's events this player is attending
+  roster_group?: number | null; // standing group, when the team uses groups
 };
 
 // Result of the rotation math: given a roster size, how many players are taken

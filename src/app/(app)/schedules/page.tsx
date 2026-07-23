@@ -10,6 +10,7 @@ import {
 import { ensureSchedulesSchema } from "./schema";
 import AddEventForm from "./add-event-form";
 import EventRow from "./event-row";
+import RosterGroups from "./roster-groups";
 import RotationPlanner from "./rotation-planner";
 import {
   COST_FIELD_INDEX,
@@ -17,7 +18,9 @@ import {
   costToCents,
   eventCostCounts,
   formatCents,
+  resolveAttending,
   type AttendanceRow,
+  type EventGroupRow,
   type GroupPlayer,
   type ScheduleEventRow,
   type ScheduleTeamRow,
@@ -44,6 +47,7 @@ export default async function SchedulesPage({
   let events: ScheduleEventRow[] = [];
   let roster: GroupPlayer[] = [];
   let attendance: AttendanceRow[] = [];
+  let eventGroups: EventGroupRow[] = [];
   let loadError = false;
 
   try {
@@ -51,64 +55,74 @@ export default async function SchedulesPage({
     // the database predates this feature. Idempotent and memoized.
     await ensureSchedulesSchema();
 
-    const [teamRows, eventRows, playerRows, attendanceRows] = await Promise.all([
-      sql()`
-        SELECT
-          t.id,
-          t.name,
-          t.division,
-          t.sport,
-          (SELECT count(*) FROM schedule_events e WHERE e.team_id = t.id)::int AS event_count
-        FROM teams t
-        WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
-        ORDER BY t.name
-      `,
-      sql()`
-        SELECT
-          e.id,
-          e.team_id,
-          e.event_host,
-          e.event_date::text AS event_date,
-          e.event_end_date::text AS event_end_date,
-          e.event_name,
-          e.location,
-          e.cost::text AS cost,
-          e.status
-        FROM schedule_events e
-        JOIN teams t ON t.id = e.team_id
-        WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
-        ORDER BY t.name, e.event_date NULLS LAST, e.id
-      `,
-      // The roster for each team in this division, so an event's Groups panel
-      // can list who's available and the planner knows the roster size.
-      sql()`
-        SELECT p.id, p.team_id, p.player_name, p.primary_position
-        FROM players p
-        JOIN teams t ON t.id = p.team_id
-        WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
-        ORDER BY t.name, p.player_name
-      `,
-      // Only the "sitting" decisions — a player attends an event unless a row
-      // marks them attending = false, so this is all we need to reconstruct
-      // each event's group and every player's appearance count.
-      sql()`
-        SELECT a.event_id, a.player_id, a.attending
-        FROM event_attendance a
-        JOIN schedule_events e ON e.id = a.event_id
-        JOIN teams t ON t.id = e.team_id
-        WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
-          AND a.attending = false
-      `,
-    ]);
+    const [teamRows, eventRows, playerRows, attendanceRows, groupRows] =
+      await Promise.all([
+        sql()`
+          SELECT
+            t.id,
+            t.name,
+            t.division,
+            t.sport,
+            t.roster_group_count,
+            (SELECT count(*) FROM schedule_events e WHERE e.team_id = t.id)::int AS event_count
+          FROM teams t
+          WHERE t.company_id = ${session.companyId}
+            AND t.division = ${division.slug}
+          ORDER BY t.name
+        `,
+        sql()`
+          SELECT
+            e.id,
+            e.team_id,
+            e.event_host,
+            e.event_date::text AS event_date,
+            e.event_end_date::text AS event_end_date,
+            e.event_name,
+            e.location,
+            e.cost::text AS cost,
+            e.status
+          FROM schedule_events e
+          JOIN teams t ON t.id = e.team_id
+          WHERE t.company_id = ${session.companyId}
+            AND t.division = ${division.slug}
+          ORDER BY t.name, e.event_date NULLS LAST, e.id
+        `,
+        // The roster for each team in this division, so an event's Groups panel
+        // can list who's available, and the planner knows the roster size.
+        sql()`
+          SELECT p.id, p.team_id, p.player_name, p.primary_position, p.roster_group
+          FROM players p
+          JOIN teams t ON t.id = p.team_id
+          WHERE t.company_id = ${session.companyId}
+            AND t.division = ${division.slug}
+          ORDER BY t.name, p.player_name
+        `,
+        // Every per-player exception (attending true or false). A row overrides
+        // the group baseline for that one player at that one event.
+        sql()`
+          SELECT a.event_id, a.player_id, a.attending
+          FROM event_attendance a
+          JOIN schedule_events e ON e.id = a.event_id
+          JOIN teams t ON t.id = e.team_id
+          WHERE t.company_id = ${session.companyId}
+            AND t.division = ${division.slug}
+        `,
+        // Which standing groups play each event — the attendance baseline.
+        sql()`
+          SELECT g.event_id, g.group_number
+          FROM event_groups g
+          JOIN schedule_events e ON e.id = g.event_id
+          JOIN teams t ON t.id = e.team_id
+          WHERE t.company_id = ${session.companyId}
+            AND t.division = ${division.slug}
+        `,
+      ]);
 
     teams = teamRows as ScheduleTeamRow[];
     events = eventRows as ScheduleEventRow[];
     roster = playerRows as GroupPlayer[];
     attendance = attendanceRows as AttendanceRow[];
+    eventGroups = groupRows as EventGroupRow[];
   } catch (err) {
     console.error("Schedules page load error:", err);
     loadError = true;
@@ -136,13 +150,34 @@ export default async function SchedulesPage({
     else playersByTeam.set(p.team_id, [p]);
   }
 
-  // Who's sitting out each event (event_id -> set of benched player ids).
-  const benchByEvent = new Map<number, Set<number>>();
+  // Per-player exceptions for each event (event_id -> player_id -> attending).
+  const overridesByEvent = new Map<number, Map<number, boolean>>();
   for (const a of attendance) {
-    const set = benchByEvent.get(a.event_id);
-    if (set) set.add(a.player_id);
-    else benchByEvent.set(a.event_id, new Set([a.player_id]));
+    let map = overridesByEvent.get(a.event_id);
+    if (!map) {
+      map = new Map<number, boolean>();
+      overridesByEvent.set(a.event_id, map);
+    }
+    map.set(a.player_id, a.attending);
   }
+
+  // Which standing groups play each event (event_id -> sorted group numbers).
+  const groupsByEvent = new Map<number, number[]>();
+  for (const g of eventGroups) {
+    const list = groupsByEvent.get(g.event_id);
+    if (list) list.push(g.group_number);
+    else groupsByEvent.set(g.event_id, [g.group_number]);
+  }
+  for (const list of groupsByEvent.values()) list.sort((a, b) => a - b);
+
+  // Resolve whether a player attends a given event: an explicit exception wins,
+  // otherwise the event's group selection decides (everyone if no groups).
+  const isAttending = (eventId: number, player: GroupPlayer): boolean =>
+    resolveAttending(
+      player.roster_group,
+      overridesByEvent.get(eventId)?.get(player.id),
+      groupsByEvent.get(eventId),
+    );
 
   return (
     <div className="teams">
@@ -253,13 +288,13 @@ export default async function SchedulesPage({
                   const total = formatCents(totalCents);
 
                   // Each player's appearances so far: every one of the team's
-                  // events they're not sitting out.
+                  // events they're attending under the group + exception rules.
                   const playerAttendance = teamPlayers.map((p) => ({
                     id: p.id,
                     player_name: p.player_name,
-                    attending: teamEvents.filter(
-                      (e) => !(benchByEvent.get(e.id)?.has(p.id) ?? false),
-                    ).length,
+                    roster_group: p.roster_group,
+                    attending: teamEvents.filter((e) => isAttending(e.id, p))
+                      .length,
                   }));
                   return (
                     <details key={t.id} className="team-group">
@@ -297,6 +332,12 @@ export default async function SchedulesPage({
                         players={playerAttendance}
                       />
 
+                      <RosterGroups
+                        teamId={t.id}
+                        players={teamPlayers}
+                        groupCount={t.roster_group_count}
+                      />
+
                       {teamEvents.length === 0 ? (
                         <p className="tg-empty">
                           No tournaments scheduled yet — add one above.
@@ -321,9 +362,15 @@ export default async function SchedulesPage({
                                   event={row}
                                   division={division.slug}
                                   players={teamPlayers}
-                                  benchedIds={[
-                                    ...(benchByEvent.get(row.id) ?? []),
-                                  ]}
+                                  groupCount={t.roster_group_count}
+                                  selectedGroups={groupsByEvent.get(row.id) ?? []}
+                                  overrides={[
+                                    ...(overridesByEvent.get(row.id) ??
+                                      new Map<number, boolean>()),
+                                  ].map(([playerId, attending]) => ({
+                                    playerId,
+                                    attending,
+                                  }))}
                                 />
                               ))}
                             </tbody>

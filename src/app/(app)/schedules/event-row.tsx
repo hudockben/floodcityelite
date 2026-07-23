@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import {
   deleteEventAction,
   setAttendanceAction,
   setEventAttendanceAllAction,
+  setEventGroupsAction,
   updateEventAction,
   type FormState,
 } from "./actions";
@@ -18,6 +19,8 @@ import {
   eventCostCounts,
   formatDate,
   formatMoney,
+  groupBaseline,
+  resolveAttending,
   type EventField,
   type GroupPlayer,
   type ScheduleEventRow,
@@ -68,21 +71,52 @@ export default function EventRow({
   event,
   division,
   players,
-  benchedIds,
+  groupCount,
+  selectedGroups,
+  overrides,
 }: {
   event: ScheduleEventRow;
   division: string;
   players: GroupPlayer[];
-  benchedIds: number[];
+  groupCount: number;
+  selectedGroups: number[];
+  overrides: { playerId: number; attending: boolean }[];
 }) {
   const [editing, setEditing] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(false);
-  // Who's sitting out this event (optimistic). Seeded from the server and
-  // updated locally on each toggle so the button badge and the panel agree
-  // instantly; the server action revalidates in the background.
-  const [benched, setBenched] = useState<Set<number>>(
-    () => new Set(benchedIds),
+  // Which standing groups play this event (optimistic). Seeded from the server;
+  // toggling a group re-derives who's attending on the spot.
+  const [selected, setSelected] = useState<Set<number>>(
+    () => new Set(selectedGroups),
   );
+  // Per-player exceptions on top of the group baseline (optimistic). We store a
+  // player here only when their state deviates from what the groups dictate.
+  const [overrideMap, setOverrideMap] = useState<Map<number, boolean>>(
+    () => new Map(overrides.map((o) => [o.playerId, o.attending])),
+  );
+
+  // Resync the optimistic state whenever the server's view of this event
+  // changes — e.g. lowering the team's group count prunes a group this event
+  // had picked, or a sibling panel's action revalidates the page. The seed-once
+  // state above would otherwise drift from the database (show players benched
+  // that the DB has attending). A signature of the incoming server props tells
+  // us when to resync; our own toggles revalidate to the same value, so this is
+  // a no-op for them and only corrects genuine external changes.
+  const serverSig = useMemo(() => {
+    const g = [...selectedGroups].sort((a, b) => a - b).join(",");
+    const o = overrides
+      .map((ov) => `${ov.playerId}:${ov.attending ? 1 : 0}`)
+      .sort()
+      .join(",");
+    return `${g}|${o}`;
+  }, [selectedGroups, overrides]);
+  const [syncedSig, setSyncedSig] = useState(serverSig);
+  if (serverSig !== syncedSig) {
+    setSyncedSig(serverSig);
+    setSelected(new Set(selectedGroups));
+    setOverrideMap(new Map(overrides.map((o) => [o.playerId, o.attending])));
+  }
+
   const [state, formAction, pending] = useActionState(
     updateEventAction,
     initialState,
@@ -94,37 +128,94 @@ export default function EventRow({
     if (state?.ok) setEditing(false);
   }, [state]);
 
-  // Flip one player between attending and sitting, reverting if the save fails.
+  // Add or remove a standing group from this event's selection.
+  function toggleGroup(group: number) {
+    const prev = selected;
+    const next = new Set(prev);
+    if (next.has(group)) next.delete(group);
+    else next.add(group);
+    setSelected(next);
+    setEventGroupsAction({ eventId: event.id, groups: [...next] }).catch(() => {
+      setSelected(prev);
+    });
+  }
+
+  // Flip one player between attending and sitting. The stored value is a
+  // deviation from the group baseline, so matching the baseline clears the
+  // exception; reverts if the save fails.
   function toggleAttendance(playerId: number) {
-    const willAttend = benched.has(playerId);
-    setBenched((prev) => {
-      const next = new Set(prev);
-      if (willAttend) next.delete(playerId);
-      else next.add(playerId);
+    const player = players.find((p) => p.id === playerId);
+    if (!player) return;
+    const current = resolveAttending(
+      player.roster_group,
+      overrideMap.get(playerId),
+      selected,
+    );
+    const desired = !current;
+    const base = groupBaseline(player.roster_group, selected);
+    const prev = overrideMap;
+    setOverrideMap((prevMap) => {
+      const next = new Map(prevMap);
+      if (desired === base) next.delete(playerId);
+      else next.set(playerId, desired);
       return next;
     });
-    setAttendanceAction({ eventId: event.id, playerId, attending: willAttend }).catch(
-      () => {
-        setBenched((prev) => {
-          const next = new Set(prev);
-          if (willAttend) next.add(playerId);
-          else next.delete(playerId);
-          return next;
-        });
-      },
-    );
+    setAttendanceAction({
+      eventId: event.id,
+      playerId,
+      attending: desired,
+    }).catch(() => setOverrideMap(prev));
   }
 
-  // Mark the whole roster attending or sitting for this event.
+  // Take the whole roster or sit everyone for this event. Both clear the group
+  // selection (the choice is no longer group-based).
   function setAllAttendance(attending: boolean) {
-    const prev = benched;
-    setBenched(attending ? new Set() : new Set(players.map((p) => p.id)));
+    const prevSel = selected;
+    const prevOv = overrideMap;
+    setSelected(new Set());
+    setOverrideMap(
+      attending ? new Map() : new Map(players.map((p) => [p.id, false])),
+    );
     setEventAttendanceAllAction({ eventId: event.id, attending }).catch(() => {
-      setBenched(prev);
+      setSelected(prevSel);
+      setOverrideMap(prevOv);
     });
   }
 
-  const attendingCount = players.length - benched.size;
+  // View models for the panel: each player's resolved state and whether it's an
+  // exception to their group baseline.
+  const playerViews = useMemo(
+    () =>
+      players.map((p) => {
+        const attending = resolveAttending(
+          p.roster_group,
+          overrideMap.get(p.id),
+          selected,
+        );
+        return {
+          id: p.id,
+          player_name: p.player_name,
+          primary_position: p.primary_position,
+          roster_group: p.roster_group,
+          attending,
+          isException: attending !== groupBaseline(p.roster_group, selected),
+        };
+      }),
+    [players, overrideMap, selected],
+  );
+
+  // How many players sit in each configured group (for the group chips).
+  const groupSizes = useMemo(() => {
+    const sizes = new Map<number, number>();
+    for (const p of players) {
+      if (p.roster_group != null && p.roster_group >= 1 && p.roster_group <= groupCount) {
+        sizes.set(p.roster_group, (sizes.get(p.roster_group) ?? 0) + 1);
+      }
+    }
+    return sizes;
+  }, [players, groupCount]);
+
+  const attendingCount = playerViews.filter((p) => p.attending).length;
 
   if (editing) {
     return (
@@ -268,9 +359,12 @@ export default function EventRow({
       <tr className="groups-row">
         <td colSpan={COL_SPAN}>
           <GroupsPanel
-            players={players}
-            benched={benched}
+            players={playerViews}
+            groupCount={groupCount}
+            groupSizes={groupSizes}
+            selectedGroups={selected}
             division={division}
+            onToggleGroup={toggleGroup}
             onToggle={toggleAttendance}
             onSetAll={setAllAttendance}
           />

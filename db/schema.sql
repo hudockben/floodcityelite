@@ -49,6 +49,9 @@ CREATE TABLE IF NOT EXISTS teams (
                   CHECK (division IN ('spring-summer-baseball', 'softball', 'fall-baseball')),
     sport       VARCHAR(16)  NOT NULL DEFAULT 'baseball'
                   CHECK (sport IN ('baseball', 'softball')),
+    -- How many standing roster groups this team is split into (0 = not using
+    -- groups). Powers the Schedules-tab group rotation.
+    roster_group_count SMALLINT NOT NULL DEFAULT 0,
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
@@ -76,6 +79,9 @@ CREATE TABLE IF NOT EXISTS players (
     parent_name         VARCHAR(160),
     closest_facility    VARCHAR(160),
     is_paying           BOOLEAN      NOT NULL DEFAULT true,
+    -- Which standing roster group the player is in (1..team.roster_group_count),
+    -- or null when ungrouped. Used by the Schedules-tab group rotation.
+    roster_group        SMALLINT,
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
@@ -194,6 +200,24 @@ CREATE TABLE IF NOT EXISTS event_attendance (
 
 CREATE INDEX IF NOT EXISTS idx_event_attendance_event_id ON event_attendance (event_id);
 CREATE INDEX IF NOT EXISTS idx_event_attendance_player_id ON event_attendance (player_id);
+
+-- Event groups (which standing roster groups play a given event)
+--
+-- When a coach splits the roster into groups (see teams.roster_group_count and
+-- players.roster_group), each event travels a combination of them — Groups 1 &
+-- 2 one weekend, 1 & 3 the next. The selected group numbers are stored here and
+-- drive who's attending: a player plays when their roster_group is selected and
+-- sits otherwise, unless an event_attendance row overrides them for that event.
+-- An event with no rows keeps the default (whole roster attends unless benched).
+CREATE TABLE IF NOT EXISTS event_groups (
+    id            SERIAL      PRIMARY KEY,
+    event_id      INTEGER     NOT NULL REFERENCES schedule_events(id) ON DELETE CASCADE,
+    group_number  SMALLINT    NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (event_id, group_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_event_groups_event_id ON event_groups (event_id);
 
 -- ---------------------------------------------------------------------------
 -- Fundraisers

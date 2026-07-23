@@ -124,6 +124,13 @@ async function main() {
   // paying-player count was the full roster size.
   await sql`ALTER TABLE players ADD COLUMN IF NOT EXISTS is_paying BOOLEAN NOT NULL DEFAULT true`;
 
+  // Roster groups: split a team into standing, position-balanced groups.
+  // `teams.roster_group_count` is how many groups the coach set up (0 = off) and
+  // `players.roster_group` is which one a player is in (null = ungrouped).
+  // Nullable/defaulted and idempotent so older databases pick this up cleanly.
+  await sql`ALTER TABLE teams ADD COLUMN IF NOT EXISTS roster_group_count SMALLINT NOT NULL DEFAULT 0`;
+  await sql`ALTER TABLE players ADD COLUMN IF NOT EXISTS roster_group SMALLINT`;
+
   // Payments are logged against a player (→ team → company) and power the
   // Payment Tracker tab.
   await sql`
@@ -233,6 +240,35 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_event_attendance_event_id ON event_attendance (event_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_event_attendance_player_id ON event_attendance (player_id)`;
+
+  // Event groups: which standing roster groups play a given event (e.g. Groups
+  // 1 & 2 one weekend, 1 & 3 the next). The selected group numbers drive who's
+  // attending, leaving event_attendance for per-player exceptions; an event
+  // with no rows keeps the default full roster (minus anyone benched).
+  await sql`
+    CREATE TABLE IF NOT EXISTS event_groups (
+      id            SERIAL      PRIMARY KEY,
+      event_id      INTEGER     NOT NULL REFERENCES schedule_events(id) ON DELETE CASCADE,
+      group_number  SMALLINT    NOT NULL,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (event_id, group_number)
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_event_groups_event_id ON event_groups (event_id)`;
+
+  // Clear redundant attendance rows left by the earlier per-player toggle: an
+  // attending = true row on an event with no group selection equals the "all
+  // attend" baseline, so it's a no-op to resolve but would wrongly override a
+  // group pick later. Per-player exceptions on events that DO have groups are
+  // left alone. Safe to re-run (new writes never create a redundant true row).
+  await sql`
+    DELETE FROM event_attendance a
+    WHERE a.attending = true
+      AND NOT EXISTS (
+        SELECT 1 FROM event_groups g WHERE g.event_id = a.event_id
+      )
+  `;
 
   // A fundraiser is a campaign/event owned by a company. Only the name is
   // required; goal and event_date are optional.

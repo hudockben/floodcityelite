@@ -81,4 +81,42 @@ async function provision(): Promise<void> {
 
   await db`CREATE INDEX IF NOT EXISTS idx_event_attendance_event_id ON event_attendance (event_id)`;
   await db`CREATE INDEX IF NOT EXISTS idx_event_attendance_player_id ON event_attendance (player_id)`;
+
+  // Which standing roster groups play a given event. When a coach picks, say,
+  // Groups 1 & 2 for a weekend, those group numbers are stored here and drive
+  // who's attending (players whose roster_group is selected play; the rest
+  // sit), leaving event_attendance to hold only per-player exceptions. An event
+  // with no rows keeps the legacy "whole roster attends unless benched"
+  // behaviour. Cascades when the event is removed.
+  await db`
+    CREATE TABLE IF NOT EXISTS event_groups (
+      id            SERIAL      PRIMARY KEY,
+      event_id      INTEGER     NOT NULL REFERENCES schedule_events(id) ON DELETE CASCADE,
+      group_number  SMALLINT    NOT NULL,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (event_id, group_number)
+    )
+  `;
+
+  await db`CREATE INDEX IF NOT EXISTS idx_event_groups_event_id ON event_groups (event_id)`;
+
+  // Normalise redundant attendance rows left by the earlier per-player toggle.
+  // The old code persisted an attending = true row whenever a coach re-included
+  // a benched player, and hid those rows by only reading attending = false — so
+  // they were harmless then. Now that a stored row overrides the group baseline,
+  // a stale true row would wrongly force a player to attend once their team
+  // starts picking groups. Drop the redundant ones: on an event with no group
+  // selection the baseline is "everyone attends", so an attending = true row
+  // equals the baseline and removing it changes no resolved attendance. Real
+  // "bring an out-of-group player in" exceptions live on events that DO have a
+  // group selection and are left untouched. Safe to run every cold start — new
+  // writes never create a redundant true row (setAttendanceAction drops a row
+  // that matches the baseline), so this only ever clears the legacy backlog.
+  await db`
+    DELETE FROM event_attendance a
+    WHERE a.attending = true
+      AND NOT EXISTS (
+        SELECT 1 FROM event_groups g WHERE g.event_id = a.event_id
+      )
+  `;
 }

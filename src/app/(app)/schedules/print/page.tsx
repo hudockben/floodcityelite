@@ -6,7 +6,9 @@ import { ensureSchedulesSchema } from "../schema";
 import {
   EVENT_FIELDS,
   formatDate,
+  resolveAttending,
   type AttendanceRow,
+  type EventGroupRow,
   type GroupPlayer,
   type ScheduleEventRow,
   type ScheduleTeamRow,
@@ -77,67 +79,79 @@ export default async function SchedulesPrintPage({
   let events: ScheduleEventRow[] = [];
   let roster: GroupPlayer[] = [];
   let attendance: AttendanceRow[] = [];
+  let eventGroups: EventGroupRow[] = [];
   let loadError = false;
 
   try {
     await ensureSchedulesSchema();
 
-    const [teamRows, eventRows, playerRows, attendanceRows] = await Promise.all([
-      sql()`
-        SELECT
-          t.id,
-          t.name,
-          t.division,
-          t.sport,
-          (SELECT count(*) FROM schedule_events e WHERE e.team_id = t.id)::int AS event_count
-        FROM teams t
-        WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
-        ORDER BY t.name
-      `,
-      sql()`
-        SELECT
-          e.id,
-          e.team_id,
-          e.event_host,
-          e.event_date::text AS event_date,
-          e.event_end_date::text AS event_end_date,
-          e.event_name,
-          e.location,
-          e.cost::text AS cost,
-          e.status
-        FROM schedule_events e
-        JOIN teams t ON t.id = e.team_id
-        WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
-        ORDER BY t.name, e.event_date NULLS LAST, e.id
-      `,
-      // Roster for each team so the rotation grid can list every player.
-      sql()`
-        SELECT p.id, p.team_id, p.player_name, p.primary_position
-        FROM players p
-        JOIN teams t ON t.id = p.team_id
-        WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
-        ORDER BY t.name, p.player_name
-      `,
-      // Only the "sitting" decisions — a player plays an event unless a row
-      // marks them attending = false — enough to fill in the grid.
-      sql()`
-        SELECT a.event_id, a.player_id, a.attending
-        FROM event_attendance a
-        JOIN schedule_events e ON e.id = a.event_id
-        JOIN teams t ON t.id = e.team_id
-        WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
-          AND a.attending = false
-      `,
-    ]);
+    const [teamRows, eventRows, playerRows, attendanceRows, groupRows] =
+      await Promise.all([
+        sql()`
+          SELECT
+            t.id,
+            t.name,
+            t.division,
+            t.sport,
+            t.roster_group_count,
+            (SELECT count(*) FROM schedule_events e WHERE e.team_id = t.id)::int AS event_count
+          FROM teams t
+          WHERE t.company_id = ${session.companyId}
+            AND t.division = ${division.slug}
+          ORDER BY t.name
+        `,
+        sql()`
+          SELECT
+            e.id,
+            e.team_id,
+            e.event_host,
+            e.event_date::text AS event_date,
+            e.event_end_date::text AS event_end_date,
+            e.event_name,
+            e.location,
+            e.cost::text AS cost,
+            e.status
+          FROM schedule_events e
+          JOIN teams t ON t.id = e.team_id
+          WHERE t.company_id = ${session.companyId}
+            AND t.division = ${division.slug}
+          ORDER BY t.name, e.event_date NULLS LAST, e.id
+        `,
+        // Roster for each team so the rotation grid can list every player.
+        sql()`
+          SELECT p.id, p.team_id, p.player_name, p.primary_position, p.roster_group
+          FROM players p
+          JOIN teams t ON t.id = p.team_id
+          WHERE t.company_id = ${session.companyId}
+            AND t.division = ${division.slug}
+          ORDER BY t.name, p.player_name
+        `,
+        // Every per-player exception (attending true or false); overrides the
+        // group baseline for that one player at that one event.
+        sql()`
+          SELECT a.event_id, a.player_id, a.attending
+          FROM event_attendance a
+          JOIN schedule_events e ON e.id = a.event_id
+          JOIN teams t ON t.id = e.team_id
+          WHERE t.company_id = ${session.companyId}
+            AND t.division = ${division.slug}
+        `,
+        // Which standing groups play each event — the attendance baseline.
+        sql()`
+          SELECT g.event_id, g.group_number
+          FROM event_groups g
+          JOIN schedule_events e ON e.id = g.event_id
+          JOIN teams t ON t.id = e.team_id
+          WHERE t.company_id = ${session.companyId}
+            AND t.division = ${division.slug}
+        `,
+      ]);
 
     teams = teamRows as ScheduleTeamRow[];
     events = eventRows as ScheduleEventRow[];
     roster = playerRows as GroupPlayer[];
     attendance = attendanceRows as AttendanceRow[];
+    eventGroups = groupRows as EventGroupRow[];
   } catch (err) {
     console.error("Schedules print load error:", err);
     loadError = true;
@@ -166,12 +180,31 @@ export default async function SchedulesPrintPage({
     else playersByTeam.set(p.team_id, [p]);
   }
 
-  const benchByEvent = new Map<number, Set<number>>();
+  // Per-player exceptions and each event's group selection, combined into a
+  // single attendance resolver (mirrors the on-screen Schedules tab).
+  const overridesByEvent = new Map<number, Map<number, boolean>>();
   for (const a of attendance) {
-    const set = benchByEvent.get(a.event_id);
-    if (set) set.add(a.player_id);
-    else benchByEvent.set(a.event_id, new Set([a.player_id]));
+    let map = overridesByEvent.get(a.event_id);
+    if (!map) {
+      map = new Map<number, boolean>();
+      overridesByEvent.set(a.event_id, map);
+    }
+    map.set(a.player_id, a.attending);
   }
+
+  const groupsByEvent = new Map<number, number[]>();
+  for (const g of eventGroups) {
+    const list = groupsByEvent.get(g.event_id);
+    if (list) list.push(g.group_number);
+    else groupsByEvent.set(g.event_id, [g.group_number]);
+  }
+
+  const isPlaying = (eventId: number, player: GroupPlayer): boolean =>
+    resolveAttending(
+      player.roster_group,
+      overridesByEvent.get(eventId)?.get(player.id),
+      groupsByEvent.get(eventId),
+    );
 
   // Total number of events across the teams being printed (all of them, or the
   // single one for a per-team print). Costs are intentionally left off the
@@ -263,77 +296,100 @@ export default async function SchedulesPrintPage({
                       and per-tournament totals — the "who's playing and when"
                       sheet. Only shown when there's a roster and a schedule. */}
                   {teamPlayers.length > 0 && teamEvents.length > 0 ? (
-                    <div className="print-groups">
-                      <h3 className="print-groups-title">Who&apos;s playing</h3>
-                      <div className="print-grid-scroll">
-                        <table className="print-grid">
-                          <thead>
-                            <tr>
-                              <th className="pg-player">Player</th>
-                              {teamEvents.map((e) => (
-                                <th key={e.id} className="pg-evt">
-                                  <span className="pg-evt-date">
-                                    {shortDate(e.event_date) || "—"}
-                                  </span>
-                                  <span className="pg-evt-name">
-                                    {e.event_name}
-                                  </span>
-                                </th>
-                              ))}
-                              <th className="pg-total">Total</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {teamPlayers.map((p) => {
-                              const played = teamEvents.filter(
-                                (e) =>
-                                  !(benchByEvent.get(e.id)?.has(p.id) ?? false),
-                              ).length;
-                              return (
-                                <tr key={p.id}>
-                                  <td className="pg-player">{p.player_name}</td>
+                    (() => {
+                      const usesGroups = teamPlayers.some(
+                        (p) => p.roster_group != null,
+                      );
+                      return (
+                        <div className="print-groups">
+                          <h3 className="print-groups-title">
+                            Who&apos;s playing
+                          </h3>
+                          <div className="print-grid-scroll">
+                            <table className="print-grid">
+                              <thead>
+                                <tr>
+                                  <th className="pg-player">Player</th>
+                                  {usesGroups ? (
+                                    <th className="pg-grp">Grp</th>
+                                  ) : null}
+                                  {teamEvents.map((e) => (
+                                    <th key={e.id} className="pg-evt">
+                                      <span className="pg-evt-date">
+                                        {shortDate(e.event_date) || "—"}
+                                      </span>
+                                      <span className="pg-evt-name">
+                                        {e.event_name}
+                                      </span>
+                                    </th>
+                                  ))}
+                                  <th className="pg-total">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {teamPlayers.map((p) => {
+                                  const played = teamEvents.filter((e) =>
+                                    isPlaying(e.id, p),
+                                  ).length;
+                                  return (
+                                    <tr key={p.id}>
+                                      <td className="pg-player">
+                                        {p.player_name}
+                                      </td>
+                                      {usesGroups ? (
+                                        <td className="pg-grp">
+                                          {p.roster_group != null
+                                            ? p.roster_group
+                                            : "—"}
+                                        </td>
+                                      ) : null}
+                                      {teamEvents.map((e) => {
+                                        const playing = isPlaying(e.id, p);
+                                        return (
+                                          <td
+                                            key={e.id}
+                                            className={
+                                              playing ? "pg-in" : "pg-out"
+                                            }
+                                          >
+                                            {playing ? "✓" : "–"}
+                                          </td>
+                                        );
+                                      })}
+                                      <td className="pg-total">{played}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot>
+                                <tr>
+                                  <td className="pg-player">Playing</td>
+                                  {usesGroups ? (
+                                    <td className="pg-grp" />
+                                  ) : null}
                                   {teamEvents.map((e) => {
-                                    const playing = !(
-                                      benchByEvent.get(e.id)?.has(p.id) ?? false
+                                    const count = teamPlayers.reduce(
+                                      (n, p) => n + (isPlaying(e.id, p) ? 1 : 0),
+                                      0,
                                     );
                                     return (
-                                      <td
-                                        key={e.id}
-                                        className={playing ? "pg-in" : "pg-out"}
-                                      >
-                                        {playing ? "✓" : "–"}
+                                      <td key={e.id} className="pg-count">
+                                        {count}
                                       </td>
                                     );
                                   })}
-                                  <td className="pg-total">{played}</td>
+                                  <td className="pg-total" />
                                 </tr>
-                              );
-                            })}
-                          </tbody>
-                          <tfoot>
-                            <tr>
-                              <td className="pg-player">Playing</td>
-                              {teamEvents.map((e) => {
-                                const benched = benchByEvent.get(e.id);
-                                const count = teamPlayers.reduce(
-                                  (n, p) => n + (benched?.has(p.id) ? 0 : 1),
-                                  0,
-                                );
-                                return (
-                                  <td key={e.id} className="pg-count">
-                                    {count}
-                                  </td>
-                                );
-                              })}
-                              <td className="pg-total" />
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                      <p className="print-groups-legend">
-                        ✓ = playing · Total = tournaments per player
-                      </p>
-                    </div>
+                              </tfoot>
+                            </table>
+                          </div>
+                          <p className="print-groups-legend">
+                            ✓ = playing · Total = tournaments per player
+                            {usesGroups ? " · Grp = roster group" : ""}
+                          </p>
+                        </div>
+                      );
+                    })()
                   ) : null}
                 </section>
               );
