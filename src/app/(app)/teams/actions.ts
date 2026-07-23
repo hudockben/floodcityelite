@@ -4,6 +4,13 @@ import { revalidatePath } from "next/cache";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { isDivisionSlug, isSport } from "./divisions";
+import {
+  mapRows,
+  nameKey,
+  parseRosterFile,
+  RosterImportError,
+  type ParsedPlayer,
+} from "./roster-import";
 import { ensureTeamsSchema } from "./schema";
 
 export type FormState = { ok?: boolean; error?: string };
@@ -180,6 +187,176 @@ export async function deletePlayerAction(formData: FormData): Promise<void> {
   `;
 
   revalidatePath("/teams");
+}
+
+// --- bulk-upload a roster from a CSV / Excel file --------------------------
+
+export type BulkUploadResult = {
+  teamName: string;
+  fileName: string;
+  added: number;
+  duplicatesExisting: number;
+  duplicatesInFile: number;
+  noName: number;
+  totalRows: number;
+  addedNames: string[];
+  duplicateNames: string[];
+  ignoredColumns: string[];
+  warnings: string[];
+};
+
+export type BulkUploadState = {
+  ok?: boolean;
+  error?: string;
+  result?: BulkUploadResult;
+};
+
+const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_IMPORT_ROWS = 500; // new players per upload
+
+export async function bulkUploadRosterAction(
+  _prev: BulkUploadState,
+  formData: FormData,
+): Promise<BulkUploadState> {
+  const session = await getSession();
+  if (!session) return { error: "Your session has expired. Please sign in again." };
+
+  const teamId = Number.parseInt(String(formData.get("teamId") ?? ""), 10);
+  if (!Number.isFinite(teamId)) return { error: "Choose a team to import into." };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Choose a CSV or Excel file to upload." };
+  }
+  if (file.size > MAX_FILE_BYTES) {
+    return { error: "That file is too large. Please upload a file under 5 MB." };
+  }
+
+  // 1) Parse the file into rows of strings.
+  let rows: string[][];
+  try {
+    const buffer = await file.arrayBuffer();
+    rows = await parseRosterFile(file.name, buffer);
+  } catch (err) {
+    if (err instanceof RosterImportError) return { error: err.message };
+    console.error("bulkUpload parse error:", err);
+    return {
+      error: "Couldn't read that file. Make sure it's a valid CSV or Excel (.xlsx) file.",
+    };
+  }
+
+  // 2) Map columns onto our roster fields.
+  const mapped = mapRows(rows);
+  if (mapped.nameMode === "none") {
+    return {
+      error:
+        'Couldn’t find a player-name column. Include "player_first" and "player_last" (or a single "player_name") column, then try again.',
+    };
+  }
+  if (mapped.totalDataRows === 0) {
+    return { error: "That file has a header row but no player rows." };
+  }
+
+  try {
+    await ensureTeamsSchema();
+
+    // Confirm the team belongs to this company before touching its roster.
+    const owned = await sql()`
+      SELECT id, name FROM teams
+      WHERE id = ${teamId} AND company_id = ${session.companyId}
+    `;
+    if (owned.length === 0) return { error: "That team no longer exists." };
+    const teamName = String(owned[0].name);
+
+    // 3) Dedupe: skip anyone already on this team's roster, and any repeats
+    //    within the uploaded file itself.
+    const existing = await sql()`
+      SELECT player_name FROM players WHERE team_id = ${teamId}
+    `;
+    const existingKeys = new Set(
+      existing.map((r) => nameKey(String((r as { player_name: string }).player_name))),
+    );
+
+    const seen = new Set<string>();
+    const toInsert: ParsedPlayer[] = [];
+    const addedNames: string[] = [];
+    const duplicateNames: string[] = [];
+    let duplicatesExisting = 0;
+    let duplicatesInFile = 0;
+
+    for (const p of mapped.players) {
+      const key = nameKey(p.player_name);
+      if (existingKeys.has(key)) {
+        duplicatesExisting++;
+        if (duplicateNames.length < 50) duplicateNames.push(p.player_name);
+        continue;
+      }
+      if (seen.has(key)) {
+        duplicatesInFile++;
+        if (duplicateNames.length < 50) duplicateNames.push(p.player_name);
+        continue;
+      }
+      seen.add(key);
+      toInsert.push(p);
+      if (addedNames.length < 100) addedNames.push(p.player_name);
+    }
+
+    if (toInsert.length > MAX_IMPORT_ROWS) {
+      return {
+        error: `This file has ${toInsert.length} new players, over the ${MAX_IMPORT_ROWS}-per-upload limit. Please split it into smaller files.`,
+      };
+    }
+
+    // 4) Insert the new players in a single transaction.
+    if (toInsert.length > 0) {
+      await sql().transaction((txn) =>
+        toInsert.map(
+          (p) => txn`
+            INSERT INTO players (
+              team_id, player_name, grad_year, date_of_birth, height, weight,
+              primary_position, secondary_position, high_school,
+              parent_phone, parent_email, parent_name, closest_facility
+            ) VALUES (
+              ${teamId},
+              ${p.player_name},
+              ${p.grad_year},
+              ${p.date_of_birth},
+              ${p.height},
+              ${p.weight},
+              ${p.primary_position},
+              ${p.secondary_position},
+              ${p.high_school},
+              ${p.parent_phone},
+              ${p.parent_email},
+              ${p.parent_name},
+              ${p.closest_facility}
+            )
+          `,
+        ),
+      );
+    }
+
+    revalidatePath("/teams");
+    return {
+      ok: true,
+      result: {
+        teamName,
+        fileName: file.name,
+        added: toInsert.length,
+        duplicatesExisting,
+        duplicatesInFile,
+        noName: mapped.noNameRows,
+        totalRows: mapped.totalDataRows,
+        addedNames,
+        duplicateNames,
+        ignoredColumns: mapped.unmatchedHeaders,
+        warnings: mapped.warnings,
+      },
+    };
+  } catch (err) {
+    console.error("bulkUpload insert error:", err);
+    return { error: "Could not import the roster. Please try again." };
+  }
 }
 
 // --- delete a team (and its roster) ----------------------------------------

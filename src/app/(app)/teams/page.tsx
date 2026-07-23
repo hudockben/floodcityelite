@@ -5,6 +5,7 @@ import { getSession } from "@/lib/session";
 import { deleteTeamAction } from "./actions";
 import { ensureTeamsSchema } from "./schema";
 import AddPlayerForm from "./add-player-form";
+import BulkUploadForm from "./bulk-upload-form";
 import ConfirmButton from "./confirm-button";
 import CreateTeamForm from "./create-team-form";
 import PlayerRowItem from "./player-row";
@@ -198,6 +199,8 @@ export default async function TeamsPage({
         </div>
 
         <AddPlayerForm division={division.slug} teams={teamOptions} />
+
+        <BulkUploadForm division={division.slug} teams={teamOptions} />
       </section>
 
       {/* Step 3 — the roster */}

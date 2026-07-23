@@ -935,6 +935,161 @@ body {
   padding: 12px 24px;
 }
 
+/* Bulk roster upload (CSV / Excel) */
+.bulk-upload {
+  margin-top: 24px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--field-bg);
+  overflow: hidden;
+}
+
+.bulk-upload-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+.bulk-upload-summary::-webkit-details-marker {
+  display: none;
+}
+.bulk-upload-summary::marker {
+  content: "";
+}
+.bulk-upload-summary:hover {
+  background: rgba(56, 189, 248, 0.06);
+}
+.bulk-upload[open] > .bulk-upload-summary {
+  border-bottom: 1px solid var(--card-border);
+}
+.bulk-upload[open] > .bulk-upload-summary .tg-caret {
+  transform: rotate(45deg);
+}
+
+.bulk-upload-title {
+  font-weight: 700;
+  font-size: 0.98rem;
+}
+
+.bulk-upload-body {
+  padding: 16px;
+}
+.bulk-upload-body > .muted-note {
+  margin-top: 0;
+}
+
+.bulk-upload-form {
+  margin-top: 14px;
+}
+
+.bulk-upload-form input[type="file"] {
+  padding: 9px 10px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.bulk-upload-form input[type="file"]::file-selector-button {
+  margin-right: 12px;
+  padding: 7px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.1);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.bulk-file-name {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+/* Result summary shown after an import runs */
+.bulk-result {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: rgba(8, 20, 36, 0.35);
+}
+.bulk-result.ok {
+  border-color: rgba(52, 211, 153, 0.5);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.bulk-result-headline {
+  margin: 0 0 10px;
+  font-weight: 700;
+}
+
+.bulk-result-stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+.bulk-result-stats strong {
+  color: var(--text);
+}
+
+.bulk-result-note {
+  margin: 12px 0 0;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+.bulk-namelist {
+  margin-top: 12px;
+  font-size: 0.86rem;
+}
+.bulk-namelist > summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+.bulk-namelist ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  max-height: 220px;
+  overflow-y: auto;
+  columns: 2;
+}
+.bulk-namelist.bulk-warnings ul {
+  columns: 1;
+}
+
+.bulk-upload-help {
+  margin-top: 16px;
+  font-size: 0.86rem;
+}
+.bulk-upload-help > summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.bulk-help-body {
+  margin-top: 8px;
+}
+.bulk-help-body code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(148, 187, 233, 0.12);
+  font-size: 0.82rem;
+}
+.bulk-help-body ul {
+  margin: 8px 0;
+  padding-left: 18px;
+  line-height: 1.7;
+}
+
 /* Roster table */
 .roster-scroll {
   margin-top: 22px;
