@@ -2375,10 +2375,6 @@ body {
 }
 
 /* Inline status dropdown */
-.status-form {
-  margin: 0;
-}
-
 .status-select {
   appearance: none;
   padding: 5px 26px 5px 11px;

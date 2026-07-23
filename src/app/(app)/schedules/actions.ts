@@ -129,13 +129,21 @@ export async function updateEventAction(
 }
 
 // --- quick status change (inline dropdown) ---------------------------------
+//
+// Called directly with typed args (not as a <form action>) from the inline
+// StatusSelect. Submitting through a form action would make React 19 reset the
+// form after the action resolved, snapping the controlled <select> back to its
+// first option ("Registered") and desyncing it from the saved value.
 
-export async function updateStatusAction(formData: FormData): Promise<void> {
+export async function updateStatusAction(input: {
+  eventId: number;
+  status: string;
+}): Promise<void> {
   const session = await getSession();
   if (!session) return;
 
-  const eventId = Number.parseInt(String(formData.get("eventId") ?? ""), 10);
-  const statusRaw = String(formData.get("status") ?? "");
+  const eventId = Number(input?.eventId);
+  const statusRaw = String(input?.status ?? "");
   if (!Number.isFinite(eventId) || !isEventStatus(statusRaw)) return;
 
   // Scope the update to an event whose team belongs to this company.
