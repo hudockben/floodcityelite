@@ -106,6 +106,117 @@ export type ScheduleTeamRow = {
   event_count: number;
 };
 
+// ---------------------------------------------------------------------------
+// Groups / playing-time rotation
+//
+// Each event can carry a "group" — the subset of the team's roster that's
+// attending that tournament. Rather than store a row per (event, player), we
+// store only the deviations from the default: a player is attending an event
+// unless there's an event_attendance row marking them as not attending. That
+// keeps the common case (take most of the roster, bench a few) to a handful of
+// rows and means a brand-new event starts with the whole roster attending.
+// ---------------------------------------------------------------------------
+
+// A roster player as shown in an event's Groups panel.
+export type GroupPlayer = {
+  id: number;
+  team_id: number;
+  player_name: string;
+  primary_position: string | null;
+};
+
+// One (event, player) attendance decision, as returned from the DB. Only
+// rows where attending = false are meaningful for counting (they mark a
+// benched player); everything else defaults to attending.
+export type AttendanceRow = {
+  event_id: number;
+  player_id: number;
+  attending: boolean;
+};
+
+// Per-player attendance summary across a team's scheduled events, used by the
+// rotation planner's live fairness readout.
+export type PlayerAttendance = {
+  id: number;
+  player_name: string;
+  attending: number; // number of the team's events this player is attending
+};
+
+// Result of the rotation math: given a roster size, how many players are taken
+// to each tournament, and a per-player target, how many tournaments are needed
+// and how evenly the playing time comes out.
+export type RotationPlan = {
+  valid: boolean;
+  rosterSize: number; // N
+  perEvent: number; // S, clamped to the roster size
+  target: number; // T
+  tournamentsNeeded: number; // Y = ceil(N * T / S)
+  totalSlots: number; // S * Y — total player-appearances available
+  minPlays: number; // everyone plays at least this many over Y tournaments
+  playersAtMax: number; // this many players play one extra (minPlays + 1)
+  benchPerEvent: number; // N - S players rest each tournament
+};
+
+/**
+ * Work out how many tournaments to schedule so every player reaches a target
+ * number of appearances, taking a fixed number of players to each one.
+ *
+ * The core identity: each tournament offers `perEvent` player-slots, and the
+ * roster needs `rosterSize * target` slots in total for everyone to hit the
+ * target, so the minimum number of tournaments is
+ *
+ *     ceil(rosterSize * target / perEvent)
+ *
+ * With that many tournaments the `perEvent * tournaments` slots are shared out
+ * as evenly as possible: everyone plays at least `minPlays`, and `playersAtMax`
+ * of them play one more. `perEvent` is clamped to the roster — you can't take
+ * more players than you have.
+ *
+ * Example: 15 on the roster, take 12 each time, target 4 → 5 tournaments, and
+ * because 12 × 5 = 60 = 15 × 4 exactly, every player plays 4 and sits once.
+ */
+export function planRotation(
+  rosterSize: number,
+  perEvent: number,
+  target: number,
+): RotationPlan {
+  const N = Math.max(0, Math.floor(rosterSize));
+  const S = Math.min(Math.max(0, Math.floor(perEvent)), N);
+  const T = Math.max(0, Math.floor(target));
+  const benchPerEvent = Math.max(0, N - S);
+
+  if (N === 0 || S === 0 || T === 0) {
+    return {
+      valid: false,
+      rosterSize: N,
+      perEvent: S,
+      target: T,
+      tournamentsNeeded: 0,
+      totalSlots: 0,
+      minPlays: 0,
+      playersAtMax: 0,
+      benchPerEvent,
+    };
+  }
+
+  const tournamentsNeeded = Math.ceil((N * T) / S);
+  const totalSlots = S * tournamentsNeeded;
+  const minPlays = Math.floor(totalSlots / N);
+  const playersAtMax = totalSlots - minPlays * N; // remainder plays minPlays + 1
+
+  return {
+    valid: true,
+    rosterSize: N,
+    perEvent: S,
+    target: T,
+    tournamentsNeeded,
+    totalSlots,
+    minPlays,
+    playersAtMax,
+    benchPerEvent,
+  };
+}
+
 // --- formatting helpers ----------------------------------------------------
 //
 // Deterministic (no locale/timezone lookups) so server-rendered and

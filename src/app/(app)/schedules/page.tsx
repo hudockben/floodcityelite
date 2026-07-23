@@ -10,11 +10,14 @@ import {
 import { ensureSchedulesSchema } from "./schema";
 import AddEventForm from "./add-event-form";
 import EventRow from "./event-row";
+import RotationPlanner from "./rotation-planner";
 import {
   COST_FIELD_INDEX,
   SCHEDULE_HEADERS,
   costToCents,
   formatCents,
+  type AttendanceRow,
+  type GroupPlayer,
   type ScheduleEventRow,
   type ScheduleTeamRow,
 } from "./events";
@@ -38,6 +41,8 @@ export default async function SchedulesPage({
 
   let teams: ScheduleTeamRow[] = [];
   let events: ScheduleEventRow[] = [];
+  let roster: GroupPlayer[] = [];
+  let attendance: AttendanceRow[] = [];
   let loadError = false;
 
   try {
@@ -45,7 +50,7 @@ export default async function SchedulesPage({
     // the database predates this feature. Idempotent and memoized.
     await ensureSchedulesSchema();
 
-    const [teamRows, eventRows] = await Promise.all([
+    const [teamRows, eventRows, playerRows, attendanceRows] = await Promise.all([
       sql()`
         SELECT
           t.id,
@@ -75,10 +80,34 @@ export default async function SchedulesPage({
           AND t.division = ${division.slug}
         ORDER BY t.name, e.event_date NULLS LAST, e.id
       `,
+      // The roster for each team in this division, so an event's Groups panel
+      // can list who's available and the planner knows the roster size.
+      sql()`
+        SELECT p.id, p.team_id, p.player_name, p.primary_position
+        FROM players p
+        JOIN teams t ON t.id = p.team_id
+        WHERE t.company_id = ${session.companyId}
+          AND t.division = ${division.slug}
+        ORDER BY t.name, p.player_name
+      `,
+      // Only the "sitting" decisions — a player attends an event unless a row
+      // marks them attending = false, so this is all we need to reconstruct
+      // each event's group and every player's appearance count.
+      sql()`
+        SELECT a.event_id, a.player_id, a.attending
+        FROM event_attendance a
+        JOIN schedule_events e ON e.id = a.event_id
+        JOIN teams t ON t.id = e.team_id
+        WHERE t.company_id = ${session.companyId}
+          AND t.division = ${division.slug}
+          AND a.attending = false
+      `,
     ]);
 
     teams = teamRows as ScheduleTeamRow[];
     events = eventRows as ScheduleEventRow[];
+    roster = playerRows as GroupPlayer[];
+    attendance = attendanceRows as AttendanceRow[];
   } catch (err) {
     console.error("Schedules page load error:", err);
     loadError = true;
@@ -96,6 +125,22 @@ export default async function SchedulesPage({
     const list = eventsByTeam.get(e.team_id);
     if (list) list.push(e);
     else eventsByTeam.set(e.team_id, [e]);
+  }
+
+  // Group the roster by team for the Groups panels and the planner.
+  const playersByTeam = new Map<number, GroupPlayer[]>();
+  for (const p of roster) {
+    const list = playersByTeam.get(p.team_id);
+    if (list) list.push(p);
+    else playersByTeam.set(p.team_id, [p]);
+  }
+
+  // Who's sitting out each event (event_id -> set of benched player ids).
+  const benchByEvent = new Map<number, Set<number>>();
+  for (const a of attendance) {
+    const set = benchByEvent.get(a.event_id);
+    if (set) set.add(a.player_id);
+    else benchByEvent.set(a.event_id, new Set([a.player_id]));
   }
 
   return (
@@ -196,11 +241,22 @@ export default async function SchedulesPage({
               <div className="team-groups">
                 {teams.map((t) => {
                   const teamEvents = eventsByTeam.get(t.id) ?? [];
+                  const teamPlayers = playersByTeam.get(t.id) ?? [];
                   const totalCents = teamEvents.reduce(
                     (sum, e) => sum + costToCents(e.cost),
                     0,
                   );
                   const total = formatCents(totalCents);
+
+                  // Each player's appearances so far: every one of the team's
+                  // events they're not sitting out.
+                  const playerAttendance = teamPlayers.map((p) => ({
+                    id: p.id,
+                    player_name: p.player_name,
+                    attending: teamEvents.filter(
+                      (e) => !(benchByEvent.get(e.id)?.has(p.id) ?? false),
+                    ).length,
+                  }));
                   return (
                     <details key={t.id} className="team-group">
                       <summary className="team-group-summary">
@@ -231,6 +287,12 @@ export default async function SchedulesPage({
                         </div>
                       ) : null}
 
+                      <RotationPlanner
+                        rosterSize={teamPlayers.length}
+                        scheduledEvents={teamEvents.length}
+                        players={playerAttendance}
+                      />
+
                       {teamEvents.length === 0 ? (
                         <p className="tg-empty">
                           No tournaments scheduled yet — add one above.
@@ -254,6 +316,10 @@ export default async function SchedulesPage({
                                   key={row.id}
                                   event={row}
                                   division={division.slug}
+                                  players={teamPlayers}
+                                  benchedIds={[
+                                    ...(benchByEvent.get(row.id) ?? []),
+                                  ]}
                                 />
                               ))}
                             </tbody>

@@ -168,6 +168,29 @@ CREATE TABLE IF NOT EXISTS schedule_events (
 
 CREATE INDEX IF NOT EXISTS idx_schedule_events_team_id ON schedule_events (team_id);
 
+-- Event groups (playing-time rotation)
+--
+-- Which roster players are attending a given tournament. To keep everyone
+-- getting a fair share of playing time a coach may take, say, 12 of 15 to a
+-- weekend. Rather than store a row per (event, player), we store only the
+-- decisions that deviate from the default: a player is attending an event
+-- unless a row marks them attending = false. That keeps the common case (bench
+-- a few) to a handful of rows and lets a brand-new event start with the whole
+-- roster attending. A player's total appearances (used to check everyone hits
+-- the target number of tournaments) is derived from these rows at read time.
+CREATE TABLE IF NOT EXISTS event_attendance (
+    id          SERIAL      PRIMARY KEY,
+    event_id    INTEGER     NOT NULL REFERENCES schedule_events(id) ON DELETE CASCADE,
+    player_id   INTEGER     NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    attending   BOOLEAN     NOT NULL DEFAULT true,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (event_id, player_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_event_attendance_event_id ON event_attendance (event_id);
+CREATE INDEX IF NOT EXISTS idx_event_attendance_player_id ON event_attendance (player_id);
+
 -- ---------------------------------------------------------------------------
 -- Fundraisers
 --

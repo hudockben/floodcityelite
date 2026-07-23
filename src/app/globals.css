@@ -2360,6 +2360,444 @@ body {
   color: var(--text);
 }
 
+/* ---- Groups / playing-time rotation ---- */
+
+/* "Groups" toggle in a schedule row's actions, sitting alongside Edit/Remove. */
+.row-groups {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #bbf7d0;
+  background: transparent;
+  border: 1px solid rgba(34, 197, 94, 0.32);
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.row-groups:hover {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.55);
+}
+
+.row-groups.is-open {
+  background: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.6);
+}
+
+.row-groups-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.18);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+/* The expandable Groups panel row under an event. */
+.groups-row > td {
+  padding: 0;
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.groups-panel {
+  padding: 16px;
+  border-left: 3px solid #22c55e;
+}
+
+.groups-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.groups-counts {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.groups-count-main {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.groups-count-bench {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.groups-bulk {
+  display: flex;
+  gap: 8px;
+}
+
+.groups-bulk-btn {
+  padding: 5px 12px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(8, 20, 36, 0.6);
+  border: 1px solid var(--card-border);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.groups-bulk-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.groups-bulk-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.groups-hint {
+  margin: 8px 0 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.groups-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+/* A single player toggle chip. Green when attending, muted+dashed when sitting. */
+.group-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 0.86rem;
+  text-align: left;
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+
+.group-player.is-in {
+  border-color: rgba(34, 197, 94, 0.45);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.group-player.is-out {
+  border-style: dashed;
+  opacity: 0.72;
+}
+
+.group-player.is-out:hover {
+  opacity: 1;
+}
+
+.group-player-mark {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  border-radius: 999px;
+}
+
+.group-player.is-in .group-player-mark {
+  color: #04121f;
+  background: #22c55e;
+}
+
+.group-player.is-out .group-player-mark {
+  color: var(--text-muted);
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.group-player-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-player-pos {
+  flex: none;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgba(148, 187, 233, 0.1);
+}
+
+.group-player-state {
+  flex: none;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.group-player.is-in .group-player-state {
+  color: #86efac;
+}
+
+.groups-empty {
+  padding: 16px;
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  border-left: 3px solid var(--card-border);
+}
+
+.groups-empty a {
+  color: var(--accent);
+}
+
+/* ---- Playing-time planner (per team, above the schedule table) ---- */
+.planner {
+  margin: 4px 16px 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--roster-head-bg);
+}
+
+.planner-head {
+  margin-bottom: 14px;
+}
+
+.planner-title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.planner-sub {
+  margin: 3px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.planner-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.planner-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.planner-field span {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.planner-field input {
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 9px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.planner-field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.planner-result {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 10px;
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.planner-number {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+  min-width: 92px;
+}
+
+.planner-number-value {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.planner-number-label {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.planner-explain {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.planner-explain p {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.planner-explain strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.planner-explain .planner-gap {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.planner-gap.short {
+  color: #ffe3a8;
+}
+
+.planner-gap.ok {
+  color: #86efac;
+}
+
+.planner-invalid {
+  margin-top: 14px;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+.planner-fairness {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--card-border);
+}
+
+.planner-fairness-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.planner-fairness-head h4 {
+  margin: 0;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.planner-fairness-summary {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.planner-fairness-summary.short {
+  color: #ffe3a8;
+}
+
+.planner-fairness-summary.ok {
+  color: #86efac;
+}
+
+.planner-note {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+.planner-players {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 6px;
+}
+
+.planner-player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 0.84rem;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--field-bg);
+}
+
+.planner-player.short {
+  border-color: rgba(250, 204, 21, 0.4);
+  background: rgba(250, 204, 21, 0.08);
+}
+
+.planner-player-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planner-player-count {
+  flex: none;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.planner-player.short .planner-player-count {
+  color: #ffe3a8;
+}
+
+.planner-player-of {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
 /* ---- Payment Tracker ---- */
 
 /* Search-to-pay: type a player or team, pick a result, and a pre-filled draft

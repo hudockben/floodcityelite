@@ -3,10 +3,13 @@
 import { useActionState, useEffect, useState } from "react";
 import {
   deleteEventAction,
+  setAttendanceAction,
+  setEventAttendanceAllAction,
   updateEventAction,
   type FormState,
 } from "./actions";
 import ConfirmButton from "../teams/confirm-button";
+import GroupsPanel from "./groups-panel";
 import StatusSelect from "./status-select";
 import {
   EVENT_FIELDS,
@@ -15,6 +18,7 @@ import {
   formatDate,
   formatMoney,
   type EventField,
+  type GroupPlayer,
   type ScheduleEventRow,
 } from "./events";
 
@@ -62,11 +66,22 @@ function EditField({
 export default function EventRow({
   event,
   division,
+  players,
+  benchedIds,
 }: {
   event: ScheduleEventRow;
   division: string;
+  players: GroupPlayer[];
+  benchedIds: number[];
 }) {
   const [editing, setEditing] = useState(false);
+  const [groupsOpen, setGroupsOpen] = useState(false);
+  // Who's sitting out this event (optimistic). Seeded from the server and
+  // updated locally on each toggle so the button badge and the panel agree
+  // instantly; the server action revalidates in the background.
+  const [benched, setBenched] = useState<Set<number>>(
+    () => new Set(benchedIds),
+  );
   const [state, formAction, pending] = useActionState(
     updateEventAction,
     initialState,
@@ -77,6 +92,38 @@ export default function EventRow({
   useEffect(() => {
     if (state?.ok) setEditing(false);
   }, [state]);
+
+  // Flip one player between attending and sitting, reverting if the save fails.
+  function toggleAttendance(playerId: number) {
+    const willAttend = benched.has(playerId);
+    setBenched((prev) => {
+      const next = new Set(prev);
+      if (willAttend) next.delete(playerId);
+      else next.add(playerId);
+      return next;
+    });
+    setAttendanceAction({ eventId: event.id, playerId, attending: willAttend }).catch(
+      () => {
+        setBenched((prev) => {
+          const next = new Set(prev);
+          if (willAttend) next.add(playerId);
+          else next.delete(playerId);
+          return next;
+        });
+      },
+    );
+  }
+
+  // Mark the whole roster attending or sitting for this event.
+  function setAllAttendance(attending: boolean) {
+    const prev = benched;
+    setBenched(attending ? new Set() : new Set(players.map((p) => p.id)));
+    setEventAttendanceAllAction({ eventId: event.id, attending }).catch(() => {
+      setBenched(prev);
+    });
+  }
+
+  const attendingCount = players.length - benched.size;
 
   if (editing) {
     return (
@@ -142,7 +189,7 @@ export default function EventRow({
     );
   }
 
-  return (
+  const displayRow = (
     <tr>
       {EVENT_FIELDS.map((f) => {
         const raw = event[f.key as keyof ScheduleEventRow] as string | null;
@@ -173,6 +220,19 @@ export default function EventRow({
         <div className="row-actions">
           <button
             type="button"
+            className={`row-groups${groupsOpen ? " is-open" : ""}`}
+            onClick={() => setGroupsOpen((v) => !v)}
+            aria-expanded={groupsOpen}
+          >
+            Groups
+            {players.length > 0 ? (
+              <span className="row-groups-badge">
+                {attendingCount}/{players.length}
+              </span>
+            ) : null}
+          </button>
+          <button
+            type="button"
             className="row-edit"
             onClick={() => setEditing(true)}
           >
@@ -189,5 +249,25 @@ export default function EventRow({
         </div>
       </td>
     </tr>
+  );
+
+  if (!groupsOpen) return displayRow;
+
+  // Expanded: the event row followed by a full-width Groups panel row.
+  return (
+    <>
+      {displayRow}
+      <tr className="groups-row">
+        <td colSpan={COL_SPAN}>
+          <GroupsPanel
+            players={players}
+            benched={benched}
+            division={division}
+            onToggle={toggleAttendance}
+            onSetAll={setAllAttendance}
+          />
+        </td>
+      </tr>
+    </>
   );
 }

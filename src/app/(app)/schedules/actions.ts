@@ -166,3 +166,95 @@ export async function deleteEventAction(formData: FormData): Promise<void> {
 
   revalidatePath("/schedules");
 }
+
+// --- groups / playing-time rotation ----------------------------------------
+//
+// Attendance is stored as deviations from the default: a player is attending an
+// event unless an event_attendance row marks them attending = false. These two
+// actions are called directly from the Groups panel (typed args, not FormData)
+// so a single toggle or a bulk "all in / all out" is one RPC.
+
+// Set one player's attendance for one event. Scoped so the event and the player
+// both belong to the same team within the signed-in company.
+export async function setAttendanceAction(input: {
+  eventId: number;
+  playerId: number;
+  attending: boolean;
+}): Promise<void> {
+  const session = await getSession();
+  if (!session) return;
+
+  const eventId = Number(input?.eventId);
+  const playerId = Number(input?.playerId);
+  const attending = Boolean(input?.attending);
+  if (!Number.isFinite(eventId) || !Number.isFinite(playerId)) return;
+
+  await ensureSchedulesSchema();
+
+  // Confirm the event and player share a team owned by this company before
+  // writing — this rejects benching a player from a different team.
+  const owned = await sql()`
+    SELECT 1
+    FROM schedule_events e
+    JOIN teams t ON t.id = e.team_id
+    JOIN players p ON p.team_id = e.team_id
+    WHERE e.id = ${eventId}
+      AND p.id = ${playerId}
+      AND t.company_id = ${session.companyId}
+  `;
+  if (owned.length === 0) return;
+
+  await sql()`
+    INSERT INTO event_attendance (event_id, player_id, attending)
+    VALUES (${eventId}, ${playerId}, ${attending})
+    ON CONFLICT (event_id, player_id)
+    DO UPDATE SET attending = EXCLUDED.attending, updated_at = now()
+  `;
+
+  revalidatePath("/schedules");
+}
+
+// Mark every roster player attending (reset to the default) or benched for one
+// event. "All in" simply clears the event's rows; "all out" writes an
+// attending = false row for each player on the event's team.
+export async function setEventAttendanceAllAction(input: {
+  eventId: number;
+  attending: boolean;
+}): Promise<void> {
+  const session = await getSession();
+  if (!session) return;
+
+  const eventId = Number(input?.eventId);
+  const attending = Boolean(input?.attending);
+  if (!Number.isFinite(eventId)) return;
+
+  await ensureSchedulesSchema();
+
+  // Confirm the event belongs to this company.
+  const owned = await sql()`
+    SELECT 1
+    FROM schedule_events e
+    JOIN teams t ON t.id = e.team_id
+    WHERE e.id = ${eventId}
+      AND t.company_id = ${session.companyId}
+  `;
+  if (owned.length === 0) return;
+
+  if (attending) {
+    // Everyone attending is the default, so drop the event's deviations.
+    await sql()`DELETE FROM event_attendance WHERE event_id = ${eventId}`;
+  } else {
+    // Bench the whole roster for this event.
+    await sql()`
+      INSERT INTO event_attendance (event_id, player_id, attending)
+      SELECT e.id, p.id, false
+      FROM schedule_events e
+      JOIN players p ON p.team_id = e.team_id
+      WHERE e.id = ${eventId}
+      ON CONFLICT (event_id, player_id)
+      DO UPDATE SET attending = false, updated_at = now()
+    `;
+  }
+
+  revalidatePath("/schedules");
+}

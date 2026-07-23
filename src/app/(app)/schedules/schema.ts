@@ -61,4 +61,24 @@ async function provision(): Promise<void> {
       ADD CONSTRAINT schedule_events_status_check
       CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund'))
   `;
+
+  // Event groups (playing-time rotation). One row per (event, player) that has
+  // been explicitly decided; a player is attending an event unless a row marks
+  // them attending = false. Storing only the decisions keeps the common case
+  // (bench a few players) cheap and lets a new event default to the full
+  // roster. Cascades from both the event and the player.
+  await db`
+    CREATE TABLE IF NOT EXISTS event_attendance (
+      id          SERIAL PRIMARY KEY,
+      event_id    INTEGER     NOT NULL REFERENCES schedule_events(id) ON DELETE CASCADE,
+      player_id   INTEGER     NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      attending   BOOLEAN     NOT NULL DEFAULT true,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (event_id, player_id)
+    )
+  `;
+
+  await db`CREATE INDEX IF NOT EXISTS idx_event_attendance_event_id ON event_attendance (event_id)`;
+  await db`CREATE INDEX IF NOT EXISTS idx_event_attendance_player_id ON event_attendance (player_id)`;
 }

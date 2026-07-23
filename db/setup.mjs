@@ -206,6 +206,25 @@ async function main() {
       CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund'))
   `;
 
+  // Event groups (playing-time rotation): which roster players attend a given
+  // tournament. Only deviations from the default are stored — a player attends
+  // an event unless a row marks them attending = false — so benching a few
+  // players costs a handful of rows and a new event starts with the full roster.
+  await sql`
+    CREATE TABLE IF NOT EXISTS event_attendance (
+      id          SERIAL      PRIMARY KEY,
+      event_id    INTEGER     NOT NULL REFERENCES schedule_events(id) ON DELETE CASCADE,
+      player_id   INTEGER     NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      attending   BOOLEAN     NOT NULL DEFAULT true,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (event_id, player_id)
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_event_attendance_event_id ON event_attendance (event_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_event_attendance_player_id ON event_attendance (player_id)`;
+
   // A fundraiser is a campaign/event owned by a company. Only the name is
   // required; goal and event_date are optional.
   await sql`
