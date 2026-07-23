@@ -25,7 +25,6 @@ export default function StatusSelect({
 
   return (
     <select
-      name="status"
       className={`status-select status-${status}`}
       value={status}
       aria-label="Registration status"
