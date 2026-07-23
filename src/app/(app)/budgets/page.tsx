@@ -49,7 +49,8 @@ export default async function BudgetsPage({
           b.tuition_per_player::float8     AS tuition_per_player,
           b.portion_to_team_budget::float8 AS portion_to_team_budget,
           b.paying_players                 AS paying_players,
-          (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e WHERE e.team_id = t.id)::float8
+          (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e
+             WHERE e.team_id = t.id AND e.status <> 'refund')::float8
                                            AS scheduled_cost
         FROM teams t
         LEFT JOIN team_budgets b ON b.team_id = t.id

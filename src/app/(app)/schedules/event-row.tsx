@@ -16,6 +16,7 @@ import {
   EVENT_FIELDS,
   STATUSES,
   STATUS_HEADER,
+  eventCostCounts,
   formatDate,
   formatMoney,
   groupBaseline,
@@ -298,6 +299,13 @@ export default function EventRow({
           >
             {empty ? (
               <span className="cell-empty">—</span>
+            ) : f.type === "money" && !eventCostCounts(event.status) ? (
+              <span
+                className="cost-refunded"
+                title="Refunded — credited back to the budget"
+              >
+                {displayValue(f, raw)}
+              </span>
             ) : (
               displayValue(f, raw)
             )}

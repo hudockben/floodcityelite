@@ -187,7 +187,8 @@ export default async function HomeplatePage() {
           (SELECT count(*) FROM players p WHERE p.team_id = t.id)::int AS player_count,
           b.portion_to_team_budget::float8 AS portion_to_team_budget,
           b.paying_players                 AS paying_players,
-          (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e WHERE e.team_id = t.id)::float8
+          (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e
+             WHERE e.team_id = t.id AND e.status <> 'refund')::float8
                                            AS scheduled_cost,
           (SELECT COALESCE(SUM(
              CASE x.status

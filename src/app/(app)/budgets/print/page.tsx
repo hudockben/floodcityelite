@@ -4,7 +4,7 @@ import { getSession } from "@/lib/session";
 import { resolveDivision, sportLabel } from "../../teams/divisions";
 import { ensureTeamsSchema } from "../../teams/schema";
 import { ensureSchedulesSchema } from "../../schedules/schema";
-import { statusLabel } from "../../schedules/events";
+import { eventCostCounts, statusLabel } from "../../schedules/events";
 import { ensureBudgetsSchema } from "../schema";
 import {
   amountToCents,
@@ -75,7 +75,8 @@ export default async function BudgetPrintPage({
           b.tuition_per_player::float8     AS tuition_per_player,
           b.portion_to_team_budget::float8 AS portion_to_team_budget,
           b.paying_players                 AS paying_players,
-          (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e WHERE e.team_id = t.id)::float8
+          (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e
+             WHERE e.team_id = t.id AND e.status <> 'refund')::float8
                                            AS scheduled_cost
         FROM teams t
         LEFT JOIN team_budgets b ON b.team_id = t.id
@@ -188,7 +189,8 @@ export default async function BudgetPrintPage({
             const scheduled = r.scheduled_cost ?? 0;
             const teamTournaments = tournamentsByTeam.get(r.id) ?? [];
             const scheduledCents = teamTournaments.reduce(
-              (sum, t) => sum + amountToCents(t.cost),
+              (sum, t) =>
+                sum + (eventCostCounts(t.status) ? amountToCents(t.cost) : 0),
               0,
             );
             const teamExpenses = expensesByTeam.get(r.id) ?? [];
@@ -317,9 +319,15 @@ export default async function BudgetPrintPage({
                                     ) : null}
                                   </td>
                                   <td className="amt">
-                                    {t.cost == null || t.cost === ""
-                                      ? "—"
-                                      : formatCents(amountToCents(t.cost))}
+                                    {t.cost == null || t.cost === "" ? (
+                                      "—"
+                                    ) : eventCostCounts(t.status) ? (
+                                      formatCents(amountToCents(t.cost))
+                                    ) : (
+                                      <span className="cost-refunded">
+                                        {formatCents(amountToCents(t.cost))}
+                                      </span>
+                                    )}
                                   </td>
                                   <td>{statusLabel(t.status)}</td>
                                 </tr>

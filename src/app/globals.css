@@ -1234,6 +1234,13 @@ body {
   opacity: 0.55;
 }
 
+/* A refunded event's cost is credited back, so it's struck through and muted
+   wherever the amount is shown — it no longer counts toward any total. */
+.cost-refunded {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
 .col-actions {
   width: 1%;
 }
