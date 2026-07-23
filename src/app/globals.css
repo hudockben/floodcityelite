@@ -2136,6 +2136,110 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Rotation grid — every roster player against every tournament, with a ✓ where
+   they're playing. Light theme to match the rest of the printed document. */
+.print-groups {
+  margin-top: 14px;
+  break-inside: avoid;
+}
+
+.print-groups-title {
+  margin: 0 0 6px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #0f2742;
+}
+
+.print-grid-scroll {
+  overflow-x: auto;
+}
+
+.print-grid {
+  border-collapse: collapse;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  color: #111827;
+}
+
+.print-grid th,
+.print-grid td {
+  border: 1px solid #e2e8f0;
+  padding: 3px 6px;
+  text-align: center;
+}
+
+.print-grid th.pg-player,
+.print-grid td.pg-player {
+  text-align: left;
+  font-weight: 600;
+  color: #0f2742;
+  white-space: nowrap;
+}
+
+.print-grid thead th {
+  border-bottom: 1.5px solid #cbd5e1;
+  color: #475569;
+  vertical-align: bottom;
+}
+
+.print-grid .pg-evt {
+  min-width: 32px;
+}
+
+.print-grid .pg-evt-date {
+  display: block;
+  font-weight: 800;
+  color: #0f2742;
+  white-space: nowrap;
+}
+
+.print-grid .pg-evt-name {
+  display: block;
+  max-width: 72px;
+  margin: 0 auto;
+  font-size: 0.58rem;
+  font-weight: 500;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.print-grid th.pg-total,
+.print-grid td.pg-total {
+  font-weight: 800;
+  color: #0f2742;
+  background: #f1f5f9;
+}
+
+.print-grid .pg-in {
+  color: #15803d;
+  font-weight: 800;
+  background: #dcfce7;
+}
+
+.print-grid .pg-out {
+  color: #cbd5e1;
+}
+
+.print-grid tfoot td {
+  border-top: 1.5px solid #cbd5e1;
+  font-weight: 700;
+  color: #0f2742;
+}
+
+.print-grid tfoot .pg-count {
+  background: #f8fafc;
+}
+
+.print-groups-legend {
+  margin: 6px 0 0;
+  font-size: 0.64rem;
+  color: #64748b;
+}
+
 /* Print rules: drop the app chrome and the toolbar; let the paper fill the
    page and give each team its own sheet. */
 @media print {

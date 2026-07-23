@@ -12,6 +12,8 @@ import {
   formatDate,
   formatMoney,
   statusLabel,
+  type AttendanceRow,
+  type GroupPlayer,
   type ScheduleEventRow,
   type ScheduleTeamRow,
 } from "../events";
@@ -31,6 +33,19 @@ const MONTHS = [
 function todayLabel(): string {
   const d = new Date();
   return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+}
+
+// Compact "Jul 3" for the rotation grid's column headers (dates only, no year
+// or locale so it stays narrow and matches the deterministic date handling).
+const MONTHS_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+function shortDate(iso: string | null): string {
+  if (!iso) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return "";
+  return `${MONTHS_SHORT[Number(m[2]) - 1]} ${Number(m[3])}`;
 }
 
 /** Format a single schedule cell the way the on-screen table does: dates as
@@ -61,12 +76,14 @@ export default async function SchedulesPrintPage({
 
   let teams: ScheduleTeamRow[] = [];
   let events: ScheduleEventRow[] = [];
+  let roster: GroupPlayer[] = [];
+  let attendance: AttendanceRow[] = [];
   let loadError = false;
 
   try {
     await ensureSchedulesSchema();
 
-    const [teamRows, eventRows] = await Promise.all([
+    const [teamRows, eventRows, playerRows, attendanceRows] = await Promise.all([
       sql()`
         SELECT
           t.id,
@@ -96,10 +113,32 @@ export default async function SchedulesPrintPage({
           AND t.division = ${division.slug}
         ORDER BY t.name, e.event_date NULLS LAST, e.id
       `,
+      // Roster for each team so the rotation grid can list every player.
+      sql()`
+        SELECT p.id, p.team_id, p.player_name, p.primary_position
+        FROM players p
+        JOIN teams t ON t.id = p.team_id
+        WHERE t.company_id = ${session.companyId}
+          AND t.division = ${division.slug}
+        ORDER BY t.name, p.player_name
+      `,
+      // Only the "sitting" decisions — a player plays an event unless a row
+      // marks them attending = false — enough to fill in the grid.
+      sql()`
+        SELECT a.event_id, a.player_id, a.attending
+        FROM event_attendance a
+        JOIN schedule_events e ON e.id = a.event_id
+        JOIN teams t ON t.id = e.team_id
+        WHERE t.company_id = ${session.companyId}
+          AND t.division = ${division.slug}
+          AND a.attending = false
+      `,
     ]);
 
     teams = teamRows as ScheduleTeamRow[];
     events = eventRows as ScheduleEventRow[];
+    roster = playerRows as GroupPlayer[];
+    attendance = attendanceRows as AttendanceRow[];
   } catch (err) {
     console.error("Schedules print load error:", err);
     loadError = true;
@@ -117,6 +156,22 @@ export default async function SchedulesPrintPage({
     const list = eventsByTeam.get(e.team_id);
     if (list) list.push(e);
     else eventsByTeam.set(e.team_id, [e]);
+  }
+
+  // Roster per team, and who's sitting out each event, for the rotation grid.
+  const playersByTeam = new Map<number, GroupPlayer[]>();
+  for (const p of roster) {
+    if (!teamIds.has(p.team_id)) continue;
+    const list = playersByTeam.get(p.team_id);
+    if (list) list.push(p);
+    else playersByTeam.set(p.team_id, [p]);
+  }
+
+  const benchByEvent = new Map<number, Set<number>>();
+  for (const a of attendance) {
+    const set = benchByEvent.get(a.event_id);
+    if (set) set.add(a.player_id);
+    else benchByEvent.set(a.event_id, new Set([a.player_id]));
   }
 
   // Division grand total across the teams being printed (all of them, or the
@@ -168,6 +223,7 @@ export default async function SchedulesPrintPage({
           <>
             {teams.map((t) => {
               const teamEvents = eventsByTeam.get(t.id) ?? [];
+              const teamPlayers = playersByTeam.get(t.id) ?? [];
               const totalCents = teamEvents.reduce(
                 (sum, e) => sum + costToCents(e.cost),
                 0,
@@ -241,6 +297,84 @@ export default async function SchedulesPrintPage({
                       </tfoot>
                     </table>
                   )}
+
+                  {/* Rotation grid: every roster player against every
+                      tournament, with a ✓ where they're playing plus per-player
+                      and per-tournament totals — the "who's playing and when"
+                      sheet. Only shown when there's a roster and a schedule. */}
+                  {teamPlayers.length > 0 && teamEvents.length > 0 ? (
+                    <div className="print-groups">
+                      <h3 className="print-groups-title">Who&apos;s playing</h3>
+                      <div className="print-grid-scroll">
+                        <table className="print-grid">
+                          <thead>
+                            <tr>
+                              <th className="pg-player">Player</th>
+                              {teamEvents.map((e) => (
+                                <th key={e.id} className="pg-evt">
+                                  <span className="pg-evt-date">
+                                    {shortDate(e.event_date) || "—"}
+                                  </span>
+                                  <span className="pg-evt-name">
+                                    {e.event_name}
+                                  </span>
+                                </th>
+                              ))}
+                              <th className="pg-total">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {teamPlayers.map((p) => {
+                              const played = teamEvents.filter(
+                                (e) =>
+                                  !(benchByEvent.get(e.id)?.has(p.id) ?? false),
+                              ).length;
+                              return (
+                                <tr key={p.id}>
+                                  <td className="pg-player">{p.player_name}</td>
+                                  {teamEvents.map((e) => {
+                                    const playing = !(
+                                      benchByEvent.get(e.id)?.has(p.id) ?? false
+                                    );
+                                    return (
+                                      <td
+                                        key={e.id}
+                                        className={playing ? "pg-in" : "pg-out"}
+                                      >
+                                        {playing ? "✓" : "–"}
+                                      </td>
+                                    );
+                                  })}
+                                  <td className="pg-total">{played}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                          <tfoot>
+                            <tr>
+                              <td className="pg-player">Playing</td>
+                              {teamEvents.map((e) => {
+                                const benched = benchByEvent.get(e.id);
+                                const count = teamPlayers.reduce(
+                                  (n, p) => n + (benched?.has(p.id) ? 0 : 1),
+                                  0,
+                                );
+                                return (
+                                  <td key={e.id} className="pg-count">
+                                    {count}
+                                  </td>
+                                );
+                              })}
+                              <td className="pg-total" />
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                      <p className="print-groups-legend">
+                        ✓ = playing · Total = tournaments per player
+                      </p>
+                    </div>
+                  ) : null}
                 </section>
               );
             })}
