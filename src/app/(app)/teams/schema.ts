@@ -61,4 +61,12 @@ async function provision(): Promise<void> {
   `;
 
   await db`CREATE INDEX IF NOT EXISTS idx_players_team_id ON players (team_id)`;
+
+  // Roster groups (playing-time rotation). A team can be split into standing,
+  // position-balanced groups; `roster_group_count` is how many groups the coach
+  // has set up (0 = not using groups) and each player's `roster_group` is which
+  // one they're in (null = ungrouped). Nullable/defaulted and idempotent so
+  // databases predating the feature pick it up without a separate migration.
+  await db`ALTER TABLE teams ADD COLUMN IF NOT EXISTS roster_group_count SMALLINT NOT NULL DEFAULT 0`;
+  await db`ALTER TABLE players ADD COLUMN IF NOT EXISTS roster_group SMALLINT`;
 }

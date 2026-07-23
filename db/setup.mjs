@@ -116,6 +116,13 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_players_team_id ON players (team_id)`;
 
+  // Roster groups: split a team into standing, position-balanced groups.
+  // `teams.roster_group_count` is how many groups the coach set up (0 = off) and
+  // `players.roster_group` is which one a player is in (null = ungrouped).
+  // Nullable/defaulted and idempotent so older databases pick this up cleanly.
+  await sql`ALTER TABLE teams ADD COLUMN IF NOT EXISTS roster_group_count SMALLINT NOT NULL DEFAULT 0`;
+  await sql`ALTER TABLE players ADD COLUMN IF NOT EXISTS roster_group SMALLINT`;
+
   // Payments are logged against a player (→ team → company) and power the
   // Payment Tracker tab.
   await sql`
@@ -224,6 +231,22 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_event_attendance_event_id ON event_attendance (event_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_event_attendance_player_id ON event_attendance (player_id)`;
+
+  // Event groups: which standing roster groups play a given event (e.g. Groups
+  // 1 & 2 one weekend, 1 & 3 the next). The selected group numbers drive who's
+  // attending, leaving event_attendance for per-player exceptions; an event
+  // with no rows keeps the default full roster (minus anyone benched).
+  await sql`
+    CREATE TABLE IF NOT EXISTS event_groups (
+      id            SERIAL      PRIMARY KEY,
+      event_id      INTEGER     NOT NULL REFERENCES schedule_events(id) ON DELETE CASCADE,
+      group_number  SMALLINT    NOT NULL,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (event_id, group_number)
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_event_groups_event_id ON event_groups (event_id)`;
 
   // A fundraiser is a campaign/event owned by a company. Only the name is
   // required; goal and event_date are optional.

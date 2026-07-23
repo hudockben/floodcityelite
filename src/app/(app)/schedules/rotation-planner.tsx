@@ -187,7 +187,14 @@ export default function RotationPlanner({
                   key={p.id}
                   className={`planner-player ${short ? "short" : ""}`}
                 >
-                  <span className="planner-player-name">{p.player_name}</span>
+                  <span className="planner-player-lead">
+                    <span className="planner-player-name">{p.player_name}</span>
+                    {p.roster_group != null ? (
+                      <span className="planner-player-grp">
+                        G{p.roster_group}
+                      </span>
+                    ) : null}
+                  </span>
                   <span className="planner-player-count">
                     {p.attending}
                     <span className="planner-player-of">

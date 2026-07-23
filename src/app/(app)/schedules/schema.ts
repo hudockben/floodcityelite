@@ -81,4 +81,22 @@ async function provision(): Promise<void> {
 
   await db`CREATE INDEX IF NOT EXISTS idx_event_attendance_event_id ON event_attendance (event_id)`;
   await db`CREATE INDEX IF NOT EXISTS idx_event_attendance_player_id ON event_attendance (player_id)`;
+
+  // Which standing roster groups play a given event. When a coach picks, say,
+  // Groups 1 & 2 for a weekend, those group numbers are stored here and drive
+  // who's attending (players whose roster_group is selected play; the rest
+  // sit), leaving event_attendance to hold only per-player exceptions. An event
+  // with no rows keeps the legacy "whole roster attends unless benched"
+  // behaviour. Cascades when the event is removed.
+  await db`
+    CREATE TABLE IF NOT EXISTS event_groups (
+      id            SERIAL      PRIMARY KEY,
+      event_id      INTEGER     NOT NULL REFERENCES schedule_events(id) ON DELETE CASCADE,
+      group_number  SMALLINT    NOT NULL,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (event_id, group_number)
+    )
+  `;
+
+  await db`CREATE INDEX IF NOT EXISTS idx_event_groups_event_id ON event_groups (event_id)`;
 }
