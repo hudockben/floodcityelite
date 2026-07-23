@@ -178,6 +178,10 @@ const FIELD_ALIASES: Record<SimpleField, string[]> = {
   ],
 };
 
+// The column that names which team a row belongs to (for auto-assign). Not a
+// player field — it routes the row to a team by name.
+const TEAM_ALIASES = ["team", "teamname", "teams", "squad", "rostername"];
+
 // Every header spelling we know how to map. Used so a second column whose header
 // duplicates a recognized field (e.g. two "Email" columns) isn't reported to the
 // user as an "ignored column we don't track".
@@ -185,6 +189,7 @@ const RECOGNIZED_KEYS = new Set<string>([
   ...NAME_DIRECT,
   ...NAME_FIRST,
   ...NAME_LAST,
+  ...TEAM_ALIASES,
   ...Object.values(FIELD_ALIASES).flat(),
 ]);
 
@@ -195,6 +200,7 @@ type ColumnPlan = {
   nameDirectIdx?: number;
   firstIdx?: number;
   lastIdx?: number;
+  teamIdx?: number;
   fieldCols: Partial<Record<SimpleField, number[]>>;
   matched: Set<number>;
 };
@@ -227,6 +233,8 @@ function planColumns(header: string[]): ColumnPlan {
   const nameDirectIdx = idxOf(NAME_DIRECT);
   const firstIdx = idxOf(NAME_FIRST);
   const lastIdx = idxOf(NAME_LAST);
+  const teamIdx = idxOf(TEAM_ALIASES);
+  mark(teamIdx);
 
   let nameMode: NameMode;
   if (nameDirectIdx != null) {
@@ -255,7 +263,7 @@ function planColumns(header: string[]): ColumnPlan {
     }
   }
 
-  return { nameMode, nameDirectIdx, firstIdx, lastIdx, fieldCols, matched };
+  return { nameMode, nameDirectIdx, firstIdx, lastIdx, teamIdx, fieldCols, matched };
 }
 
 // --- value normalization ---------------------------------------------------
@@ -328,6 +336,10 @@ function isRowEmpty(row: string[]): boolean {
 export type MapResult = {
   nameMode: NameMode;
   players: ParsedPlayer[];
+  /** Team name from each row's "team" column, aligned 1:1 with `players`. */
+  teamNames: (string | null)[];
+  /** Whether the file has a recognized "team" column (enables auto-assign). */
+  hasTeamColumn: boolean;
   totalDataRows: number;
   noNameRows: number;
   unmatchedHeaders: string[];
@@ -344,6 +356,8 @@ export function mapRows(rows: string[][]): MapResult {
     return {
       nameMode: "none",
       players: [],
+      teamNames: [],
+      hasTeamColumn: false,
       totalDataRows: 0,
       noNameRows: 0,
       unmatchedHeaders: [],
@@ -357,6 +371,8 @@ export function mapRows(rows: string[][]): MapResult {
     return {
       nameMode: "none",
       players: [],
+      teamNames: [],
+      hasTeamColumn: false,
       totalDataRows: 0,
       noNameRows: 0,
       unmatchedHeaders: [],
@@ -375,6 +391,7 @@ export function mapRows(rows: string[][]): MapResult {
   });
 
   const players: ParsedPlayer[] = [];
+  const teamNames: (string | null)[] = [];
   let totalDataRows = 0;
   let noNameRows = 0;
 
@@ -464,14 +481,30 @@ export function mapRows(rows: string[][]): MapResult {
       parent_name: textField("parent_name"),
       closest_facility: textField("closest_facility"),
     });
+    const teamRaw = collapseWs(cell(plan.teamIdx));
+    teamNames.push(teamRaw || null);
   }
 
-  return { nameMode: plan.nameMode, players, totalDataRows, noNameRows, unmatchedHeaders, warnings };
+  return {
+    nameMode: plan.nameMode,
+    players,
+    teamNames,
+    hasTeamColumn: plan.teamIdx != null,
+    totalDataRows,
+    noNameRows,
+    unmatchedHeaders,
+    warnings,
+  };
 }
 
 // Dedupe key for a player name: case- and whitespace-insensitive.
 export function nameKey(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+// Match key for a team name (same normalization as nameKey, named for intent).
+export function teamKey(name: string): string {
+  return nameKey(name);
 }
 
 // --- file parsing ----------------------------------------------------------

@@ -12,11 +12,12 @@ const initialState: BulkUploadState = {};
 
 type TeamOption = { id: number; name: string; sport: string };
 
-// Headers offered by the downloadable template. These map onto the roster
-// fields the Teams tab already uses; a club's own export can also include extra
-// columns (season, gender, grade, address, a second parent, …) — those are
-// simply ignored on import.
+// Headers offered by the downloadable template. The "team" column routes each
+// row to a team by name when auto-assign is used. Everything else maps onto the
+// roster fields the Teams tab already uses; extra columns a club export might
+// carry (season, gender, grade, address, a second parent, …) are ignored.
 const TEMPLATE_HEADERS = [
+  "team",
   "player_first",
   "player_last",
   "birth_date",
@@ -32,6 +33,7 @@ const TEMPLATE_HEADERS = [
   "closest_facility",
 ];
 const TEMPLATE_SAMPLE = [
+  "10U Carolina",
   "Aryanna",
   "Young",
   "2/20/2016",
@@ -100,21 +102,25 @@ function NameList({
 
 function ResultSummary({ result }: { result: BulkUploadResult }) {
   const {
-    teamName,
     added,
-    duplicatesExisting,
-    duplicatesInFile,
+    duplicates,
     noName,
+    unmatchedTeamRows,
+    perTeam,
+    unmatchedTeams,
     addedNames,
     duplicateNames,
     ignoredColumns,
     warnings,
   } = result;
-  const duplicates = duplicatesExisting + duplicatesInFile;
+
+  const teamsWithAdds = perTeam.filter((t) => t.added > 0);
   const headline =
-    added > 0
-      ? `Added ${added} ${added === 1 ? "player" : "players"} to ${teamName}.`
-      : `No new players were added to ${teamName}.`;
+    added === 0
+      ? "No new players were added."
+      : teamsWithAdds.length === 1
+        ? `Added ${added} ${added === 1 ? "player" : "players"} to ${teamsWithAdds[0].teamName}.`
+        : `Added ${added} players across ${teamsWithAdds.length} teams.`;
 
   return (
     <div className={`bulk-result${added > 0 ? " ok" : " neutral"}`} role="status">
@@ -131,11 +137,11 @@ function ResultSummary({ result }: { result: BulkUploadResult }) {
           <li>
             <strong>{duplicates}</strong> skipped as duplicate
             {duplicates === 1 ? "" : "s"}
-            {duplicatesExisting > 0 && duplicatesInFile > 0
-              ? ` (${duplicatesExisting} already on the roster, ${duplicatesInFile} repeated in the file)`
-              : duplicatesExisting > 0
-                ? " (already on the roster)"
-                : " (repeated in the file)"}
+          </li>
+        ) : null}
+        {unmatchedTeamRows > 0 ? (
+          <li>
+            <strong>{unmatchedTeamRows}</strong> skipped — team not found
           </li>
         ) : null}
         {noName > 0 ? (
@@ -144,6 +150,53 @@ function ResultSummary({ result }: { result: BulkUploadResult }) {
           </li>
         ) : null}
       </ul>
+
+      {perTeam.length > 1 ? (
+        <table className="bulk-perteam">
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th>Added</th>
+              <th>Skipped</th>
+            </tr>
+          </thead>
+          <tbody>
+            {perTeam.map((t) => (
+              <tr key={`${t.teamName}-${t.division}`}>
+                <td>
+                  {t.teamName}
+                  {t.division ? (
+                    <span className="bulk-perteam-div">{t.division}</span>
+                  ) : null}
+                </td>
+                <td>{t.added}</td>
+                <td>{t.duplicates || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+
+      {unmatchedTeams.length > 0 ? (
+        <div className="bulk-unmatched">
+          <p className="bulk-result-note">
+            These team names weren&apos;t found among your teams, so their players
+            were skipped:
+          </p>
+          <ul>
+            {unmatchedTeams.map((u) => (
+              <li key={u.name}>
+                <strong>{u.name}</strong> — {u.rows}{" "}
+                {u.rows === 1 ? "player" : "players"}
+              </li>
+            ))}
+          </ul>
+          <p className="muted-note">
+            Create a team with a matching name (or fix the spelling in the file),
+            then re-upload.
+          </p>
+        </div>
+      ) : null}
 
       <NameList label="Show added" names={addedNames} total={added} />
       <NameList
@@ -208,11 +261,12 @@ export default function BulkUploadForm({
 
       <div className="bulk-upload-body">
         <p className="muted-note">
-          Add a whole roster at once from a spreadsheet. Columns are matched to the
-          roster fields automatically — first &amp; last name become the player name,
-          birth date and parent contact map across too. Anyone already on the selected
-          team&apos;s roster is skipped, so re-uploading an updated file never creates
-          duplicates.
+          Add whole rosters at once from a spreadsheet. Leave the menu on{" "}
+          <strong>auto-assign</strong> and each row is sent to the team named in its{" "}
+          <code>team</code> column — so one file can fill in every team. (Or pick a
+          single team to drop every row there.) Columns are matched to the roster
+          fields automatically, and anyone already on a team&apos;s roster is skipped,
+          so re-uploading an updated file never creates duplicates.
         </p>
 
         <form ref={formRef} action={formAction} className="bulk-upload-form">
@@ -220,14 +274,14 @@ export default function BulkUploadForm({
 
           <div className="player-grid">
             <div className="field">
-              <label htmlFor="bulk-team">Import into team *</label>
-              <select id="bulk-team" name="teamId" defaultValue="" required>
-                <option value="" disabled>
-                  Choose a team…
+              <label htmlFor="bulk-team">Assign players to</label>
+              <select id="bulk-team" name="teamId" defaultValue="auto" required>
+                <option value="auto">
+                  Auto-assign by each row&apos;s “team” column
                 </option>
                 {teams.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.name} · {sportLabel(t.sport)}
+                    Just this team: {t.name} · {sportLabel(t.sport)}
                   </option>
                 ))}
               </select>
@@ -276,10 +330,12 @@ export default function BulkUploadForm({
           <summary>Which columns can I include?</summary>
           <div className="bulk-help-body">
             <p>
-              Only a name is required. Use a single <code>player_name</code> column,
-              or separate <code>player_first</code> and <code>player_last</code>{" "}
-              columns. These optional columns are recognized (common spellings and
-              <code> parent1_*</code>/<code>parent2_*</code> variants work too):
+              For auto-assign, include a <code>team</code> column whose value matches
+              a team name exactly (spacing and capitalization don&apos;t matter). Each
+              player needs a name — use a single <code>player_name</code> column, or
+              separate <code>player_first</code> and <code>player_last</code> columns.
+              These optional columns are recognized (common spellings and{" "}
+              <code>parent1_*</code>/<code>parent2_*</code> variants work too):
             </p>
             <ul>
               <li>

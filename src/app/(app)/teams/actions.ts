@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { isDivisionSlug, isSport } from "./divisions";
+import { divisionLabel, isDivisionSlug, isSport } from "./divisions";
 import {
   mapRows,
   nameKey,
   parseRosterFile,
   RosterImportError,
+  teamKey,
   type ParsedPlayer,
 } from "./roster-import";
 import { ensureTeamsSchema } from "./schema";
@@ -191,14 +192,27 @@ export async function deletePlayerAction(formData: FormData): Promise<void> {
 
 // --- bulk-upload a roster from a CSV / Excel file --------------------------
 
-export type BulkUploadResult = {
+// Per-destination-team tally shown in the import summary.
+export type BulkTeamResult = {
   teamName: string;
+  division: string; // display label
+  added: number;
+  duplicates: number;
+};
+
+// A team name from the file that couldn't be routed to one of your teams.
+export type BulkUnmatchedTeam = { name: string; rows: number };
+
+export type BulkUploadResult = {
+  mode: "auto" | "team";
   fileName: string;
   added: number;
-  duplicatesExisting: number;
-  duplicatesInFile: number;
+  duplicates: number;
   noName: number;
+  unmatchedTeamRows: number;
   totalRows: number;
+  perTeam: BulkTeamResult[];
+  unmatchedTeams: BulkUnmatchedTeam[];
   addedNames: string[];
   duplicateNames: string[];
   ignoredColumns: string[];
@@ -213,6 +227,9 @@ export type BulkUploadState = {
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
 const MAX_IMPORT_ROWS = 500; // new players per upload
+const MAX_ACTION_WARNINGS = 25;
+
+type Assignment = { player: ParsedPlayer; teamId: number };
 
 export async function bulkUploadRosterAction(
   _prev: BulkUploadState,
@@ -221,8 +238,16 @@ export async function bulkUploadRosterAction(
   const session = await getSession();
   if (!session) return { error: "Your session has expired. Please sign in again." };
 
-  const teamId = Number.parseInt(String(formData.get("teamId") ?? ""), 10);
-  if (!Number.isFinite(teamId)) return { error: "Choose a team to import into." };
+  // teamId is either "auto"/"" (route each row by its team column) or a team id.
+  const teamSel = String(formData.get("teamId") ?? "").trim();
+  const autoMode = teamSel === "" || teamSel === "auto";
+  let explicitTeamId = 0;
+  if (!autoMode) {
+    explicitTeamId = Number.parseInt(teamSel, 10);
+    if (!Number.isFinite(explicitTeamId)) {
+      return { error: "Choose a team to import into, or pick auto-assign." };
+    }
+  }
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -256,49 +281,148 @@ export async function bulkUploadRosterAction(
   if (mapped.totalDataRows === 0) {
     return { error: "That file has a header row but no player rows." };
   }
+  if (autoMode && !mapped.hasTeamColumn) {
+    return {
+      error:
+        'To auto-assign, include a "team" column in the file so each row can be matched to a team by name — or pick a specific team above.',
+    };
+  }
 
   try {
     await ensureTeamsSchema();
 
-    // Confirm the team belongs to this company before touching its roster.
-    const owned = await sql()`
-      SELECT id, name FROM teams
-      WHERE id = ${teamId} AND company_id = ${session.companyId}
-    `;
-    if (owned.length === 0) return { error: "That team no longer exists." };
-    const teamName = String(owned[0].name);
+    const warnings = [...mapped.warnings];
+    const addWarn = (m: string) => {
+      if (warnings.length < MAX_ACTION_WARNINGS) warnings.push(m);
+    };
 
-    // 3) Dedupe: skip anyone already on this team's roster, and any repeats
-    //    within the uploaded file itself.
-    const existing = await sql()`
-      SELECT player_name FROM players WHERE team_id = ${teamId}
-    `;
-    const existingKeys = new Set(
-      existing.map((r) => nameKey(String((r as { player_name: string }).player_name))),
-    );
+    // 3) Resolve each row to a destination team.
+    const teamById = new Map<number, { name: string; division: string }>();
+    const unmatched = new Map<string, number>(); // display name -> row count
+    let unmatchedTeamRows = 0;
+    const bumpUnmatched = (display: string) => {
+      unmatchedTeamRows++;
+      unmatched.set(display, (unmatched.get(display) ?? 0) + 1);
+    };
 
-    const seen = new Set<string>();
-    const toInsert: ParsedPlayer[] = [];
+    let resolveTeamId: (rowTeam: string | null) => number | null;
+
+    if (autoMode) {
+      // Match each row's team name against all of this company's teams.
+      const companyTeams = await sql()`
+        SELECT id, name, division FROM teams WHERE company_id = ${session.companyId}
+      `;
+      if (companyTeams.length === 0) {
+        return {
+          error:
+            "You don't have any teams yet. Create a team first, then auto-assign can match rows to it by name.",
+        };
+      }
+      const byKey = new Map<string, number[]>();
+      for (const row of companyTeams) {
+        const t = row as { id: number; name: string; division: string };
+        const id = Number(t.id);
+        teamById.set(id, { name: String(t.name), division: String(t.division) });
+        const k = teamKey(String(t.name));
+        const ids = byKey.get(k);
+        if (ids) ids.push(id);
+        else byKey.set(k, [id]);
+      }
+      const ambiguousWarned = new Set<string>();
+      resolveTeamId = (rowTeam) => {
+        const raw = (rowTeam ?? "").trim();
+        if (!raw) {
+          bumpUnmatched("(no team listed)");
+          return null;
+        }
+        const ids = byKey.get(teamKey(raw));
+        if (!ids || ids.length === 0) {
+          bumpUnmatched(raw);
+          return null;
+        }
+        if (ids.length > 1) {
+          const k = teamKey(raw);
+          if (!ambiguousWarned.has(k)) {
+            ambiguousWarned.add(k);
+            addWarn(
+              `"${raw}" matches more than one of your teams — those players were skipped. Rename the teams so their names are unique.`,
+            );
+          }
+          bumpUnmatched(raw);
+          return null;
+        }
+        return ids[0];
+      };
+    } else {
+      // A specific team was chosen: every row goes there.
+      const owned = await sql()`
+        SELECT id, name, division FROM teams
+        WHERE id = ${explicitTeamId} AND company_id = ${session.companyId}
+      `;
+      if (owned.length === 0) return { error: "That team no longer exists." };
+      const t = owned[0] as { id: number; name: string; division: string };
+      const id = Number(t.id);
+      teamById.set(id, { name: String(t.name), division: String(t.division) });
+      resolveTeamId = () => id;
+    }
+
+    const assignments: Assignment[] = [];
+    mapped.players.forEach((p, i) => {
+      const tid = resolveTeamId(autoMode ? mapped.teamNames[i] : null);
+      if (tid != null) assignments.push({ player: p, teamId: tid });
+    });
+
+    // 4) Dedupe against each destination team's existing roster, and against
+    //    repeats within the uploaded file (per team — the same name on two
+    //    different teams is not a duplicate).
+    const existing = autoMode
+      ? await sql()`
+          SELECT team_id, player_name FROM players
+          WHERE team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})
+        `
+      : await sql()`
+          SELECT team_id, player_name FROM players WHERE team_id = ${explicitTeamId}
+        `;
+    const existingByTeam = new Map<number, Set<string>>();
+    for (const row of existing) {
+      const r = row as { team_id: number; player_name: string };
+      const tid = Number(r.team_id);
+      const key = nameKey(String(r.player_name));
+      const set = existingByTeam.get(tid);
+      if (set) set.add(key);
+      else existingByTeam.set(tid, new Set([key]));
+    }
+
+    const seen = new Set<string>(); // `${teamId} ${nameKey}`
+    const toInsert: Assignment[] = [];
     const addedNames: string[] = [];
     const duplicateNames: string[] = [];
-    let duplicatesExisting = 0;
-    let duplicatesInFile = 0;
+    let duplicates = 0;
+    const perTeamTally = new Map<number, { added: number; duplicates: number }>();
+    const tallyOf = (tid: number) => {
+      let t = perTeamTally.get(tid);
+      if (!t) {
+        t = { added: 0, duplicates: 0 };
+        perTeamTally.set(tid, t);
+      }
+      return t;
+    };
 
-    for (const p of mapped.players) {
-      const key = nameKey(p.player_name);
-      if (existingKeys.has(key)) {
-        duplicatesExisting++;
-        if (duplicateNames.length < 50) duplicateNames.push(p.player_name);
+    for (const a of assignments) {
+      const key = nameKey(a.player.player_name);
+      const composite = `${a.teamId} ${key}`;
+      const tally = tallyOf(a.teamId);
+      const onRoster = existingByTeam.get(a.teamId)?.has(key) ?? false;
+      if (onRoster || seen.has(composite)) {
+        duplicates++;
+        tally.duplicates++;
+        if (duplicateNames.length < 50) duplicateNames.push(a.player.player_name);
         continue;
       }
-      if (seen.has(key)) {
-        duplicatesInFile++;
-        if (duplicateNames.length < 50) duplicateNames.push(p.player_name);
-        continue;
-      }
-      seen.add(key);
-      toInsert.push(p);
-      if (addedNames.length < 100) addedNames.push(p.player_name);
+      seen.add(composite);
+      toInsert.push(a);
+      tally.added++;
+      if (addedNames.length < 100) addedNames.push(a.player.player_name);
     }
 
     if (toInsert.length > MAX_IMPORT_ROWS) {
@@ -307,29 +431,29 @@ export async function bulkUploadRosterAction(
       };
     }
 
-    // 4) Insert the new players in a single transaction.
+    // 5) Insert the new players (each with its resolved team) in one transaction.
     if (toInsert.length > 0) {
       await sql().transaction((txn) =>
         toInsert.map(
-          (p) => txn`
+          (a) => txn`
             INSERT INTO players (
               team_id, player_name, grad_year, date_of_birth, height, weight,
               primary_position, secondary_position, high_school,
               parent_phone, parent_email, parent_name, closest_facility
             ) VALUES (
-              ${teamId},
-              ${p.player_name},
-              ${p.grad_year},
-              ${p.date_of_birth},
-              ${p.height},
-              ${p.weight},
-              ${p.primary_position},
-              ${p.secondary_position},
-              ${p.high_school},
-              ${p.parent_phone},
-              ${p.parent_email},
-              ${p.parent_name},
-              ${p.closest_facility}
+              ${a.teamId},
+              ${a.player.player_name},
+              ${a.player.grad_year},
+              ${a.player.date_of_birth},
+              ${a.player.height},
+              ${a.player.weight},
+              ${a.player.primary_position},
+              ${a.player.secondary_position},
+              ${a.player.high_school},
+              ${a.player.parent_phone},
+              ${a.player.parent_email},
+              ${a.player.parent_name},
+              ${a.player.closest_facility}
             )
           `,
         ),
@@ -337,20 +461,39 @@ export async function bulkUploadRosterAction(
     }
 
     revalidatePath("/teams");
+
+    const perTeam: BulkTeamResult[] = [...perTeamTally.entries()]
+      .map(([tid, t]) => {
+        const info = teamById.get(tid);
+        return {
+          teamName: info?.name ?? `Team ${tid}`,
+          division: divisionLabel(info?.division ?? ""),
+          added: t.added,
+          duplicates: t.duplicates,
+        };
+      })
+      .sort((a, b) => a.teamName.localeCompare(b.teamName));
+
+    const unmatchedTeams: BulkUnmatchedTeam[] = [...unmatched.entries()]
+      .map(([name, count]) => ({ name, rows: count }))
+      .sort((a, b) => b.rows - a.rows);
+
     return {
       ok: true,
       result: {
-        teamName,
+        mode: autoMode ? "auto" : "team",
         fileName: file.name,
         added: toInsert.length,
-        duplicatesExisting,
-        duplicatesInFile,
+        duplicates,
         noName: mapped.noNameRows,
+        unmatchedTeamRows,
         totalRows: mapped.totalDataRows,
+        perTeam,
+        unmatchedTeams,
         addedNames,
         duplicateNames,
         ignoredColumns: mapped.unmatchedHeaders,
-        warnings: mapped.warnings,
+        warnings,
       },
     };
   } catch (err) {

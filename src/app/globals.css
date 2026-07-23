@@ -1073,6 +1073,60 @@ body {
   font-style: italic;
 }
 
+/* Per-team breakdown table in the import summary */
+.bulk-perteam {
+  margin-top: 14px;
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.86rem;
+}
+.bulk-perteam th,
+.bulk-perteam td {
+  text-align: left;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--card-border);
+}
+.bulk-perteam th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.bulk-perteam th:not(:first-child),
+.bulk-perteam td:not(:first-child) {
+  text-align: right;
+  width: 5.5em;
+  font-variant-numeric: tabular-nums;
+}
+.bulk-perteam tbody tr:last-child td {
+  border-bottom: none;
+}
+.bulk-perteam-div {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+/* Unmatched team names note */
+.bulk-unmatched {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: 10px;
+  background: rgba(251, 191, 36, 0.08);
+}
+.bulk-unmatched .bulk-result-note {
+  margin-top: 0;
+}
+.bulk-unmatched ul {
+  margin: 8px 0;
+  padding-left: 18px;
+  font-size: 0.86rem;
+}
+.bulk-unmatched .muted-note {
+  margin-bottom: 0;
+}
+
 .bulk-upload-help {
   margin-top: 16px;
   font-size: 0.86rem;

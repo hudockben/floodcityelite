@@ -57,6 +57,10 @@ export function sportLabel(value: string): string {
   return SPORTS.find((s) => s.value === value)?.label ?? value;
 }
 
+export function divisionLabel(value: string): string {
+  return DIVISIONS.find((d) => d.slug === value)?.label ?? value;
+}
+
 // Common baseball/softball positions offered as a datalist. Free text is still
 // allowed so anything unusual can be typed in.
 export const POSITIONS = [
