@@ -1066,6 +1066,12 @@ body {
 .bulk-namelist.bulk-warnings ul {
   columns: 1;
 }
+.bulk-namelist-more {
+  list-style: none;
+  margin-left: -18px;
+  color: var(--text-muted);
+  font-style: italic;
+}
 
 .bulk-upload-help {
   margin-top: 16px;

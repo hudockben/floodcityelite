@@ -52,6 +52,14 @@ const MAX_LEN: Record<string, number> = {
 
 const MAX_WARNINGS = 25;
 
+// Safety bounds for parsing an uploaded workbook. The 5 MB cap in the action is
+// on the *compressed* upload; a crafted .xlsx can decompress far larger or
+// declare up to 16384 columns, so we also bound what we materialize here. These
+// are well above any real club roster (a team export is a few dozen rows and
+// ~20 columns).
+const MAX_PARSE_ROWS = 5000;
+const MAX_PARSE_COLS = 100;
+
 // --- header matching -------------------------------------------------------
 
 // Normalize a header cell to a comparison key: lowercase, alphanumerics only.
@@ -169,6 +177,16 @@ const FIELD_ALIASES: Record<SimpleField, string[]> = {
     "closesttrainingfacility",
   ],
 };
+
+// Every header spelling we know how to map. Used so a second column whose header
+// duplicates a recognized field (e.g. two "Email" columns) isn't reported to the
+// user as an "ignored column we don't track".
+const RECOGNIZED_KEYS = new Set<string>([
+  ...NAME_DIRECT,
+  ...NAME_FIRST,
+  ...NAME_LAST,
+  ...Object.values(FIELD_ALIASES).flat(),
+]);
 
 export type NameMode = "direct" | "split" | "firstonly" | "lastonly" | "none";
 
@@ -349,9 +367,11 @@ export function mapRows(rows: string[][]): MapResult {
   const unmatchedHeaders: string[] = [];
   header.forEach((h, i) => {
     const trimmed = h.trim();
-    if (trimmed !== "" && !plan.matched.has(i) && !unmatchedHeaders.includes(trimmed)) {
-      unmatchedHeaders.push(trimmed);
-    }
+    if (trimmed === "" || plan.matched.has(i)) return;
+    // A recognized header that lost out only because an earlier column already
+    // claimed that field (a duplicate column) isn't an "untracked" column.
+    if (RECOGNIZED_KEYS.has(normKey(h))) return;
+    if (!unmatchedHeaders.includes(trimmed)) unmatchedHeaders.push(trimmed);
   });
 
   const players: ParsedPlayer[] = [];
@@ -492,7 +512,10 @@ export function parseCsv(input: string, delimiter = ","): string[][] {
       }
       continue;
     }
-    if (c === '"') {
+    if (c === '"' && field === "") {
+      // A quote only opens a quoted field at the very start of a field. A quote
+      // in the middle of an unquoted field (e.g. a height like 5'11") is kept as
+      // a literal character rather than swallowing the rest of the row.
       inQuotes = true;
     } else if (c === delimiter) {
       pushField();
@@ -534,24 +557,50 @@ function cellToString(value: unknown): string {
   return String(value);
 }
 
-// Parse an .xlsx workbook (first non-empty worksheet) into rows of strings.
+// Parse an .xlsx workbook (first worksheet) into rows of strings.
+//
+// Uses exceljs's streaming reader and stops after MAX_PARSE_ROWS, so a crafted
+// "zip bomb" file can't be fully decompressed into memory — we abort reading the
+// stream once the row cap is hit. Styles are ignored, which means date cells
+// arrive as raw Excel serial numbers; normalizeDate() converts those, so we
+// don't depend on exceljs's date/timezone interpretation.
 export async function parseXlsx(buffer: ArrayBuffer): Promise<string[][]> {
   const ExcelJS = (await import("exceljs")).default;
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(buffer);
+  const { Readable } = await import("node:stream");
 
-  const ws = wb.worksheets.find((w) => w.rowCount > 0) ?? wb.worksheets[0];
-  if (!ws) return [];
+  const stream = new Readable();
+  stream.push(Buffer.from(buffer));
+  stream.push(null);
 
-  const colCount = ws.columnCount;
-  const rows: string[][] = [];
-  ws.eachRow({ includeEmpty: false }, (row) => {
-    const arr: string[] = [];
-    for (let c = 1; c <= colCount; c++) {
-      arr.push(cellToString(row.getCell(c).value));
-    }
-    rows.push(arr);
+  const reader = new ExcelJS.stream.xlsx.WorkbookReader(stream, {
+    worksheets: "emit",
+    sharedStrings: "cache",
+    hyperlinks: "ignore",
+    styles: "ignore",
+    entries: "ignore",
   });
+
+  const rows: string[][] = [];
+  try {
+    for await (const worksheet of reader) {
+      for await (const row of worksheet) {
+        const values = row.values as unknown[]; // 1-indexed; values[0] is empty
+        const maxCol = Math.min(values.length - 1, MAX_PARSE_COLS);
+        const arr: string[] = [];
+        for (let c = 1; c <= maxCol; c++) arr.push(cellToString(values[c]));
+        rows.push(arr);
+        if (rows.length > MAX_PARSE_ROWS) {
+          throw new RosterImportError(
+            `That spreadsheet has more than ${MAX_PARSE_ROWS} rows. Please split it into smaller files and import each separately.`,
+          );
+        }
+      }
+      break; // only the first worksheet
+    }
+  } finally {
+    stream.destroy();
+  }
+
   return rows;
 }
 

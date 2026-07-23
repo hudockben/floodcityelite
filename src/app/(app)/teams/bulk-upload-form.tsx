@@ -68,15 +68,31 @@ function downloadTemplate() {
   URL.revokeObjectURL(url);
 }
 
-function NameList({ label, names }: { label: string; names: string[] }) {
-  if (names.length === 0) return null;
+function NameList({
+  label,
+  names,
+  total,
+}: {
+  label: string;
+  names: string[];
+  total: number;
+}) {
+  if (total === 0) return null;
+  // The action caps how many names it returns; show the true total in the label
+  // and note how many were omitted so the count never contradicts the stat row.
+  const hidden = total - names.length;
   return (
     <details className="bulk-namelist">
-      <summary>{label}</summary>
+      <summary>
+        {label} ({total})
+      </summary>
       <ul>
         {names.map((n, i) => (
           <li key={`${n}-${i}`}>{n}</li>
         ))}
+        {hidden > 0 ? (
+          <li className="bulk-namelist-more">…and {hidden} more</li>
+        ) : null}
       </ul>
     </details>
   );
@@ -129,10 +145,11 @@ function ResultSummary({ result }: { result: BulkUploadResult }) {
         ) : null}
       </ul>
 
-      <NameList label={`Show added (${addedNames.length})`} names={addedNames} />
+      <NameList label="Show added" names={addedNames} total={added} />
       <NameList
-        label={`Show skipped duplicates (${duplicateNames.length})`}
+        label="Show skipped duplicates"
         names={duplicateNames}
+        total={duplicates}
       />
 
       {ignoredColumns.length > 0 ? (
