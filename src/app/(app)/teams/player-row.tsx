@@ -95,30 +95,17 @@ export default function PlayerRow({
               Editing <strong>{player.player_name}</strong>
             </div>
 
+            {/* is_paying is intentionally not edited here — the inline
+                "Paying" toggle on the roster row is its single writer, so the
+                editor can't resurrect a stale value over a just-made toggle. */}
             <div className="player-grid">
               {PLAYER_FIELDS.map((f) => (
-                <Fragment key={f.key}>
-                  <EditField
-                    field={f}
-                    playerId={player.id}
-                    value={player[f.key as keyof PlayerRowData]}
-                  />
-                  {f.key === "player_name" ? (
-                    <div className="field field-check">
-                      <label htmlFor={`edit-${player.id}-is_paying`}>Paying</label>
-                      <label className="check-inline">
-                        <input
-                          id={`edit-${player.id}-is_paying`}
-                          name="is_paying"
-                          type="checkbox"
-                          value="true"
-                          defaultChecked={player.is_paying}
-                        />
-                        <span>Pays tuition / dues</span>
-                      </label>
-                    </div>
-                  ) : null}
-                </Fragment>
+                <EditField
+                  key={f.key}
+                  field={f}
+                  playerId={player.id}
+                  value={player[f.key as keyof PlayerRowData]}
+                />
               ))}
             </div>
 

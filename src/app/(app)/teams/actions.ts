@@ -165,7 +165,6 @@ export async function updatePlayerAction(
         parent_email       = ${text(formData, "parent_email")},
         parent_name        = ${text(formData, "parent_name")},
         closest_facility   = ${text(formData, "closest_facility")},
-        is_paying          = ${checkbox(formData, "is_paying")},
         updated_at         = now()
       WHERE id = ${playerId}
         AND team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})
@@ -177,9 +176,9 @@ export async function updatePlayerAction(
     return { error: "Could not save changes. Please try again." };
   }
 
-  // Editing a player may flip their paying status, which the Budgets tab counts.
+  // Note: the paying flag isn't edited here (the inline roster toggle owns it),
+  // so this edit can't change the Budgets tab's paying-player count.
   revalidatePath("/teams");
-  revalidatePath("/budgets");
   return { ok: true };
 }
 

@@ -34,7 +34,7 @@ export default function PayingToggle({
           value="true"
           className="paying-checkbox"
           checked={paying}
-          aria-label={`${playerName} is paying`}
+          aria-label={`${playerName} — ${paying ? "Paying" : "Not paying"}`}
           onChange={(e) => {
             setPaying(e.currentTarget.checked);
             e.currentTarget.form?.requestSubmit();

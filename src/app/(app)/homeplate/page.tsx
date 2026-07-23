@@ -61,7 +61,9 @@ type BudgetRow = {
   name: string;
   division: DivisionSlug;
   sport: Sport;
-  player_count: number;
+  /** Roster players marked "Paying" — the paying-player default (matches the
+   *  Budgets tab). */
+  paying_count: number;
   portion_to_team_budget: number | null;
   paying_players: number | null;
   scheduled_cost: number;
@@ -184,7 +186,8 @@ export default async function HomeplatePage() {
           t.name,
           t.division,
           t.sport,
-          (SELECT count(*) FROM players p WHERE p.team_id = t.id)::int AS player_count,
+          (SELECT count(*) FROM players p
+             WHERE p.team_id = t.id AND p.is_paying)::int AS paying_count,
           b.portion_to_team_budget::float8 AS portion_to_team_budget,
           b.paying_players                 AS paying_players,
           (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e
@@ -218,7 +221,7 @@ export default async function HomeplatePage() {
   // keep only the teams that have a real budget and are near or over it.
   const budgetsAtRisk: BudgetAtRisk[] = budgetRows
     .map((r) => {
-      const payingCount = resolvePayingCount(r.paying_players ?? null, r.player_count);
+      const payingCount = resolvePayingCount(r.paying_players ?? null, r.paying_count);
       const starting = startingBalance(payingCount, r.portion_to_team_budget ?? 0);
       const balance = currentBalance(starting, r.scheduled_cost ?? 0, r.expense_net ?? 0);
       const usedPct = starting > 0 ? (starting - balance) / starting : 0;
