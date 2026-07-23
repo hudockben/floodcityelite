@@ -4,13 +4,9 @@ import { getSession } from "@/lib/session";
 import { resolveDivision, sportLabel } from "../../teams/divisions";
 import { ensureSchedulesSchema } from "../schema";
 import {
-  COST_FIELD_INDEX,
   EVENT_FIELDS,
   STATUS_HEADER,
-  costToCents,
-  formatCents,
   formatDate,
-  formatMoney,
   statusLabel,
   type AttendanceRow,
   type GroupPlayer,
@@ -20,6 +16,10 @@ import {
 import PrintControls from "./print-controls";
 
 export const dynamic = "force-dynamic";
+
+// The printed schedule is parent-facing, so it deliberately leaves out the
+// cost column and every money total that the on-screen Schedules tab shows.
+const PRINT_EVENT_FIELDS = EVENT_FIELDS.filter((f) => f.type !== "money");
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -49,7 +49,8 @@ function shortDate(iso: string | null): string {
 }
 
 /** Format a single schedule cell the way the on-screen table does: dates as
- *  "Jul 21, 2026", cost as money, everything else verbatim; empty -> em dash. */
+ *  "Jul 21, 2026", everything else verbatim; empty -> em dash. The cost column
+ *  is dropped from the printout entirely, so money isn't handled here. */
 function cellValue(
   field: (typeof EVENT_FIELDS)[number],
   event: ScheduleEventRow,
@@ -57,7 +58,6 @@ function cellValue(
   const value = event[field.key as keyof ScheduleEventRow];
   if (value == null || value === "") return "—";
   if (field.type === "date") return formatDate(String(value));
-  if (field.type === "money") return formatMoney(String(value));
   return String(value);
 }
 
@@ -174,17 +174,9 @@ export default async function SchedulesPrintPage({
     else benchByEvent.set(a.event_id, new Set([a.player_id]));
   }
 
-  // Division grand total across the teams being printed (all of them, or the
-  // single one for a per-team print).
-  const grandCents = teams.reduce(
-    (sum, t) =>
-      sum +
-      (eventsByTeam.get(t.id) ?? []).reduce(
-        (s, e) => s + costToCents(e.cost),
-        0,
-      ),
-    0,
-  );
+  // Total number of events across the teams being printed (all of them, or the
+  // single one for a per-team print). Costs are intentionally left off the
+  // parent-facing printout, so there's no money total here.
   const eventTotal = teams.reduce(
     (n, t) => n + (eventsByTeam.get(t.id) ?? []).length,
     0,
@@ -224,10 +216,6 @@ export default async function SchedulesPrintPage({
             {teams.map((t) => {
               const teamEvents = eventsByTeam.get(t.id) ?? [];
               const teamPlayers = playersByTeam.get(t.id) ?? [];
-              const totalCents = teamEvents.reduce(
-                (sum, e) => sum + costToCents(e.cost),
-                0,
-              );
               return (
                 <section className="print-team" key={t.id}>
                   <div className="print-team-head">
@@ -236,10 +224,6 @@ export default async function SchedulesPrintPage({
                     <span className="print-team-count">
                       {teamEvents.length}{" "}
                       {teamEvents.length === 1 ? "event" : "events"}
-                    </span>
-                    <span className="print-team-balance">
-                      {formatCents(totalCents)}
-                      <small>total cost</small>
                     </span>
                   </div>
 
@@ -251,13 +235,8 @@ export default async function SchedulesPrintPage({
                     <table className="print-sched">
                       <thead>
                         <tr>
-                          {EVENT_FIELDS.map((f) => (
-                            <th
-                              key={f.key}
-                              className={f.type === "money" ? "amt" : undefined}
-                            >
-                              {f.label}
-                            </th>
+                          {PRINT_EVENT_FIELDS.map((f) => (
+                            <th key={f.key}>{f.label}</th>
                           ))}
                           <th>{STATUS_HEADER}</th>
                         </tr>
@@ -265,15 +244,12 @@ export default async function SchedulesPrintPage({
                       <tbody>
                         {teamEvents.map((e) => (
                           <tr key={e.id}>
-                            {EVENT_FIELDS.map((f) => (
+                            {PRINT_EVENT_FIELDS.map((f) => (
                               <td
                                 key={f.key}
-                                className={[
-                                  f.type === "money" ? "amt" : "",
-                                  f.key === "event_name" ? "col-name" : "",
-                                ]
-                                  .filter(Boolean)
-                                  .join(" ") || undefined}
+                                className={
+                                  f.key === "event_name" ? "col-name" : undefined
+                                }
                               >
                                 {cellValue(f, e)}
                               </td>
@@ -282,19 +258,6 @@ export default async function SchedulesPrintPage({
                           </tr>
                         ))}
                       </tbody>
-                      <tfoot>
-                        <tr className="net">
-                          {/* Span up to the Cost column, put the total under it,
-                              then cover the remaining fields plus Status —
-                              derived from COST_FIELD_INDEX so it stays correct
-                              if the field order ever changes. */}
-                          <td colSpan={COST_FIELD_INDEX}>
-                            Total scheduled cost
-                          </td>
-                          <td className="amt">{formatCents(totalCents)}</td>
-                          <td colSpan={EVENT_FIELDS.length - COST_FIELD_INDEX} />
-                        </tr>
-                      </tfoot>
                     </table>
                   )}
 
@@ -382,12 +345,9 @@ export default async function SchedulesPrintPage({
             {teams.length > 1 ? (
               <section className="print-grand">
                 <span className="print-grand-label">
-                  {division.label} total — {eventTotal}{" "}
+                  {division.label} — {eventTotal}{" "}
                   {eventTotal === 1 ? "event" : "events"} across {teams.length}{" "}
                   {teams.length === 1 ? "team" : "teams"}
-                </span>
-                <span className="print-grand-value">
-                  {formatCents(grandCents)}
                 </span>
               </section>
             ) : null}
