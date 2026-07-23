@@ -37,6 +37,7 @@ export default async function TeamsPage({
 
   let teams: TeamRow[] = [];
   let players: PlayerRow[] = [];
+  let companyHasTeams = false;
   let loadError = false;
 
   try {
@@ -44,7 +45,7 @@ export default async function TeamsPage({
     // the database predates this feature. Idempotent and memoized.
     await ensureTeamsSchema();
 
-    const [teamRows, playerRows] = await Promise.all([
+    const [teamRows, playerRows, companyTeamRows] = await Promise.all([
       sql()`
         SELECT
           t.id,
@@ -80,10 +81,16 @@ export default async function TeamsPage({
           AND t.division = ${division.slug}
         ORDER BY t.name, p.player_name
       `,
+      sql()`
+        SELECT EXISTS(
+          SELECT 1 FROM teams WHERE company_id = ${session.companyId}
+        ) AS has
+      `,
     ]);
 
     teams = teamRows as TeamRow[];
     players = playerRows as PlayerRow[];
+    companyHasTeams = Boolean((companyTeamRows[0] as { has?: boolean })?.has);
   } catch (err) {
     console.error("Teams page load error:", err);
     loadError = true;
@@ -200,7 +207,11 @@ export default async function TeamsPage({
 
         <AddPlayerForm division={division.slug} teams={teamOptions} />
 
-        <BulkUploadForm division={division.slug} teams={teamOptions} />
+        <BulkUploadForm
+          division={division.slug}
+          teams={teamOptions}
+          companyHasTeams={companyHasTeams}
+        />
       </section>
 
       {/* Step 3 — the roster */}

@@ -210,6 +210,7 @@ export type BulkUploadResult = {
   duplicates: number;
   noName: number;
   unmatchedTeamRows: number;
+  blankTeamRows: number;
   totalRows: number;
   perTeam: BulkTeamResult[];
   unmatchedTeams: BulkUnmatchedTeam[];
@@ -300,6 +301,7 @@ export async function bulkUploadRosterAction(
     const teamById = new Map<number, { name: string; division: string }>();
     const unmatched = new Map<string, number>(); // display name -> row count
     let unmatchedTeamRows = 0;
+    let blankTeamRows = 0;
     const bumpUnmatched = (display: string) => {
       unmatchedTeamRows++;
       unmatched.set(display, (unmatched.get(display) ?? 0) + 1);
@@ -332,7 +334,7 @@ export async function bulkUploadRosterAction(
       resolveTeamId = (rowTeam) => {
         const raw = (rowTeam ?? "").trim();
         if (!raw) {
-          bumpUnmatched("(no team listed)");
+          blankTeamRows++;
           return null;
         }
         const ids = byKey.get(teamKey(raw));
@@ -487,6 +489,7 @@ export async function bulkUploadRosterAction(
         duplicates,
         noName: mapped.noNameRows,
         unmatchedTeamRows,
+        blankTeamRows,
         totalRows: mapped.totalDataRows,
         perTeam,
         unmatchedTeams,

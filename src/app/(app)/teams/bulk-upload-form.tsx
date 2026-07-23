@@ -102,10 +102,12 @@ function NameList({
 
 function ResultSummary({ result }: { result: BulkUploadResult }) {
   const {
+    mode,
     added,
     duplicates,
     noName,
     unmatchedTeamRows,
+    blankTeamRows,
     perTeam,
     unmatchedTeams,
     addedNames,
@@ -115,11 +117,20 @@ function ResultSummary({ result }: { result: BulkUploadResult }) {
   } = result;
 
   const teamsWithAdds = perTeam.filter((t) => t.added > 0);
+  // In auto-assign the destination team can be in a different division than the
+  // one being viewed, so name it in the headline (the roster below is
+  // division-scoped and won't show those players).
+  const soleTeam = teamsWithAdds.length === 1 ? teamsWithAdds[0] : null;
+  const soleTeamLabel =
+    soleTeam &&
+    (mode === "auto" && soleTeam.division
+      ? `${soleTeam.teamName} · ${soleTeam.division}`
+      : soleTeam.teamName);
   const headline =
     added === 0
       ? "No new players were added."
-      : teamsWithAdds.length === 1
-        ? `Added ${added} ${added === 1 ? "player" : "players"} to ${teamsWithAdds[0].teamName}.`
+      : soleTeam
+        ? `Added ${added} ${added === 1 ? "player" : "players"} to ${soleTeamLabel}.`
         : `Added ${added} players across ${teamsWithAdds.length} teams.`;
 
   return (
@@ -144,12 +155,25 @@ function ResultSummary({ result }: { result: BulkUploadResult }) {
             <strong>{unmatchedTeamRows}</strong> skipped — team not found
           </li>
         ) : null}
+        {blankTeamRows > 0 ? (
+          <li>
+            <strong>{blankTeamRows}</strong> skipped — no team listed
+          </li>
+        ) : null}
         {noName > 0 ? (
           <li>
             <strong>{noName}</strong> skipped — no player name
           </li>
         ) : null}
       </ul>
+
+      {blankTeamRows > 0 ? (
+        <p className="bulk-result-note">
+          {blankTeamRows} {blankTeamRows === 1 ? "player" : "players"} had no team
+          in the file — add a team name in the <code>team</code> column, or choose a
+          specific team above instead of auto-assign.
+        </p>
+      ) : null}
 
       {perTeam.length > 1 ? (
         <table className="bulk-perteam">
@@ -230,9 +254,13 @@ function ResultSummary({ result }: { result: BulkUploadResult }) {
 export default function BulkUploadForm({
   division,
   teams,
+  companyHasTeams,
 }: {
   division: DivisionSlug;
   teams: TeamOption[];
+  /** Whether the company has any team (in any division) — auto-assign is
+   *  company-wide, so the form is useful even when this division has none. */
+  companyHasTeams: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     bulkUploadRosterAction,
@@ -250,7 +278,10 @@ export default function BulkUploadForm({
     }
   }, [state]);
 
-  if (teams.length === 0) return null;
+  // Show the form whenever the company has any team — auto-assign matches by
+  // name across all divisions, so it's useful even from a division with none.
+  if (teams.length === 0 && !companyHasTeams) return null;
+  const noTeamsInDivision = teams.length === 0;
 
   return (
     <details className="bulk-upload">
@@ -285,6 +316,12 @@ export default function BulkUploadForm({
                   </option>
                 ))}
               </select>
+              {noTeamsInDivision ? (
+                <span className="bulk-file-name">
+                  This division has no teams yet — auto-assign will route rows to
+                  your teams in other divisions by name.
+                </span>
+              ) : null}
             </div>
 
             <div className="field">
