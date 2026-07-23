@@ -19,6 +19,9 @@ export class RosterImportError extends Error {}
 
 // A single roster row, shaped exactly like the columns the add-player form and
 // the `players` table use. `date_of_birth` is a normalized YYYY-MM-DD string.
+// `is_paying` defaults to true and only flips false when a "paying" column
+// explicitly says so, so a file without that column behaves exactly as before
+// (everyone pays).
 export type ParsedPlayer = {
   player_name: string;
   grad_year: number | null;
@@ -32,9 +35,12 @@ export type ParsedPlayer = {
   parent_email: string | null;
   parent_name: string | null;
   closest_facility: string | null;
+  is_paying: boolean;
 };
 
-type SimpleField = Exclude<keyof ParsedPlayer, "player_name">;
+// The generic text/number/date fields, i.e. every parsed field except the name
+// (handled specially) and is_paying (a boolean parsed on its own).
+type SimpleField = Exclude<keyof ParsedPlayer, "player_name" | "is_paying">;
 
 // DB column limits (mirror db/schema.sql) so long values are trimmed to fit
 // instead of failing the whole import.
@@ -182,6 +188,19 @@ const FIELD_ALIASES: Record<SimpleField, string[]> = {
 // player field — it routes the row to a team by name.
 const TEAM_ALIASES = ["team", "teamname", "teams", "squad", "rostername"];
 
+// The column that marks a player as a paying member. Not a text field — it's
+// parsed to the is_paying boolean. Deliberately limited to clearly
+// paying-membership spellings (not a bare "paid", which clubs use to track
+// payment received rather than membership type).
+const PAYING_ALIASES = [
+  "paying",
+  "ispaying",
+  "payingplayer",
+  "payingplayers",
+  "paysdues",
+  "duespaying",
+];
+
 // Every header spelling we know how to map. Used so a second column whose header
 // duplicates a recognized field (e.g. two "Email" columns) isn't reported to the
 // user as an "ignored column we don't track".
@@ -190,6 +209,7 @@ const RECOGNIZED_KEYS = new Set<string>([
   ...NAME_FIRST,
   ...NAME_LAST,
   ...TEAM_ALIASES,
+  ...PAYING_ALIASES,
   ...Object.values(FIELD_ALIASES).flat(),
 ]);
 
@@ -201,6 +221,7 @@ type ColumnPlan = {
   firstIdx?: number;
   lastIdx?: number;
   teamIdx?: number;
+  payingIdx?: number;
   fieldCols: Partial<Record<SimpleField, number[]>>;
   matched: Set<number>;
 };
@@ -235,6 +256,8 @@ function planColumns(header: string[]): ColumnPlan {
   const lastIdx = idxOf(NAME_LAST);
   const teamIdx = idxOf(TEAM_ALIASES);
   mark(teamIdx);
+  const payingIdx = idxOf(PAYING_ALIASES);
+  mark(payingIdx);
 
   let nameMode: NameMode;
   if (nameDirectIdx != null) {
@@ -263,7 +286,43 @@ function planColumns(header: string[]): ColumnPlan {
     }
   }
 
-  return { nameMode, nameDirectIdx, firstIdx, lastIdx, teamIdx, fieldCols, matched };
+  return {
+    nameMode,
+    nameDirectIdx,
+    firstIdx,
+    lastIdx,
+    teamIdx,
+    payingIdx,
+    fieldCols,
+    matched,
+  };
+}
+
+// Interpret a "paying" cell. Blank or anything unrecognized defaults to true
+// (paying) so importing never silently marks someone unpaid; only an explicit
+// negative ("no", "unpaid", "scholarship", "0", …) flips it to false.
+const NOT_PAYING_VALUES = new Set([
+  "no",
+  "n",
+  "false",
+  "f",
+  "0",
+  "off",
+  "none",
+  "unpaid",
+  "notpaying",
+  "nonpaying",
+  "comp",
+  "complimentary",
+  "scholarship",
+  "free",
+  "waived",
+]);
+
+export function parsePaying(raw: string): boolean {
+  const s = raw.trim().toLowerCase().replace(/[\s_-]+/g, "");
+  if (s === "") return true;
+  return !NOT_PAYING_VALUES.has(s);
 }
 
 // --- value normalization ---------------------------------------------------
@@ -480,6 +539,8 @@ export function mapRows(rows: string[][]): MapResult {
       parent_email: textField("parent_email"),
       parent_name: textField("parent_name"),
       closest_facility: textField("closest_facility"),
+      // Absent column → cell("") → parsePaying → true (default paying).
+      is_paying: parsePaying(cell(plan.payingIdx)),
     });
     const teamRaw = collapseWs(cell(plan.teamIdx));
     teamNames.push(teamRaw || null);

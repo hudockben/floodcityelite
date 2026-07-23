@@ -40,7 +40,10 @@ ones are:
 - **`players`** — roster rows that belong to a team via `team_id`
   (`ON DELETE CASCADE`). Only `player_name` is required; the rest (grad year,
   date of birth, height, weight, positions, high school, parent contact,
-  closest facility) can be filled in over time.
+  closest facility) can be filled in over time. Each player also carries an
+  `is_paying` flag (default `true`) shown as a **Paying** checkmark on the Teams
+  roster; the Budgets tab's paying-player count is the number of players marked
+  paying (with an optional manual override on the budget for edge cases).
 - **`payments`** — payments logged against a player via `player_id`
   (`ON DELETE CASCADE`). Each row records `paid_on`, a `payment_type` (`check`
   or `cash`), an optional `check_number` (for check payments), and an `amount`.

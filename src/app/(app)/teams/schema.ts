@@ -55,10 +55,16 @@ async function provision(): Promise<void> {
       parent_email        VARCHAR(160),
       parent_name         VARCHAR(160),
       closest_facility    VARCHAR(160),
+      is_paying           BOOLEAN      NOT NULL DEFAULT true,
       created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
       updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now()
     )
   `;
 
   await db`CREATE INDEX IF NOT EXISTS idx_players_team_id ON players (team_id)`;
+
+  // Backfill is_paying on databases whose `players` table predates it. Existing
+  // rows default to paying, so the Budgets tab's paying-player count keeps
+  // matching the full roster size until a coach unchecks someone.
+  await db`ALTER TABLE players ADD COLUMN IF NOT EXISTS is_paying BOOLEAN NOT NULL DEFAULT true`;
 }

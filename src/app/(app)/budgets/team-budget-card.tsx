@@ -25,7 +25,10 @@ export type BudgetTeam = {
   id: number;
   name: string;
   sport: Sport;
+  /** Total roster size (shown alongside the paying count for context). */
   rosterCount: number;
+  /** Roster players marked "Paying" — the paying-player default. */
+  payingRosterCount: number;
   /** Total scheduled cost for this team (Schedules tab total), in dollars. */
   scheduledCost: number;
   saved: SavedBudget;
@@ -120,7 +123,7 @@ export default function TeamBudgetCard({
   const tuitionNum = parseMoney(tuition);
   const portionNum = parseMoney(portion);
   const override = normalizeOverride(paying);
-  const payingCount = resolvePayingCount(override, team.rosterCount);
+  const payingCount = resolvePayingCount(override, team.payingRosterCount);
   const tuitionTotal = totalTuition(payingCount, tuitionNum);
   const starting = startingBalance(payingCount, portionNum);
   // Net expense impact (paid minus refunds) that comes off the starting balance
@@ -188,8 +191,8 @@ export default function TeamBudgetCard({
                       # of paying Players
                       <span className="bs-note">
                         {override == null
-                          ? `from roster (${team.rosterCount})`
-                          : "manual override"}
+                          ? `from roster (${team.payingRosterCount} of ${team.rosterCount} marked paying)`
+                          : `manual override · roster has ${team.payingRosterCount} marked paying`}
                       </span>
                     </th>
                     <td>
@@ -200,8 +203,8 @@ export default function TeamBudgetCard({
                         min={0}
                         step={1}
                         inputMode="numeric"
-                        aria-label="Number of paying players (leave blank to use the roster count)"
-                        placeholder={String(team.rosterCount)}
+                        aria-label="Number of paying players (leave blank to use the count marked Paying on the roster)"
+                        placeholder={String(team.payingRosterCount)}
                         value={paying}
                         onChange={(e) => setPaying(e.target.value)}
                       />

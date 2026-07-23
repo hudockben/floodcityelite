@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { Fragment, useActionState, useEffect, useRef } from "react";
 import { addPlayerAction, type FormState } from "./actions";
 import {
   PLAYER_FIELDS,
@@ -96,13 +96,30 @@ export default function AddPlayerForm({
         </div>
 
         {PLAYER_FIELDS.map((field) => (
-          <div className="field" key={field.key}>
-            <label htmlFor={`player-${field.key}`}>
-              {field.label}
-              {field.required ? " *" : ""}
-            </label>
-            <FieldInput field={field} />
-          </div>
+          <Fragment key={field.key}>
+            <div className="field">
+              <label htmlFor={`player-${field.key}`}>
+                {field.label}
+                {field.required ? " *" : ""}
+              </label>
+              <FieldInput field={field} />
+            </div>
+            {field.key === "player_name" ? (
+              <div className="field field-check">
+                <label htmlFor="player-is_paying">Paying</label>
+                <label className="check-inline">
+                  <input
+                    id="player-is_paying"
+                    name="is_paying"
+                    type="checkbox"
+                    value="true"
+                    defaultChecked
+                  />
+                  <span>Pays tuition / dues</span>
+                </label>
+              </div>
+            ) : null}
+          </Fragment>
         ))}
       </div>
 

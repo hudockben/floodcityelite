@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { Fragment, useActionState, useEffect, useState } from "react";
 import {
   deletePlayerAction,
   updatePlayerAction,
   type FormState,
 } from "./actions";
 import ConfirmButton from "./confirm-button";
+import PayingToggle from "./paying-toggle";
 import {
   PLAYER_FIELDS,
   type DivisionSlug,
@@ -15,7 +16,8 @@ import {
 } from "./divisions";
 
 const initialState: FormState = {};
-const COL_SPAN = PLAYER_FIELDS.length + 1; // player fields + actions column
+// Columns: every player field, plus the "Paying" column and the actions column.
+const COL_SPAN = PLAYER_FIELDS.length + 2;
 
 function EditField({
   field,
@@ -23,7 +25,10 @@ function EditField({
   playerId,
 }: {
   field: PlayerField;
-  value: string | number | null;
+  // Widened to the full PlayerRow value union (which now includes the boolean
+  // is_paying). is_paying isn't a PLAYER_FIELD, so it never actually renders
+  // here — this just keeps the indexed-access type happy.
+  value: string | number | boolean | null;
   playerId: number;
 }) {
   const id = `edit-${playerId}-${field.key}`;
@@ -92,12 +97,28 @@ export default function PlayerRow({
 
             <div className="player-grid">
               {PLAYER_FIELDS.map((f) => (
-                <EditField
-                  key={f.key}
-                  field={f}
-                  playerId={player.id}
-                  value={player[f.key as keyof PlayerRowData]}
-                />
+                <Fragment key={f.key}>
+                  <EditField
+                    field={f}
+                    playerId={player.id}
+                    value={player[f.key as keyof PlayerRowData]}
+                  />
+                  {f.key === "player_name" ? (
+                    <div className="field field-check">
+                      <label htmlFor={`edit-${player.id}-is_paying`}>Paying</label>
+                      <label className="check-inline">
+                        <input
+                          id={`edit-${player.id}-is_paying`}
+                          name="is_paying"
+                          type="checkbox"
+                          value="true"
+                          defaultChecked={player.is_paying}
+                        />
+                        <span>Pays tuition / dues</span>
+                      </label>
+                    </div>
+                  ) : null}
+                </Fragment>
               ))}
             </div>
 
@@ -131,12 +152,20 @@ export default function PlayerRow({
         const value = player[f.key as keyof PlayerRowData];
         const empty = value == null || value === "";
         return (
-          <td
-            key={f.key}
-            className={f.key === "player_name" ? "col-name" : undefined}
-          >
-            {empty ? <span className="cell-empty">—</span> : String(value)}
-          </td>
+          <Fragment key={f.key}>
+            <td className={f.key === "player_name" ? "col-name" : undefined}>
+              {empty ? <span className="cell-empty">—</span> : String(value)}
+            </td>
+            {f.key === "player_name" ? (
+              <td className="col-paying">
+                <PayingToggle
+                  playerId={player.id}
+                  playerName={player.player_name}
+                  value={player.is_paying}
+                />
+              </td>
+            ) : null}
+          </Fragment>
         );
       })}
       <td className="col-actions">

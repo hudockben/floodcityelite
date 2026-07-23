@@ -57,7 +57,9 @@ CREATE INDEX IF NOT EXISTS idx_teams_company_division ON teams (company_id, divi
 
 -- Players (roster rows) belong to a team. Only player_name is required; every
 -- other column is optional so a coach can fill the roster out over time. The
--- columns mirror the Teams-tab roster headers.
+-- columns mirror the Teams-tab roster headers. `is_paying` marks whether the
+-- player pays tuition/dues — it defaults to true (everyone pays unless marked
+-- otherwise) and drives the Budgets tab's paying-player count.
 CREATE TABLE IF NOT EXISTS players (
     id                  SERIAL PRIMARY KEY,
     team_id             INTEGER      NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
@@ -73,6 +75,7 @@ CREATE TABLE IF NOT EXISTS players (
     parent_email        VARCHAR(160),
     parent_name         VARCHAR(160),
     closest_facility    VARCHAR(160),
+    is_paying           BOOLEAN      NOT NULL DEFAULT true,
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
@@ -104,10 +107,11 @@ CREATE INDEX IF NOT EXISTS idx_payments_player_id ON payments (player_id);
 -- Team budgets
 --
 -- One budget row per team (team_id is the primary key). The Budgets tab reads
--- the paying-player count from the roster (players) by default; paying_players
--- overrides that when not everyone on the roster pays. Money columns are
--- stored as NUMERIC. Current balance / fundraising are derived downstream from
--- the Schedules tab once that feature lands, so they aren't stored here.
+-- the paying-player count from the roster by default — the number of players
+-- marked `is_paying` on the Teams tab; paying_players is an optional manual
+-- override for the rare case that count needs adjusting by hand. Money columns
+-- are stored as NUMERIC. Current balance / fundraising are derived downstream
+-- from the Schedules tab, so they aren't stored here.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS team_budgets (
     team_id                 INTEGER       PRIMARY KEY

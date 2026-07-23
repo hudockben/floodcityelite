@@ -17,11 +17,14 @@ export type TeamBudgetRow = {
   name: string;
   division: DivisionSlug;
   sport: Sport;
-  /** Roster size from the Teams tab (source of the paying-player default). */
+  /** Total roster size from the Teams tab (shown for context). */
   player_count: number;
+  /** Roster players marked "Paying" — the paying-player default. */
+  paying_count: number;
   tuition_per_player: number | null;
   portion_to_team_budget: number | null;
-  /** Optional override for the paying-player count; NULL uses the roster. */
+  /** Optional manual override for the paying-player count; NULL uses the
+   *  roster's paying_count. */
   paying_players: number | null;
   /** Sum of every scheduled event's cost for this team (the Schedules tab
    *  total), in dollars. 0 when the team has no events. */
@@ -32,7 +35,7 @@ export type TeamBudgetRow = {
 export type SavedBudget = {
   tuitionPerPlayer: number;
   portionToTeamBudget: number;
-  /** null → fall back to the roster count. */
+  /** null → fall back to the roster's paying-player count. */
   payingPlayersOverride: number | null;
 };
 
@@ -167,13 +170,13 @@ export function parseMoney(raw: string | null | undefined): number {
 
 /**
  * The paying-player count used across the budget: the manual override when set,
- * otherwise the roster count from the Teams tab.
+ * otherwise the number of roster players marked "Paying" on the Teams tab.
  */
 export function resolvePayingCount(
   override: number | null,
-  rosterCount: number,
+  payingRosterCount: number,
 ): number {
-  return override != null && override >= 0 ? override : rosterCount;
+  return override != null && override >= 0 ? override : payingRosterCount;
 }
 
 export function totalTuition(payingCount: number, tuitionPerPlayer: number): number {

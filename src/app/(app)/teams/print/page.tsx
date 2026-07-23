@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -47,19 +48,22 @@ function formatDob(iso: string | null | undefined): string {
 // shredded, while short fields (grad year, height, weight, positions) stay
 // narrow. Sums to 100.
 const COL_WIDTHS: Record<string, string> = {
-  player_name: "12%",
+  player_name: "11%",
   grad_year: "5%",
   date_of_birth: "8%",
   height: "5%",
   weight: "5%",
   primary_position: "6%",
   secondary_position: "6%",
-  high_school: "11%",
+  high_school: "10%",
   parent_phone: "9%",
-  parent_email: "13%",
-  parent_name: "10%",
-  closest_facility: "10%",
+  parent_email: "12%",
+  parent_name: "9%",
+  closest_facility: "9%",
 };
+
+// The "Paying" column isn't one of PLAYER_FIELDS; it sits just after the name.
+const PAYING_COL_WIDTH = "5%";
 
 /** Format a single roster cell, matching the on-screen roster values but with
  *  friendlier dates. Empty values collapse to an em dash. */
@@ -119,7 +123,8 @@ export default async function TeamsPrintPage({
           p.parent_phone,
           p.parent_email,
           p.parent_name,
-          p.closest_facility
+          p.closest_facility,
+          p.is_paying
         FROM players p
         JOIN teams t ON t.id = p.team_id
         WHERE t.company_id = ${session.companyId}
@@ -202,13 +207,23 @@ export default async function TeamsPrintPage({
                   <table className="print-roster">
                     <colgroup>
                       {PLAYER_FIELDS.map((f) => (
-                        <col key={f.key} style={{ width: COL_WIDTHS[f.key] }} />
+                        <Fragment key={f.key}>
+                          <col style={{ width: COL_WIDTHS[f.key] }} />
+                          {f.key === "player_name" ? (
+                            <col style={{ width: PAYING_COL_WIDTH }} />
+                          ) : null}
+                        </Fragment>
                       ))}
                     </colgroup>
                     <thead>
                       <tr>
                         {PLAYER_FIELDS.map((f) => (
-                          <th key={f.key}>{f.label}</th>
+                          <Fragment key={f.key}>
+                            <th>{f.label}</th>
+                            {f.key === "player_name" ? (
+                              <th className="col-paying">Paying</th>
+                            ) : null}
+                          </Fragment>
                         ))}
                       </tr>
                     </thead>
@@ -216,14 +231,20 @@ export default async function TeamsPrintPage({
                       {teamPlayers.map((p) => (
                         <tr key={p.id}>
                           {PLAYER_FIELDS.map((f) => (
-                            <td
-                              key={f.key}
-                              className={
-                                f.key === "player_name" ? "col-name" : undefined
-                              }
-                            >
-                              {cellValue(f, p)}
-                            </td>
+                            <Fragment key={f.key}>
+                              <td
+                                className={
+                                  f.key === "player_name" ? "col-name" : undefined
+                                }
+                              >
+                                {cellValue(f, p)}
+                              </td>
+                              {f.key === "player_name" ? (
+                                <td className="col-paying">
+                                  {p.is_paying ? "✓" : "—"}
+                                </td>
+                              ) : null}
+                            </Fragment>
                           ))}
                         </tr>
                       ))}

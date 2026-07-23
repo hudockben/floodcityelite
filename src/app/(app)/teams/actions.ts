@@ -37,6 +37,12 @@ function isoDate(formData: FormData, key: string): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
 }
 
+// A checkbox is present in the submitted form only when it's checked, so a
+// missing key means unchecked. Used for the roster's "Paying" flag.
+function checkbox(formData: FormData, key: string): boolean {
+  return formData.get(key) != null;
+}
+
 // --- create a team ---------------------------------------------------------
 
 export async function createTeamAction(
@@ -97,7 +103,7 @@ export async function addPlayerAction(
       INSERT INTO players (
         team_id, player_name, grad_year, date_of_birth, height, weight,
         primary_position, secondary_position, high_school,
-        parent_phone, parent_email, parent_name, closest_facility
+        parent_phone, parent_email, parent_name, closest_facility, is_paying
       ) VALUES (
         ${teamId},
         ${playerName},
@@ -111,7 +117,8 @@ export async function addPlayerAction(
         ${text(formData, "parent_phone")},
         ${text(formData, "parent_email")},
         ${text(formData, "parent_name")},
-        ${text(formData, "closest_facility")}
+        ${text(formData, "closest_facility")},
+        ${checkbox(formData, "is_paying")}
       )
     `;
   } catch (err) {
@@ -119,7 +126,9 @@ export async function addPlayerAction(
     return { error: "Could not add the player. Please try again." };
   }
 
+  // The roster's paying-player count feeds the Budgets tab, so refresh it too.
   revalidatePath("/teams");
+  revalidatePath("/budgets");
   return { ok: true };
 }
 
@@ -156,6 +165,7 @@ export async function updatePlayerAction(
         parent_email       = ${text(formData, "parent_email")},
         parent_name        = ${text(formData, "parent_name")},
         closest_facility   = ${text(formData, "closest_facility")},
+        is_paying          = ${checkbox(formData, "is_paying")},
         updated_at         = now()
       WHERE id = ${playerId}
         AND team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})
@@ -167,8 +177,36 @@ export async function updatePlayerAction(
     return { error: "Could not save changes. Please try again." };
   }
 
+  // Editing a player may flip their paying status, which the Budgets tab counts.
   revalidatePath("/teams");
+  revalidatePath("/budgets");
   return { ok: true };
+}
+
+// --- toggle a player's paying status (inline roster checkbox) --------------
+
+// The roster's "Paying" checkbox posts here on every change. The desired state
+// arrives as the checkbox's presence: submitted (checked) → paying; omitted
+// (unchecked) → not paying. Void action (no return) — the row reflects the new
+// state optimistically while the page and the linked Budgets count revalidate.
+export async function togglePlayerPayingAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session) return;
+
+  const playerId = Number.parseInt(String(formData.get("playerId") ?? ""), 10);
+  if (!Number.isFinite(playerId)) return;
+
+  const isPaying = checkbox(formData, "is_paying");
+
+  // Scope the update to a player whose team belongs to this company.
+  await sql()`
+    UPDATE players SET is_paying = ${isPaying}, updated_at = now()
+    WHERE id = ${playerId}
+      AND team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})
+  `;
+
+  revalidatePath("/teams");
+  revalidatePath("/budgets");
 }
 
 // --- delete a player -------------------------------------------------------
@@ -187,7 +225,9 @@ export async function deletePlayerAction(formData: FormData): Promise<void> {
       AND team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})
   `;
 
+  // Removing a player changes the roster's paying-player count on the Budgets tab.
   revalidatePath("/teams");
+  revalidatePath("/budgets");
 }
 
 // --- bulk-upload a roster from a CSV / Excel file --------------------------
@@ -441,7 +481,7 @@ export async function bulkUploadRosterAction(
             INSERT INTO players (
               team_id, player_name, grad_year, date_of_birth, height, weight,
               primary_position, secondary_position, high_school,
-              parent_phone, parent_email, parent_name, closest_facility
+              parent_phone, parent_email, parent_name, closest_facility, is_paying
             ) VALUES (
               ${a.teamId},
               ${a.player.player_name},
@@ -455,7 +495,8 @@ export async function bulkUploadRosterAction(
               ${a.player.parent_phone},
               ${a.player.parent_email},
               ${a.player.parent_name},
-              ${a.player.closest_facility}
+              ${a.player.closest_facility},
+              ${a.player.is_paying}
             )
           `,
         ),
@@ -463,6 +504,7 @@ export async function bulkUploadRosterAction(
     }
 
     revalidatePath("/teams");
+    revalidatePath("/budgets");
 
     const perTeam: BulkTeamResult[] = [...perTeamTally.entries()]
       .map(([tid, t]) => {
@@ -519,5 +561,7 @@ export async function deleteTeamAction(formData: FormData): Promise<void> {
     DELETE FROM teams WHERE id = ${teamId} AND company_id = ${session.companyId}
   `;
 
+  // The team (and its budget row) drop off the Budgets tab as well.
   revalidatePath("/teams");
+  revalidatePath("/budgets");
 }

@@ -93,6 +93,8 @@ async function main() {
   await sql`CREATE INDEX IF NOT EXISTS idx_teams_company_division ON teams (company_id, division)`;
 
   // Players (roster rows) belong to a team. Only player_name is required.
+  // `is_paying` marks whether the player pays tuition/dues and drives the
+  // Budgets tab's paying-player count; it defaults to true.
   await sql`
     CREATE TABLE IF NOT EXISTS players (
       id                  SERIAL PRIMARY KEY,
@@ -109,12 +111,18 @@ async function main() {
       parent_email        VARCHAR(160),
       parent_name         VARCHAR(160),
       closest_facility    VARCHAR(160),
+      is_paying           BOOLEAN      NOT NULL DEFAULT true,
       created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
       updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now()
     )
   `;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_players_team_id ON players (team_id)`;
+
+  // Backfill is_paying on databases that created `players` before it existed.
+  // Existing rows default to paying, matching the previous behavior where the
+  // paying-player count was the full roster size.
+  await sql`ALTER TABLE players ADD COLUMN IF NOT EXISTS is_paying BOOLEAN NOT NULL DEFAULT true`;
 
   // Payments are logged against a player (→ team → company) and power the
   // Payment Tracker tab.
@@ -137,8 +145,9 @@ async function main() {
   // Backfill check_number on databases that created `payments` before it existed.
   await sql`ALTER TABLE payments ADD COLUMN IF NOT EXISTS check_number VARCHAR(32)`;
 
-  // One budget row per team. The paying-player count defaults to the roster
-  // size (players); paying_players overrides it when not everyone pays.
+  // One budget row per team. The paying-player count defaults to the number of
+  // players marked is_paying on the roster; paying_players is an optional manual
+  // override.
   await sql`
     CREATE TABLE IF NOT EXISTS team_budgets (
       team_id                 INTEGER       PRIMARY KEY REFERENCES teams(id) ON DELETE CASCADE,

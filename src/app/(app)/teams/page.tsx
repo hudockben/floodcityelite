@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
@@ -74,7 +75,8 @@ export default async function TeamsPage({
           p.parent_phone,
           p.parent_email,
           p.parent_name,
-          p.closest_facility
+          p.closest_facility,
+          p.is_paying
         FROM players p
         JOIN teams t ON t.id = p.team_id
         WHERE t.company_id = ${session.companyId}
@@ -289,7 +291,12 @@ export default async function TeamsPage({
                         <thead>
                           <tr>
                             {PLAYER_FIELDS.map((f) => (
-                              <th key={f.key}>{f.label}</th>
+                              <Fragment key={f.key}>
+                                <th>{f.label}</th>
+                                {f.key === "player_name" ? (
+                                  <th className="col-paying">Paying</th>
+                                ) : null}
+                              </Fragment>
                             ))}
                             <th className="col-actions">
                               <span className="sr-only">Actions</span>

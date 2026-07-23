@@ -1245,6 +1245,78 @@ body {
   width: 1%;
 }
 
+/* ---- Roster "Paying" column ------------------------------------------------
+   A per-player checkmark that links each roster row to the Budgets tab's
+   paying-player count. Ticking it saves immediately (see PayingToggle). */
+.roster .col-paying,
+.print-roster .col-paying {
+  text-align: center;
+}
+
+.paying-form {
+  margin: 0;
+  display: inline-flex;
+}
+
+.paying-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.paying-checkbox {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #34d399;
+  cursor: pointer;
+  flex: none;
+}
+
+.paying-pill {
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Green label once the box is ticked (falls back to the muted colour on
+   browsers without :has()). */
+.paying-toggle:has(.paying-checkbox:checked) .paying-pill {
+  color: #7ee2b8;
+}
+
+/* Checkbox "Paying" field inside the add-player and edit-player forms. */
+.field-check .check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  padding: 10px 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: normal;
+}
+
+.field-check .check-inline input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  /* Undo the generic ".field input" box styling so the native checkbox (drawn
+     via accent-color) isn't wrapped in a field-shaped border/background. */
+  background: none;
+  border: none;
+  border-radius: 0;
+  accent-color: #34d399;
+  cursor: pointer;
+  flex: none;
+}
+
 .row-delete {
   padding: 5px 10px;
   font-size: 0.78rem;

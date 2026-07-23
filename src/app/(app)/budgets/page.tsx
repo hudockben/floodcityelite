@@ -46,6 +46,8 @@ export default async function BudgetsPage({
           t.division,
           t.sport,
           (SELECT count(*) FROM players p WHERE p.team_id = t.id)::int AS player_count,
+          (SELECT count(*) FROM players p
+             WHERE p.team_id = t.id AND p.is_paying)::int AS paying_count,
           b.tuition_per_player::float8     AS tuition_per_player,
           b.portion_to_team_budget::float8 AS portion_to_team_budget,
           b.paying_players                 AS paying_players,
@@ -124,6 +126,7 @@ export default async function BudgetsPage({
     name: r.name,
     sport: r.sport,
     rosterCount: r.player_count,
+    payingRosterCount: r.paying_count,
     scheduledCost: r.scheduled_cost ?? 0,
     saved: {
       tuitionPerPlayer: r.tuition_per_player ?? 0,
@@ -142,8 +145,9 @@ export default async function BudgetsPage({
           <p>
             One budget per team. Pick a division, then expand a team to set
             tuition and the per-player portion that goes to the team budget —
-            totals update as you type. The paying-player count comes from each
-            team&apos;s roster on the Teams tab.
+            totals update as you type. The paying-player count comes from the
+            players marked <strong>Paying</strong> on each team&apos;s roster on
+            the Teams tab.
           </p>
         </div>
 

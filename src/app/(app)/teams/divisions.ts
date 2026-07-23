@@ -108,7 +108,8 @@ export const PLAYER_FIELDS: PlayerField[] = [
 export const ROSTER_HEADERS = ["Team", ...PLAYER_FIELDS.map((f) => f.label)];
 
 // Shape returned by the roster query (snake_case columns from Postgres) plus
-// the joined team name.
+// the joined team name. `is_paying` is a status flag (not one of PLAYER_FIELDS)
+// rendered as its own "Paying" column with an inline toggle.
 export type PlayerRow = {
   id: number;
   team_id: number;
@@ -125,6 +126,7 @@ export type PlayerRow = {
   parent_email: string | null;
   parent_name: string | null;
   closest_facility: string | null;
+  is_paying: boolean;
 };
 
 export type TeamRow = {

@@ -72,6 +72,8 @@ export default async function BudgetPrintPage({
           t.division,
           t.sport,
           (SELECT count(*) FROM players p WHERE p.team_id = t.id)::int AS player_count,
+          (SELECT count(*) FROM players p
+             WHERE p.team_id = t.id AND p.is_paying)::int AS paying_count,
           b.tuition_per_player::float8     AS tuition_per_player,
           b.portion_to_team_budget::float8 AS portion_to_team_budget,
           b.paying_players                 AS paying_players,
@@ -177,10 +179,9 @@ export default async function BudgetPrintPage({
           <p className="print-note">No teams to report in {division.label}.</p>
         ) : (
           rows.map((r) => {
-            const rosterCount = r.player_count;
             const payingCount = resolvePayingCount(
               r.paying_players ?? null,
-              rosterCount,
+              r.paying_count,
             );
             const tuitionPer = r.tuition_per_player ?? 0;
             const portion = r.portion_to_team_budget ?? 0;
