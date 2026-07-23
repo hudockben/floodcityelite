@@ -99,4 +99,24 @@ async function provision(): Promise<void> {
   `;
 
   await db`CREATE INDEX IF NOT EXISTS idx_event_groups_event_id ON event_groups (event_id)`;
+
+  // Normalise redundant attendance rows left by the earlier per-player toggle.
+  // The old code persisted an attending = true row whenever a coach re-included
+  // a benched player, and hid those rows by only reading attending = false — so
+  // they were harmless then. Now that a stored row overrides the group baseline,
+  // a stale true row would wrongly force a player to attend once their team
+  // starts picking groups. Drop the redundant ones: on an event with no group
+  // selection the baseline is "everyone attends", so an attending = true row
+  // equals the baseline and removing it changes no resolved attendance. Real
+  // "bring an out-of-group player in" exceptions live on events that DO have a
+  // group selection and are left untouched. Safe to run every cold start — new
+  // writes never create a redundant true row (setAttendanceAction drops a row
+  // that matches the baseline), so this only ever clears the legacy backlog.
+  await db`
+    DELETE FROM event_attendance a
+    WHERE a.attending = true
+      AND NOT EXISTS (
+        SELECT 1 FROM event_groups g WHERE g.event_id = a.event_id
+      )
+  `;
 }

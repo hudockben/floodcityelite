@@ -248,6 +248,19 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_event_groups_event_id ON event_groups (event_id)`;
 
+  // Clear redundant attendance rows left by the earlier per-player toggle: an
+  // attending = true row on an event with no group selection equals the "all
+  // attend" baseline, so it's a no-op to resolve but would wrongly override a
+  // group pick later. Per-player exceptions on events that DO have groups are
+  // left alone. Safe to re-run (new writes never create a redundant true row).
+  await sql`
+    DELETE FROM event_attendance a
+    WHERE a.attending = true
+      AND NOT EXISTS (
+        SELECT 1 FROM event_groups g WHERE g.event_id = a.event_id
+      )
+  `;
+
   // A fundraiser is a campaign/event owned by a company. Only the name is
   // required; goal and event_date are optional.
   await sql`

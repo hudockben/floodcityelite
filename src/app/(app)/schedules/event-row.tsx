@@ -93,6 +93,29 @@ export default function EventRow({
   const [overrideMap, setOverrideMap] = useState<Map<number, boolean>>(
     () => new Map(overrides.map((o) => [o.playerId, o.attending])),
   );
+
+  // Resync the optimistic state whenever the server's view of this event
+  // changes — e.g. lowering the team's group count prunes a group this event
+  // had picked, or a sibling panel's action revalidates the page. The seed-once
+  // state above would otherwise drift from the database (show players benched
+  // that the DB has attending). A signature of the incoming server props tells
+  // us when to resync; our own toggles revalidate to the same value, so this is
+  // a no-op for them and only corrects genuine external changes.
+  const serverSig = useMemo(() => {
+    const g = [...selectedGroups].sort((a, b) => a - b).join(",");
+    const o = overrides
+      .map((ov) => `${ov.playerId}:${ov.attending ? 1 : 0}`)
+      .sort()
+      .join(",");
+    return `${g}|${o}`;
+  }, [selectedGroups, overrides]);
+  const [syncedSig, setSyncedSig] = useState(serverSig);
+  if (serverSig !== syncedSig) {
+    setSyncedSig(serverSig);
+    setSelected(new Set(selectedGroups));
+    setOverrideMap(new Map(overrides.map((o) => [o.playerId, o.attending])));
+  }
+
   const [state, formAction, pending] = useActionState(
     updateEventAction,
     initialState,
