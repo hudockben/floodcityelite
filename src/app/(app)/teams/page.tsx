@@ -72,6 +72,8 @@ export default async function TeamsPage({
           p.weight,
           p.primary_position,
           p.secondary_position,
+          p.jersey_number,
+          p.hat_size,
           p.high_school,
           p.parent_phone,
           p.parent_email,

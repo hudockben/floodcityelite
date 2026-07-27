@@ -102,8 +102,9 @@ export async function addPlayerAction(
     await sql()`
       INSERT INTO players (
         team_id, player_name, grad_year, date_of_birth, height, weight,
-        primary_position, secondary_position, high_school,
-        parent_phone, parent_email, parent_name, closest_facility, is_paying
+        primary_position, secondary_position, jersey_number, hat_size,
+        high_school, parent_phone, parent_email, parent_name, closest_facility,
+        is_paying
       ) VALUES (
         ${teamId},
         ${playerName},
@@ -113,6 +114,8 @@ export async function addPlayerAction(
         ${nonNegInt(formData, "weight")},
         ${text(formData, "primary_position")},
         ${text(formData, "secondary_position")},
+        ${text(formData, "jersey_number")},
+        ${text(formData, "hat_size")},
         ${text(formData, "high_school")},
         ${text(formData, "parent_phone")},
         ${text(formData, "parent_email")},
@@ -160,6 +163,8 @@ export async function updatePlayerAction(
         weight             = ${nonNegInt(formData, "weight")},
         primary_position   = ${text(formData, "primary_position")},
         secondary_position = ${text(formData, "secondary_position")},
+        jersey_number      = ${text(formData, "jersey_number")},
+        hat_size           = ${text(formData, "hat_size")},
         high_school        = ${text(formData, "high_school")},
         parent_phone       = ${text(formData, "parent_phone")},
         parent_email       = ${text(formData, "parent_email")},

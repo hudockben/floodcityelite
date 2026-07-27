@@ -48,18 +48,20 @@ function formatDob(iso: string | null | undefined): string {
 // shredded, while short fields (grad year, height, weight, positions) stay
 // narrow. Sums to 100.
 const COL_WIDTHS: Record<string, string> = {
-  player_name: "11%",
+  player_name: "10%",
   grad_year: "5%",
-  date_of_birth: "8%",
+  date_of_birth: "7%",
   height: "5%",
   weight: "5%",
-  primary_position: "6%",
+  primary_position: "5%",
   secondary_position: "6%",
-  high_school: "10%",
-  parent_phone: "9%",
-  parent_email: "12%",
-  parent_name: "9%",
-  closest_facility: "9%",
+  jersey_number: "5%",
+  hat_size: "5%",
+  high_school: "8%",
+  parent_phone: "8%",
+  parent_email: "10%",
+  parent_name: "8%",
+  closest_facility: "8%",
 };
 
 // The "Paying" column isn't one of PLAYER_FIELDS; it sits just after the name.
@@ -119,6 +121,8 @@ export default async function TeamsPrintPage({
           p.weight,
           p.primary_position,
           p.secondary_position,
+          p.jersey_number,
+          p.hat_size,
           p.high_school,
           p.parent_phone,
           p.parent_email,

@@ -73,6 +73,8 @@ CREATE TABLE IF NOT EXISTS players (
     weight              SMALLINT,
     primary_position    VARCHAR(48),
     secondary_position  VARCHAR(48),
+    jersey_number       VARCHAR(24),
+    hat_size            VARCHAR(24),
     high_school         VARCHAR(160),
     parent_phone        VARCHAR(40),
     parent_email        VARCHAR(160),

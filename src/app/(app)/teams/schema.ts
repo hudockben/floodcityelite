@@ -50,6 +50,8 @@ async function provision(): Promise<void> {
       weight              SMALLINT,
       primary_position    VARCHAR(48),
       secondary_position  VARCHAR(48),
+      jersey_number       VARCHAR(24),
+      hat_size            VARCHAR(24),
       high_school         VARCHAR(160),
       parent_phone        VARCHAR(40),
       parent_email        VARCHAR(160),
@@ -75,4 +77,11 @@ async function provision(): Promise<void> {
   // databases predating the feature pick it up without a separate migration.
   await db`ALTER TABLE teams ADD COLUMN IF NOT EXISTS roster_group_count SMALLINT NOT NULL DEFAULT 0`;
   await db`ALTER TABLE players ADD COLUMN IF NOT EXISTS roster_group SMALLINT`;
+
+  // Jersey number and hat size roster columns. Added after the initial roster
+  // shipped, so backfill them on existing databases; both are optional free
+  // text (jersey numbers can be "00", hat sizes "7 1/4"). Sized to match the
+  // roster_submissions columns the acceptance form feeds them from.
+  await db`ALTER TABLE players ADD COLUMN IF NOT EXISTS jersey_number VARCHAR(24)`;
+  await db`ALTER TABLE players ADD COLUMN IF NOT EXISTS hat_size VARCHAR(24)`;
 }

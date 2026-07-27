@@ -50,8 +50,9 @@ ones are:
   `sport` (`baseball` or `softball`). This powers the **Teams** tab.
 - **`players`** — roster rows that belong to a team via `team_id`
   (`ON DELETE CASCADE`). Only `player_name` is required; the rest (grad year,
-  date of birth, height, weight, positions, high school, parent contact,
-  closest facility) can be filled in over time. Each player also carries an
+  date of birth, height, weight, positions, jersey number, hat size, high
+  school, parent contact, closest facility) can be filled in over time. Each
+  player also carries an
   `is_paying` flag (default `true`) shown as a **Paying** checkmark on the Teams
   roster; the Budgets tab's paying-player count is the number of players marked
   paying (with an optional manual override on the budget for edge cases).
@@ -85,9 +86,11 @@ ones are:
   accepts, the player is pushed onto the chosen team's roster in the same write
   — `player_id` links to that `players` row, and `team_name`/`division` snapshot
   the choice so it survives the team being deleted (which nulls `team_id`). The
-  tryout-only fields the roster doesn't track (returning/option jersey numbers,
-  secondary phone, bats/throws, hat size, whether they played in 2025) live on
-  the submission. Belongs to a company via `company_id`.
+  accept also copies the player's hat size and (for returning players) their
+  returning jersey number onto the roster row. The remaining tryout-only fields
+  (the three jersey option preferences, secondary phone, bats/throws, whether
+  they played in 2025) live on the submission. Belongs to a company via
+  `company_id`.
 
 ## Getting started
 

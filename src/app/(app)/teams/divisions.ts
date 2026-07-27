@@ -97,6 +97,8 @@ export const PLAYER_FIELDS: PlayerField[] = [
   { key: "weight", label: "Weight", type: "number", placeholder: "180" },
   { key: "primary_position", label: "Primary Position", type: "position" },
   { key: "secondary_position", label: "Secondary Position", type: "position" },
+  { key: "jersey_number", label: "Jersey Number", type: "text", placeholder: "12" },
+  { key: "hat_size", label: "Hat Size", type: "text", placeholder: `7 1/4` },
   { key: "high_school", label: "High School", type: "text" },
   { key: "parent_phone", label: "Parent Phone Number", type: "tel" },
   { key: "parent_email", label: "Parent Email", type: "email" },
@@ -121,6 +123,8 @@ export type PlayerRow = {
   weight: number | null;
   primary_position: string | null;
   secondary_position: string | null;
+  jersey_number: string | null;
+  hat_size: string | null;
   high_school: string | null;
   parent_phone: string | null;
   parent_email: string | null;

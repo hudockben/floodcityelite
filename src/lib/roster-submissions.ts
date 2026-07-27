@@ -203,9 +203,12 @@ export async function getOwnedTeam(
 // data-modifying CTE inserts the `players` row and then inserts the submission
 // carrying that new player's id, so the roster row and its submission link are
 // created atomically. The mapped roster columns are the ones the Teams tab
-// knows — name, grad year, DOB, height, weight, positions, and the parent's
-// phone/email; the tryout-only extras (jersey options, bats/throws, hat size,
-// etc.) live on the submission record. `is_paying` uses its default (true).
+// knows — name, grad year, DOB, height, weight, positions, hat size, the
+// returning jersey number (returning players keep their number; new players
+// leave the roster's jersey blank so the coach can assign it from the three
+// requested options), and the parent's phone/email. The remaining tryout-only
+// fields (the jersey option preferences, secondary phone, bats/throws,
+// played-in-2025) live on the submission record. `is_paying` defaults to true.
 export async function createRosterSubmission(
   input: RosterSubmissionInput,
 ): Promise<void> {
@@ -214,7 +217,8 @@ export async function createRosterSubmission(
       WITH new_player AS (
         INSERT INTO players (
           team_id, player_name, grad_year, date_of_birth, height, weight,
-          primary_position, secondary_position, parent_phone, parent_email
+          primary_position, secondary_position, jersey_number, hat_size,
+          parent_phone, parent_email
         ) VALUES (
           ${input.teamId},
           ${input.playerName},
@@ -224,6 +228,8 @@ export async function createRosterSubmission(
           ${input.weight},
           ${input.primaryPosition},
           ${input.secondaryPosition},
+          ${input.returningJersey},
+          ${input.hatSize},
           ${input.parentPhone},
           ${input.email}
         )

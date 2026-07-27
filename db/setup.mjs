@@ -106,6 +106,8 @@ async function main() {
       weight              SMALLINT,
       primary_position    VARCHAR(48),
       secondary_position  VARCHAR(48),
+      jersey_number       VARCHAR(24),
+      hat_size            VARCHAR(24),
       high_school         VARCHAR(160),
       parent_phone        VARCHAR(40),
       parent_email        VARCHAR(160),
@@ -130,6 +132,11 @@ async function main() {
   // Nullable/defaulted and idempotent so older databases pick this up cleanly.
   await sql`ALTER TABLE teams ADD COLUMN IF NOT EXISTS roster_group_count SMALLINT NOT NULL DEFAULT 0`;
   await sql`ALTER TABLE players ADD COLUMN IF NOT EXISTS roster_group SMALLINT`;
+
+  // Jersey number and hat size roster columns (optional free text). Added after
+  // the initial roster shipped, so backfill them on databases that predate them.
+  await sql`ALTER TABLE players ADD COLUMN IF NOT EXISTS jersey_number VARCHAR(24)`;
+  await sql`ALTER TABLE players ADD COLUMN IF NOT EXISTS hat_size VARCHAR(24)`;
 
   // Payments are logged against a player (→ team → company) and power the
   // Payment Tracker tab.
