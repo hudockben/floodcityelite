@@ -463,6 +463,65 @@ body {
   font-size: 1.05rem;
 }
 
+/* Subtle per-division band rows inside the Reports tables. A thin muted header
+   with the division name (accent) on the left and its subtotal on the right —
+   enough to separate divisions without heavy section chrome. */
+.roster tbody .rg-cell {
+  padding: 8px 12px;
+  text-align: left;
+  background: var(--roster-head-bg);
+  border-top: 1px solid var(--card-border);
+  border-bottom: 1px solid var(--card-border);
+}
+
+.rg-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+
+.rg-meta {
+  margin-left: 10px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* ---- Payroll approval status ----
+   The Submissions subtab uses an inline dropdown (reusing the .status-select
+   base) for the admin to approve/deny; the Reports subtab shows a read-only
+   pill. Amber = pending, green = approved, red = denied. */
+.payroll-status-pill {
+  display: inline-block;
+  padding: 4px 11px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.payroll-status-pending {
+  color: #ffe3a8;
+  background-color: rgba(250, 204, 21, 0.14);
+  border-color: rgba(250, 204, 21, 0.4);
+}
+
+.payroll-status-approved {
+  color: #bbf7d0;
+  background-color: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.payroll-status-denied {
+  color: #fecaca;
+  background-color: rgba(248, 113, 113, 0.14);
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
 /* ---- Dashboard ---- */
 .dash {
   width: 100%;

@@ -373,8 +373,9 @@ async function main() {
   // A payroll submission is one employee's logged hours for a day, sent through
   // the public payroll form on the sign-in screen (no login). The admin
   // "Payroll" tab lists these and totals the hours; its Reports subtab filters
-  // by date range and division. Only the employee name, work date, and hours
-  // are required; `division` (a teams division slug, or null) is optional.
+  // by date range, division, and status. Only the employee name, work date, and
+  // hours are required; `division` (a teams division slug, or null) is optional
+  // and `status` is the admin's approval decision (defaults to pending).
   await sql`
     CREATE TABLE IF NOT EXISTS payroll_submissions (
       id             SERIAL        PRIMARY KEY,
@@ -384,13 +385,16 @@ async function main() {
       division       VARCHAR(32),
       work_date      DATE          NOT NULL,
       hours          NUMERIC(6,2)  NOT NULL DEFAULT 0,
+      status         VARCHAR(16)   NOT NULL DEFAULT 'pending',
       notes          TEXT,
       created_at     TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
   `;
 
-  // Add `division` to databases whose payroll_submissions table predates it.
+  // Add `division` and `status` to databases whose payroll_submissions table
+  // predates them (status backfills existing rows to 'pending').
   await sql`ALTER TABLE payroll_submissions ADD COLUMN IF NOT EXISTS division VARCHAR(32)`;
+  await sql`ALTER TABLE payroll_submissions ADD COLUMN IF NOT EXISTS status VARCHAR(16) NOT NULL DEFAULT 'pending'`;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_payroll_submissions_company_id ON payroll_submissions (company_id)`;
 

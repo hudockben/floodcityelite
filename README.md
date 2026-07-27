@@ -65,10 +65,12 @@ ones are:
   **Submissions** and **Reports**. Each row is one employee's logged hours for a
   day, submitted through the public `/payroll` form (no login): `employee_name`,
   an optional `role`, an optional `division` (a teams division slug, or null
-  when unassigned), the `work_date`, the `hours`, and optional `notes`. Belongs
-  to a company via `company_id`. The Submissions subtab lists and totals the
-  hours; the Reports subtab filters by date range and division and rolls hours
-  up per employee for a pay period.
+  when unassigned), the `work_date`, the `hours`, an approval `status`
+  (`pending` → `approved`/`denied`), and optional `notes`. Belongs to a company
+  via `company_id`. On the Submissions subtab the admin approves or denies each
+  entry with an inline status dropdown; the Reports subtab filters by date
+  range, division, and status, groups totals by division, and rolls hours up per
+  employee for a pay period.
 
 ## Getting started
 

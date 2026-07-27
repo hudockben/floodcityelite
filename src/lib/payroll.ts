@@ -3,14 +3,16 @@
 //
 // Two sides use this module:
 //   • the public employee form at /payroll (no login) submits an entry;
-//   • the admin "Payroll" tab at /payroll-admin reads the submissions back.
+//   • the admin "Payroll" tab reads them back — the Submissions subtab lists
+//     and approves them, the Reports subtab filters and totals them.
 //
 // A *payroll submission* is a single employee's logged hours for a day: their
-// name, an optional role, the date worked, the hours, and optional notes. The
-// admin tab lists them and totals the hours.
+// name, an optional role, an optional division, the date worked, the hours, and
+// optional notes. It carries an approval *status* (pending → approved/denied)
+// the admin sets.
 //
 // Plain server-side module (uses the Neon client). Imported by both the public
-// server action and the protected admin page/action.
+// server action and the protected admin pages/actions.
 // ---------------------------------------------------------------------------
 
 import { sql } from "@/lib/db";
@@ -19,6 +21,26 @@ import { sql } from "@/lib/db";
 // is always "fce"). The public form has no session, so it resolves the company
 // by this code.
 export const PAYROLL_COMPANY_CODE = "fce";
+
+// Approval status of a submission. Employees submit as "pending"; an admin
+// approves or denies the time on the Submissions subtab.
+export type PayrollStatus = "pending" | "approved" | "denied";
+
+export const PAYROLL_STATUSES: { value: PayrollStatus; label: string }[] = [
+  { value: "pending", label: "Pending" },
+  { value: "approved", label: "Approved" },
+  { value: "denied", label: "Denied" },
+];
+
+export const DEFAULT_PAYROLL_STATUS: PayrollStatus = "pending";
+
+export function isPayrollStatus(value: string): value is PayrollStatus {
+  return PAYROLL_STATUSES.some((s) => s.value === value);
+}
+
+export function payrollStatusLabel(value: string): string {
+  return PAYROLL_STATUSES.find((s) => s.value === value)?.label ?? value;
+}
 
 // A saved payroll submission. `hours` arrives from Postgres NUMERIC as a string
 // (e.g. "4.50"); `work_date` is a "YYYY-MM-DD" string.
@@ -29,12 +51,14 @@ export type PayrollSubmissionRow = {
   division: string | null; // a teams division slug, or null when unassigned
   work_date: string; // YYYY-MM-DD
   hours: string;
+  status: PayrollStatus;
   notes: string | null;
   created_at: string;
 };
 
 // The fields the public form collects. Validation happens in the form's action;
-// this module just persists what it's given.
+// this module just persists what it's given. Status isn't set here — new
+// submissions default to "pending" at the database.
 export type PayrollSubmissionInput = {
   companyId: number;
   employeeName: string;
@@ -48,10 +72,12 @@ export type PayrollSubmissionInput = {
 // Filters for the admin Reports subtab. `from`/`to` bound the work date
 // (inclusive; null means unbounded). `divisionMode` is "all" (no division
 // filter), "none" (only unassigned rows), or a specific division slug.
+// `statusMode` is "all" or a specific approval status.
 export type PayrollReportFilters = {
   from: string | null; // YYYY-MM-DD or null
   to: string | null; // YYYY-MM-DD or null
   divisionMode: string; // "all" | "none" | division slug
+  statusMode: string; // "all" | payroll status
 };
 
 // Ensure the `payroll_submissions` table exists before it's read or written.
@@ -79,9 +105,10 @@ async function provision(): Promise<void> {
 
   // A payroll submission is one employee's logged hours for a day. Only the
   // employee name, work date, and hours are required; role, division, and notes
-  // are optional. Submissions belong to a company so the admin tab can scope
-  // them. `division` is a teams division slug (or null when unassigned) so the
-  // Reports subtab can group and filter by division.
+  // are optional. `division` is a teams division slug (or null) so the Reports
+  // subtab can group and filter by division; `status` is the admin's approval
+  // decision (defaults to pending). Belongs to a company so the tab can scope
+  // them.
   await db`
     CREATE TABLE IF NOT EXISTS payroll_submissions (
       id             SERIAL        PRIMARY KEY,
@@ -91,15 +118,17 @@ async function provision(): Promise<void> {
       division       VARCHAR(32),
       work_date      DATE          NOT NULL,
       hours          NUMERIC(6,2)  NOT NULL DEFAULT 0,
+      status         VARCHAR(16)   NOT NULL DEFAULT 'pending',
       notes          TEXT,
       created_at     TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
   `;
 
-  // Add `division` to databases whose payroll_submissions table predates it
-  // (the first version of this feature shipped without it). Nullable — an
-  // employee not tied to a division just leaves it blank.
+  // Add `division` and `status` to databases whose payroll_submissions table
+  // predates them (earlier versions of this feature). Nullable division; status
+  // backfills existing rows to 'pending'.
   await db`ALTER TABLE payroll_submissions ADD COLUMN IF NOT EXISTS division VARCHAR(32)`;
+  await db`ALTER TABLE payroll_submissions ADD COLUMN IF NOT EXISTS status VARCHAR(16) NOT NULL DEFAULT 'pending'`;
 
   await db`CREATE INDEX IF NOT EXISTS idx_payroll_submissions_company_id ON payroll_submissions (company_id)`;
 }
@@ -113,7 +142,8 @@ export async function getPayrollCompanyId(): Promise<number | null> {
   return rows.length > 0 ? (rows[0].id as number) : null;
 }
 
-// Persist a new submission. The caller validates the input first.
+// Persist a new submission. The caller validates the input first. Status is
+// omitted so it defaults to "pending".
 export async function insertPayrollSubmission(
   input: PayrollSubmissionInput,
 ): Promise<void> {
@@ -144,6 +174,7 @@ export async function listPayrollSubmissions(
       division,
       work_date::text AS work_date,
       hours::text     AS hours,
+      status,
       notes,
       created_at::text AS created_at
     FROM payroll_submissions
@@ -155,11 +186,12 @@ export async function listPayrollSubmissions(
 
 // Submissions for a company narrowed by the Reports subtab filters. A null
 // date bound is left open; divisionMode "all" applies no division filter,
-// "none" keeps only unassigned rows, and a slug keeps that division. The
-// date/division params are cast so a null value short-circuits its clause.
+// "none" keeps only unassigned rows, and a slug keeps that division; statusMode
+// "all" applies no status filter. The date/division/status params are cast so a
+// null or "all" value short-circuits its clause.
 export async function listPayrollSubmissionsFiltered(
   companyId: number,
-  { from, to, divisionMode }: PayrollReportFilters,
+  { from, to, divisionMode, statusMode }: PayrollReportFilters,
 ): Promise<PayrollSubmissionRow[]> {
   const rows = await sql()`
     SELECT
@@ -169,6 +201,7 @@ export async function listPayrollSubmissionsFiltered(
       division,
       work_date::text AS work_date,
       hours::text     AS hours,
+      status,
       notes,
       created_at::text AS created_at
     FROM payroll_submissions
@@ -180,9 +213,24 @@ export async function listPayrollSubmissionsFiltered(
         OR (${divisionMode}::text = 'none' AND division IS NULL)
         OR division = ${divisionMode}::text
       )
+      AND (${statusMode}::text = 'all' OR status = ${statusMode}::text)
     ORDER BY work_date DESC, id DESC
   `;
   return rows as PayrollSubmissionRow[];
+}
+
+// Set a submission's approval status (the admin approving/denying the time),
+// scoped to the company so one company can't touch another's rows.
+export async function updatePayrollStatus(
+  companyId: number,
+  id: number,
+  status: PayrollStatus,
+): Promise<void> {
+  await sql()`
+    UPDATE payroll_submissions
+    SET status = ${status}
+    WHERE id = ${id} AND company_id = ${companyId}
+  `;
 }
 
 // Delete a submission, scoped to the company so one company can't clear

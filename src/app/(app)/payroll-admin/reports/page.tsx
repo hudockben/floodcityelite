@@ -7,6 +7,9 @@ import {
   listPayrollSubmissionsFiltered,
   formatPayrollDate,
   formatHours,
+  payrollStatusLabel,
+  isPayrollStatus,
+  PAYROLL_STATUSES,
   type PayrollSubmissionRow,
 } from "@/lib/payroll";
 import PayrollSubtabs from "../payroll-subtabs";
@@ -30,10 +33,20 @@ function divisionMode(raw: string | undefined): string {
   return "all";
 }
 
+// The status filter is "all" (default) or a specific approval status.
+function statusMode(raw: string | undefined): string {
+  const s = (raw ?? "").trim();
+  return isPayrollStatus(s) ? s : "all";
+}
+
 function divisionModeLabel(mode: string): string {
   if (mode === "all") return "All divisions";
   if (mode === "none") return "Unassigned";
   return divisionLabel(mode);
+}
+
+function statusModeLabel(mode: string): string {
+  return mode === "all" ? "All statuses" : payrollStatusLabel(mode);
 }
 
 function rangeLabel(from: string | null, to: string | null): string {
@@ -43,6 +56,14 @@ function rangeLabel(from: string | null, to: string | null): string {
   return "All dates";
 }
 
+// Order divisions by the selector order, with Unassigned (null) last and any
+// unrecognized slug just before it.
+function divisionRank(key: string | null): number {
+  if (key === null) return DIVISIONS.length + 1;
+  const i = DIVISIONS.findIndex((d) => d.slug === key);
+  return i === -1 ? DIVISIONS.length : i;
+}
+
 export default async function PayrollReportsPage({
   searchParams,
 }: {
@@ -50,6 +71,7 @@ export default async function PayrollReportsPage({
     from?: string | string[];
     to?: string | string[];
     division?: string | string[];
+    status?: string | string[];
   }>;
 }) {
   const session = await getSession();
@@ -59,6 +81,7 @@ export default async function PayrollReportsPage({
   const from = isoDate(firstParam(params.from));
   const to = isoDate(firstParam(params.to));
   const mode = divisionMode(firstParam(params.division));
+  const sMode = statusMode(firstParam(params.status));
 
   let rows: PayrollSubmissionRow[] = [];
   let loadError = false;
@@ -69,6 +92,7 @@ export default async function PayrollReportsPage({
       from,
       to,
       divisionMode: mode,
+      statusMode: sMode,
     });
   } catch (err) {
     console.error("Payroll reports load error:", err);
@@ -76,31 +100,66 @@ export default async function PayrollReportsPage({
   }
 
   const totalHours = rows.reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
+  const distinctEmployees = new Set(rows.map((r) => r.employee_name)).size;
 
-  // Roll up hours per employee — the figure payroll actually needs.
-  const byEmployee = new Map<
-    string,
-    { name: string; entries: number; hours: number }
+  // Employee hours grouped by division — the pay-period roll-up, subtly split
+  // by division. An employee with hours in two divisions appears under each.
+  const empByDivision = new Map<
+    string | null,
+    Map<string, { name: string; entries: number; hours: number }>
   >();
   for (const r of rows) {
-    const e = byEmployee.get(r.employee_name) ?? {
+    const key = r.division ?? null;
+    let emap = empByDivision.get(key);
+    if (!emap) {
+      emap = new Map();
+      empByDivision.set(key, emap);
+    }
+    const e = emap.get(r.employee_name) ?? {
       name: r.employee_name,
       entries: 0,
       hours: 0,
     };
     e.entries += 1;
     e.hours += Number(r.hours) || 0;
-    byEmployee.set(r.employee_name, e);
+    emap.set(r.employee_name, e);
   }
-  const employees = [...byEmployee.values()].sort((a, b) => b.hours - a.hours);
+  const employeeGroups = [...empByDivision.entries()]
+    .sort((a, b) => divisionRank(a[0]) - divisionRank(b[0]))
+    .map(([key, emap]) => {
+      const emps = [...emap.values()].sort((a, b) => b.hours - a.hours);
+      return {
+        key,
+        label: key ? divisionLabel(key) : "Unassigned",
+        hours: emps.reduce((s, e) => s + e.hours, 0),
+        emps,
+      };
+    });
+
+  // The raw submissions grouped by division for the detail table.
+  const byDivision = new Map<string | null, PayrollSubmissionRow[]>();
+  for (const r of rows) {
+    const key = r.division ?? null;
+    const list = byDivision.get(key);
+    if (list) list.push(r);
+    else byDivision.set(key, [r]);
+  }
+  const submissionGroups = [...byDivision.entries()]
+    .sort((a, b) => divisionRank(a[0]) - divisionRank(b[0]))
+    .map(([key, items]) => ({
+      key,
+      label: key ? divisionLabel(key) : "Unassigned",
+      hours: items.reduce((s, r) => s + (Number(r.hours) || 0), 0),
+      items,
+    }));
 
   return (
     <section className="panel">
       <div className="panel-head">
         <h1>Payroll</h1>
         <p>
-          Filter submissions by date range and division to total up hours for a
-          pay period.
+          Filter submissions by date range, division, and approval status to
+          total up hours for a pay period.
         </p>
       </div>
 
@@ -128,6 +187,17 @@ export default async function PayrollReportsPage({
             <option value="none">Unassigned</option>
           </select>
         </div>
+        <div className="field">
+          <label htmlFor="status">Status</label>
+          <select id="status" name="status" defaultValue={sMode}>
+            <option value="all">All statuses</option>
+            {PAYROLL_STATUSES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="payroll-filters-actions">
           <button type="submit" className="btn payroll-filters-btn">
             Apply
@@ -153,7 +223,8 @@ export default async function PayrollReportsPage({
       ) : (
         <>
           <p className="muted-note payroll-report-scope">
-            {rangeLabel(from, to)} · {divisionModeLabel(mode)}
+            {rangeLabel(from, to)} · {divisionModeLabel(mode)} ·{" "}
+            {statusModeLabel(sMode)}
           </p>
 
           <div className="meta payroll-report-tiles">
@@ -163,7 +234,7 @@ export default async function PayrollReportsPage({
             </div>
             <div className="item">
               <div className="k">Employees</div>
-              <div className="v">{employees.length}</div>
+              <div className="v">{distinctEmployees}</div>
             </div>
             <div className="item">
               <div className="k">Total hours</div>
@@ -178,12 +249,12 @@ export default async function PayrollReportsPage({
               </div>
               <p className="empty-title">No submissions match</p>
               <p className="empty-sub">
-                Try widening the date range or choosing a different division.
+                Try widening the date range or changing the division/status.
               </p>
             </div>
           ) : (
             <>
-              {/* Hours per employee — the pay-period roll-up. */}
+              {/* Hours per employee, subtly split by division. */}
               <h2 className="payroll-report-heading">Hours by employee</h2>
               <div className="roster-scroll">
                 <table className="roster">
@@ -194,19 +265,29 @@ export default async function PayrollReportsPage({
                       <th scope="col">Total hours</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {employees.map((e) => (
-                      <tr key={e.name}>
-                        <td className="col-name">{e.name}</td>
-                        <td>{e.entries}</td>
-                        <td>{formatHours(e.hours)}</td>
+                  {employeeGroups.map((g) => (
+                    <tbody key={g.key ?? "unassigned"}>
+                      <tr className="rg-row">
+                        <th colSpan={3} scope="colgroup" className="rg-cell">
+                          <span className="rg-name">{g.label}</span>
+                          <span className="rg-meta">
+                            {formatHours(g.hours)} hrs
+                          </span>
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
+                      {g.emps.map((e) => (
+                        <tr key={e.name}>
+                          <td className="col-name">{e.name}</td>
+                          <td>{e.entries}</td>
+                          <td>{formatHours(e.hours)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  ))}
                 </table>
               </div>
 
-              {/* The matching submissions in detail. */}
+              {/* The matching submissions in detail, grouped by division. */}
               <h2 className="payroll-report-heading">Matching submissions</h2>
               <div className="roster-scroll">
                 <table className="roster">
@@ -214,32 +295,46 @@ export default async function PayrollReportsPage({
                     <tr>
                       <th scope="col">Employee</th>
                       <th scope="col">Role</th>
-                      <th scope="col">Division</th>
                       <th scope="col">Date worked</th>
                       <th scope="col">Hours</th>
+                      <th scope="col">Status</th>
                       <th scope="col">Notes</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {rows.map((r) => (
-                      <tr key={r.id}>
-                        <td className="col-name">{r.employee_name}</td>
-                        <td>{r.role ?? <span className="cell-empty">—</span>}</td>
-                        <td>
-                          {r.division ? (
-                            divisionLabel(r.division)
-                          ) : (
-                            <span className="cell-empty">—</span>
-                          )}
-                        </td>
-                        <td>{formatPayrollDate(r.work_date)}</td>
-                        <td>{formatHours(r.hours)}</td>
-                        <td>
-                          {r.notes ?? <span className="cell-empty">—</span>}
-                        </td>
+                  {submissionGroups.map((g) => (
+                    <tbody key={g.key ?? "unassigned"}>
+                      <tr className="rg-row">
+                        <th colSpan={6} scope="colgroup" className="rg-cell">
+                          <span className="rg-name">{g.label}</span>
+                          <span className="rg-meta">
+                            {g.items.length}{" "}
+                            {g.items.length === 1 ? "entry" : "entries"} ·{" "}
+                            {formatHours(g.hours)} hrs
+                          </span>
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
+                      {g.items.map((r) => (
+                        <tr key={r.id}>
+                          <td className="col-name">{r.employee_name}</td>
+                          <td>
+                            {r.role ?? <span className="cell-empty">—</span>}
+                          </td>
+                          <td>{formatPayrollDate(r.work_date)}</td>
+                          <td>{formatHours(r.hours)}</td>
+                          <td>
+                            <span
+                              className={`payroll-status-pill payroll-status-${r.status}`}
+                            >
+                              {payrollStatusLabel(r.status)}
+                            </span>
+                          </td>
+                          <td>
+                            {r.notes ?? <span className="cell-empty">—</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  ))}
                 </table>
               </div>
             </>

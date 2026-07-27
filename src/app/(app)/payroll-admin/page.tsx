@@ -11,6 +11,7 @@ import {
 } from "@/lib/payroll";
 import { deletePayrollSubmissionAction } from "./actions";
 import PayrollSubtabs from "./payroll-subtabs";
+import PayrollStatusSelect from "./payroll-status-select";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +89,7 @@ export default async function PayrollAdminPage() {
                   <th scope="col">Division</th>
                   <th scope="col">Date worked</th>
                   <th scope="col">Hours</th>
+                  <th scope="col">Status</th>
                   <th scope="col">Notes</th>
                   <th scope="col">Submitted</th>
                   <th scope="col" className="col-actions">
@@ -109,6 +111,9 @@ export default async function PayrollAdminPage() {
                     </td>
                     <td>{formatPayrollDate(s.work_date)}</td>
                     <td>{formatHours(s.hours)}</td>
+                    <td>
+                      <PayrollStatusSelect id={s.id} value={s.status} />
+                    </td>
                     <td>{s.notes ?? <span className="cell-empty">—</span>}</td>
                     <td className="exp-date">
                       {formatPayrollDate(s.created_at.slice(0, 10))}
