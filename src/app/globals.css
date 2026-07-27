@@ -4540,3 +4540,249 @@ body {
   background: rgba(56, 189, 248, 0.12);
   border-color: rgba(56, 189, 248, 0.5);
 }
+
+/* ---------------------------------------------------------------------------
+   Roster acceptance form (public) + Roster Submissions tab (admin)
+   --------------------------------------------------------------------------- */
+
+/* A roomier card for the longer acceptance form so its field grid can show two
+   columns on wider screens. */
+.card-wide {
+  max-width: 660px;
+}
+
+/* Accept / decline choice — two selectable option cards. */
+.accept-choice {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.accept-choice legend {
+  padding: 0;
+  margin-bottom: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.accept-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.accept-option {
+  flex: 1 1 220px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  column-gap: 11px;
+  row-gap: 3px;
+  padding: 14px 16px;
+  cursor: pointer;
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.accept-option:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.accept-option input[type="radio"] {
+  grid-row: 1 / span 2;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex: none;
+}
+
+.accept-option-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.accept-option-sub {
+  grid-column: 2;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Selected state (driven by the controlled `.selected` class, with a :has()
+   fallback for good measure). */
+.accept-option.selected,
+.accept-option:has(input[type="radio"]:checked) {
+  border-color: var(--accent);
+  background: rgba(56, 189, 248, 0.1);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+}
+
+/* Friendly note shown when a parent chooses to decline. */
+.decline-note {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+}
+
+/* Small hint under a field (e.g. "no teams set up yet"). */
+.field-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* Roster Submissions tab — a summary line above a list of response cards. */
+.subs-summary {
+  margin-bottom: 18px;
+}
+
+.subs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sub-card {
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  background: var(--field-bg);
+  padding: 16px 18px;
+}
+
+.sub-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.sub-head-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.sub-head-side {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: none;
+}
+
+.sub-status {
+  padding: 3px 11px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.sub-status-accepted {
+  color: #b8f5d4;
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.sub-status-declined {
+  color: var(--text-muted);
+  background: rgba(148, 187, 233, 0.1);
+  border-color: var(--card-border);
+}
+
+.sub-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sub-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.sub-team {
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.sub-team-link {
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.sub-team-link:hover {
+  text-decoration: underline;
+}
+
+.sub-team-name {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sub-team-removed {
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+/* Definition-list grid of the collected fields. */
+.sub-grid {
+  margin: 14px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px 18px;
+}
+
+.sub-field {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sub-field-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.sub-field-value {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.sub-empty-detail {
+  margin: 12px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
