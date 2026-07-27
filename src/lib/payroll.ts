@@ -26,6 +26,7 @@ export type PayrollSubmissionRow = {
   id: number;
   employee_name: string;
   role: string | null;
+  division: string | null; // a teams division slug, or null when unassigned
   work_date: string; // YYYY-MM-DD
   hours: string;
   notes: string | null;
@@ -38,9 +39,19 @@ export type PayrollSubmissionInput = {
   companyId: number;
   employeeName: string;
   role: string | null;
+  division: string | null;
   workDate: string; // YYYY-MM-DD
   hours: string; // fixed-2 decimal string, e.g. "4.50"
   notes: string | null;
+};
+
+// Filters for the admin Reports subtab. `from`/`to` bound the work date
+// (inclusive; null means unbounded). `divisionMode` is "all" (no division
+// filter), "none" (only unassigned rows), or a specific division slug.
+export type PayrollReportFilters = {
+  from: string | null; // YYYY-MM-DD or null
+  to: string | null; // YYYY-MM-DD or null
+  divisionMode: string; // "all" | "none" | division slug
 };
 
 // Ensure the `payroll_submissions` table exists before it's read or written.
@@ -67,20 +78,28 @@ async function provision(): Promise<void> {
   const db = sql();
 
   // A payroll submission is one employee's logged hours for a day. Only the
-  // employee name, work date, and hours are required; role and notes are
-  // optional. Submissions belong to a company so the admin tab can scope them.
+  // employee name, work date, and hours are required; role, division, and notes
+  // are optional. Submissions belong to a company so the admin tab can scope
+  // them. `division` is a teams division slug (or null when unassigned) so the
+  // Reports subtab can group and filter by division.
   await db`
     CREATE TABLE IF NOT EXISTS payroll_submissions (
       id             SERIAL        PRIMARY KEY,
       company_id     INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       employee_name  VARCHAR(160)  NOT NULL,
       role           VARCHAR(120),
+      division       VARCHAR(32),
       work_date      DATE          NOT NULL,
       hours          NUMERIC(6,2)  NOT NULL DEFAULT 0,
       notes          TEXT,
       created_at     TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
   `;
+
+  // Add `division` to databases whose payroll_submissions table predates it
+  // (the first version of this feature shipped without it). Nullable — an
+  // employee not tied to a division just leaves it blank.
+  await db`ALTER TABLE payroll_submissions ADD COLUMN IF NOT EXISTS division VARCHAR(32)`;
 
   await db`CREATE INDEX IF NOT EXISTS idx_payroll_submissions_company_id ON payroll_submissions (company_id)`;
 }
@@ -99,11 +118,12 @@ export async function insertPayrollSubmission(
   input: PayrollSubmissionInput,
 ): Promise<void> {
   await sql()`
-    INSERT INTO payroll_submissions (company_id, employee_name, role, work_date, hours, notes)
+    INSERT INTO payroll_submissions (company_id, employee_name, role, division, work_date, hours, notes)
     VALUES (
       ${input.companyId},
       ${input.employeeName},
       ${input.role},
+      ${input.division},
       ${input.workDate},
       ${input.hours},
       ${input.notes}
@@ -111,7 +131,8 @@ export async function insertPayrollSubmission(
   `;
 }
 
-// All submissions for a company, newest work date first. Used by the admin tab.
+// All submissions for a company, newest work date first. Used by the admin
+// Submissions subtab.
 export async function listPayrollSubmissions(
   companyId: number,
 ): Promise<PayrollSubmissionRow[]> {
@@ -120,12 +141,45 @@ export async function listPayrollSubmissions(
       id,
       employee_name,
       role,
+      division,
       work_date::text AS work_date,
       hours::text     AS hours,
       notes,
       created_at::text AS created_at
     FROM payroll_submissions
     WHERE company_id = ${companyId}
+    ORDER BY work_date DESC, id DESC
+  `;
+  return rows as PayrollSubmissionRow[];
+}
+
+// Submissions for a company narrowed by the Reports subtab filters. A null
+// date bound is left open; divisionMode "all" applies no division filter,
+// "none" keeps only unassigned rows, and a slug keeps that division. The
+// date/division params are cast so a null value short-circuits its clause.
+export async function listPayrollSubmissionsFiltered(
+  companyId: number,
+  { from, to, divisionMode }: PayrollReportFilters,
+): Promise<PayrollSubmissionRow[]> {
+  const rows = await sql()`
+    SELECT
+      id,
+      employee_name,
+      role,
+      division,
+      work_date::text AS work_date,
+      hours::text     AS hours,
+      notes,
+      created_at::text AS created_at
+    FROM payroll_submissions
+    WHERE company_id = ${companyId}
+      AND (${from}::date IS NULL OR work_date >= ${from}::date)
+      AND (${to}::date   IS NULL OR work_date <= ${to}::date)
+      AND (
+        ${divisionMode}::text = 'all'
+        OR (${divisionMode}::text = 'none' AND division IS NULL)
+        OR division = ${divisionMode}::text
+      )
     ORDER BY work_date DESC, id DESC
   `;
   return rows as PayrollSubmissionRow[];

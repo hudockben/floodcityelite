@@ -5,6 +5,7 @@ import {
   getPayrollCompanyId,
   insertPayrollSubmission,
 } from "@/lib/payroll";
+import { isDivisionSlug } from "@/app/(app)/teams/divisions";
 
 export type PayrollFormState = { ok?: boolean; error?: string };
 
@@ -41,6 +42,10 @@ export async function submitPayrollAction(
   if (hoursNum > 9_999.99) return { error: "That's more hours than we can record." };
   const hours = hoursNum.toFixed(2);
 
+  // Division is optional; keep it only when it's a real division slug.
+  const rawDivision = String(formData.get("division") ?? "").trim();
+  const division = isDivisionSlug(rawDivision) ? rawDivision : null;
+
   try {
     await ensurePayrollSchema();
 
@@ -54,6 +59,7 @@ export async function submitPayrollAction(
       companyId,
       employeeName: employeeName.slice(0, 160),
       role: text(formData, "role")?.slice(0, 120) ?? null,
+      division,
       workDate,
       hours,
       notes: text(formData, "notes"),

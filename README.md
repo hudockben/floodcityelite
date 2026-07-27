@@ -8,7 +8,8 @@ with a **company code**, **username**, and **password**.
   staff/coach login) and **Payroll** (a link to a public form employees use to
   submit their hours — no account needed).
 - Payroll form (`/payroll`) — a public, login-free page where employees log the
-  hours they worked. Submissions feed the admin **Payroll** tab.
+  hours they worked (name, role, division, date, hours, notes). Submissions feed
+  the admin **Payroll** tab.
 - Member area — a protected tabbed shell (Homeplate, Teams, Payment Tracker,
   Budgets, Fundraiser Tracker, Program/Camps, Payroll, Contact Info, Yard
   Tournaments, Hotels, Inventory) shown after a successful login and guarded by
@@ -60,11 +61,14 @@ ones are:
   is independent of the Teams roster. A `camp_payment` is logged against a camp
   player and mirrors `payments` (`paid_on`, `payment_type`, `check_number`,
   `amount`), driving the per-player and per-camp totals.
-- **`payroll_submissions`** — the **Payroll** tab. Each row is one employee's
-  logged hours for a day, submitted through the public `/payroll` form (no
-  login): `employee_name`, an optional `role`, the `work_date`, the `hours`,
-  and optional `notes`. Belongs to a company via `company_id`. The admin
-  Payroll tab lists these and totals the hours.
+- **`payroll_submissions`** — the **Payroll** tab, which has two subtabs:
+  **Submissions** and **Reports**. Each row is one employee's logged hours for a
+  day, submitted through the public `/payroll` form (no login): `employee_name`,
+  an optional `role`, an optional `division` (a teams division slug, or null
+  when unassigned), the `work_date`, the `hours`, and optional `notes`. Belongs
+  to a company via `company_id`. The Submissions subtab lists and totals the
+  hours; the Reports subtab filters by date range and division and rolls hours
+  up per employee for a pay period.
 
 ## Getting started
 

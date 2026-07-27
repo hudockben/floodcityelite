@@ -404,8 +404,63 @@ body {
 
 /* Count/hours roll-up above the admin payroll table. */
 .payroll-summary {
-  margin-top: 0;
+  margin-top: 20px;
   margin-bottom: 18px;
+}
+
+/* ---- Payroll Reports subtab (filters + summary) ---- */
+.payroll-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.payroll-filters .field {
+  flex: 0 1 200px;
+}
+
+.payroll-filters-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.payroll-filters-btn {
+  width: auto;
+  margin-top: 0;
+  padding: 12px 24px;
+}
+
+.filter-clear {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.filter-clear:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+/* "<range> · <division>" caption above the report tiles. */
+.payroll-report-scope {
+  margin-top: 22px;
+  margin-bottom: 0;
+  color: var(--text-muted);
+}
+
+.payroll-report-tiles {
+  margin-top: 12px;
+  max-width: 560px;
+}
+
+.payroll-report-heading {
+  margin: 28px 0 0;
+  font-size: 1.05rem;
 }
 
 /* ---- Dashboard ---- */

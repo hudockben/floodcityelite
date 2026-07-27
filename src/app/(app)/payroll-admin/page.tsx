@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import ConfirmButton from "../teams/confirm-button";
+import { divisionLabel } from "../teams/divisions";
 import {
   ensurePayrollSchema,
   listPayrollSubmissions,
@@ -9,6 +10,7 @@ import {
   type PayrollSubmissionRow,
 } from "@/lib/payroll";
 import { deletePayrollSubmissionAction } from "./actions";
+import PayrollSubtabs from "./payroll-subtabs";
 
 export const dynamic = "force-dynamic";
 
@@ -29,28 +31,6 @@ export default async function PayrollAdminPage() {
     loadError = true;
   }
 
-  if (loadError) {
-    return (
-      <section className="panel">
-        <div className="panel-head">
-          <h1>Payroll</h1>
-          <p>Hours submitted by employees.</p>
-        </div>
-        <div className="empty">
-          <div className="empty-icon" aria-hidden="true">
-            ⚠️
-          </div>
-          <p className="empty-title">Couldn&apos;t load payroll</p>
-          <p className="empty-sub">
-            The payroll table may still be getting set up. Refresh in a moment —
-            if this keeps happening, run <code>npm run db:setup</code> against
-            the database.
-          </p>
-        </div>
-      </section>
-    );
-  }
-
   const totalHours = submissions.reduce(
     (sum, s) => sum + (Number(s.hours) || 0),
     0,
@@ -66,7 +46,21 @@ export default async function PayrollAdminPage() {
         </p>
       </div>
 
-      {submissions.length === 0 ? (
+      <PayrollSubtabs />
+
+      {loadError ? (
+        <div className="empty">
+          <div className="empty-icon" aria-hidden="true">
+            ⚠️
+          </div>
+          <p className="empty-title">Couldn&apos;t load payroll</p>
+          <p className="empty-sub">
+            The payroll table may still be getting set up. Refresh in a moment —
+            if this keeps happening, run <code>npm run db:setup</code> against
+            the database.
+          </p>
+        </div>
+      ) : submissions.length === 0 ? (
         <div className="empty">
           <div className="empty-icon" aria-hidden="true">
             🕒
@@ -91,6 +85,7 @@ export default async function PayrollAdminPage() {
                 <tr>
                   <th scope="col">Employee</th>
                   <th scope="col">Role</th>
+                  <th scope="col">Division</th>
                   <th scope="col">Date worked</th>
                   <th scope="col">Hours</th>
                   <th scope="col">Notes</th>
@@ -104,14 +99,17 @@ export default async function PayrollAdminPage() {
                 {submissions.map((s) => (
                   <tr key={s.id}>
                     <td className="col-name">{s.employee_name}</td>
+                    <td>{s.role ?? <span className="cell-empty">—</span>}</td>
                     <td>
-                      {s.role ?? <span className="cell-empty">—</span>}
+                      {s.division ? (
+                        divisionLabel(s.division)
+                      ) : (
+                        <span className="cell-empty">—</span>
+                      )}
                     </td>
                     <td>{formatPayrollDate(s.work_date)}</td>
                     <td>{formatHours(s.hours)}</td>
-                    <td>
-                      {s.notes ?? <span className="cell-empty">—</span>}
-                    </td>
+                    <td>{s.notes ?? <span className="cell-empty">—</span>}</td>
                     <td className="exp-date">
                       {formatPayrollDate(s.created_at.slice(0, 10))}
                     </td>

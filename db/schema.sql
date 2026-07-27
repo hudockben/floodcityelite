@@ -314,16 +314,18 @@ CREATE INDEX IF NOT EXISTS idx_camp_payments_camp_player_id ON camp_payments (ca
 --
 -- A payroll submission is one employee's logged hours for a day, sent through
 -- the public payroll form on the sign-in screen (no login required). It records
--- the employee's name, an optional role, the date worked, the hours, and
--- optional notes. The admin "Payroll" tab lists these rows and totals the
--- hours. Belongs to a company so submissions are scoped like the rest of the
--- app.
+-- the employee's name, an optional role, an optional division (a teams division
+-- slug, or null when unassigned), the date worked, the hours, and optional
+-- notes. The admin "Payroll" tab lists these rows and totals the hours; its
+-- Reports subtab filters them by date range and division. Belongs to a company
+-- so submissions are scoped like the rest of the app.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS payroll_submissions (
     id             SERIAL        PRIMARY KEY,
     company_id     INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
     employee_name  VARCHAR(160)  NOT NULL,
     role           VARCHAR(120),
+    division       VARCHAR(32),
     work_date      DATE          NOT NULL,
     hours          NUMERIC(6,2)  NOT NULL DEFAULT 0,
     notes          TEXT,

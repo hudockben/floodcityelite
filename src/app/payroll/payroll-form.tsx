@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { submitPayrollAction, type PayrollFormState } from "./actions";
+import { DIVISIONS } from "@/app/(app)/teams/divisions";
 
 const initialState: PayrollFormState = {};
 
@@ -47,6 +48,18 @@ export default function PayrollForm() {
           autoComplete="organization-title"
           placeholder="e.g. Coach, Instructor, Umpire"
         />
+      </div>
+
+      <div className="field">
+        <label htmlFor="division">Division</label>
+        <select id="division" name="division" defaultValue="">
+          <option value="">Not division-specific</option>
+          {DIVISIONS.map((d) => (
+            <option key={d.slug} value={d.slug}>
+              {d.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="field">

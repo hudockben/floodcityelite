@@ -372,20 +372,25 @@ async function main() {
 
   // A payroll submission is one employee's logged hours for a day, sent through
   // the public payroll form on the sign-in screen (no login). The admin
-  // "Payroll" tab lists these and totals the hours. Only the employee name,
-  // work date, and hours are required.
+  // "Payroll" tab lists these and totals the hours; its Reports subtab filters
+  // by date range and division. Only the employee name, work date, and hours
+  // are required; `division` (a teams division slug, or null) is optional.
   await sql`
     CREATE TABLE IF NOT EXISTS payroll_submissions (
       id             SERIAL        PRIMARY KEY,
       company_id     INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       employee_name  VARCHAR(160)  NOT NULL,
       role           VARCHAR(120),
+      division       VARCHAR(32),
       work_date      DATE          NOT NULL,
       hours          NUMERIC(6,2)  NOT NULL DEFAULT 0,
       notes          TEXT,
       created_at     TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
   `;
+
+  // Add `division` to databases whose payroll_submissions table predates it.
+  await sql`ALTER TABLE payroll_submissions ADD COLUMN IF NOT EXISTS division VARCHAR(32)`;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_payroll_submissions_company_id ON payroll_submissions (company_id)`;
 
