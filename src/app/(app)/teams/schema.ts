@@ -51,6 +51,7 @@ async function provision(): Promise<void> {
       primary_position    VARCHAR(48),
       secondary_position  VARCHAR(48),
       jersey_number       VARCHAR(24),
+      jersey_locked       BOOLEAN      NOT NULL DEFAULT false,
       hat_size            VARCHAR(24),
       high_school         VARCHAR(160),
       parent_phone        VARCHAR(40),
@@ -84,4 +85,9 @@ async function provision(): Promise<void> {
   // roster_submissions columns the acceptance form feeds them from.
   await db`ALTER TABLE players ADD COLUMN IF NOT EXISTS jersey_number VARCHAR(24)`;
   await db`ALTER TABLE players ADD COLUMN IF NOT EXISTS hat_size VARCHAR(24)`;
+
+  // Whether a coach has pinned a player's jersey by hand (set on the Teams-tab
+  // edit). Locked numbers are treated as fixed by the acceptance-form jersey
+  // automation, so a manual assignment isn't overwritten on the next accept.
+  await db`ALTER TABLE players ADD COLUMN IF NOT EXISTS jersey_locked BOOLEAN NOT NULL DEFAULT false`;
 }

@@ -150,6 +150,12 @@ export async function updatePlayerAction(
   if (!Number.isFinite(playerId)) return { error: "Missing player." };
   if (!playerName) return { error: "Enter the player's name." };
 
+  // A coach saving a jersey number here pins it: `jersey_locked` guards it from
+  // the acceptance-form automation, which won't overwrite a locked number on a
+  // later accept. Clearing the field unlocks it, handing the slot back to the
+  // automation.
+  const jersey = text(formData, "jersey_number");
+
   try {
     await ensureTeamsSchema();
 
@@ -163,7 +169,8 @@ export async function updatePlayerAction(
         weight             = ${nonNegInt(formData, "weight")},
         primary_position   = ${text(formData, "primary_position")},
         secondary_position = ${text(formData, "secondary_position")},
-        jersey_number      = ${text(formData, "jersey_number")},
+        jersey_number      = ${jersey},
+        jersey_locked      = ${jersey != null},
         hat_size           = ${text(formData, "hat_size")},
         high_school        = ${text(formData, "high_school")},
         parent_phone       = ${text(formData, "parent_phone")},

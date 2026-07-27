@@ -1,6 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useActionState,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   submitRosterAcceptanceAction,
   type RosterFormState,
@@ -14,6 +22,11 @@ import type { RosterTeamOption } from "@/lib/roster-submissions";
 
 const initialState: RosterFormState = {};
 
+// On a server error the action echoes the submitted values back (state.values);
+// this context hands them to the field components so each re-fills itself as
+// `defaultValue`, surviving React 19's post-submit auto-reset of the form.
+const EchoContext = createContext<Record<string, string>>({});
+
 // A plain labeled text-style input used across the accept branch. Every accept
 // field is required, so `required` defaults to true (a caller can opt out).
 function TextField({
@@ -23,6 +36,7 @@ function TextField({
   placeholder,
   inputMode,
   required = true,
+  max,
 }: {
   name: string;
   label: string;
@@ -30,7 +44,9 @@ function TextField({
   placeholder?: string;
   inputMode?: "decimal" | "numeric" | "tel" | "email";
   required?: boolean;
+  max?: number;
 }) {
+  const echo = useContext(EchoContext);
   return (
     <div className="field">
       <label htmlFor={`ra-${name}`}>
@@ -45,7 +61,9 @@ function TextField({
         inputMode={inputMode}
         autoComplete="off"
         required={required}
+        defaultValue={echo[name] ?? ""}
         {...(type === "number" ? { min: 0 } : {})}
+        {...(max != null ? { max } : {})}
       />
     </div>
   );
@@ -54,6 +72,7 @@ function TextField({
 // A position input backed by the shared datalist of common positions (free text
 // still allowed). Required by default like the other accept fields.
 function PositionField({ name, label }: { name: string; label: string }) {
+  const echo = useContext(EchoContext);
   return (
     <div className="field">
       <label htmlFor={`ra-${name}`}>{label} *</label>
@@ -65,6 +84,7 @@ function PositionField({ name, label }: { name: string; label: string }) {
         placeholder="e.g. SS"
         autoComplete="off"
         required
+        defaultValue={echo[name] ?? ""}
       />
     </div>
   );
@@ -114,6 +134,7 @@ export default function RosterAcceptanceForm({
   }, [teams]);
 
   return (
+    <EchoContext.Provider value={state.values ?? {}}>
     <form ref={formRef} action={formAction} className="form">
       {state?.ok ? (
         <p className="success" role="status">
@@ -141,8 +162,11 @@ export default function RosterAcceptanceForm({
               type="radio"
               name="accepted"
               value="yes"
-              checked={choice === "yes"}
-              onChange={() => setChoice("yes")}
+              defaultChecked={state.values?.accepted === "yes"}
+              onChange={() => {
+                setChoice("yes");
+                setPlayed("");
+              }}
               required
             />
             <span className="accept-option-title">Yes — accept the spot</span>
@@ -158,8 +182,11 @@ export default function RosterAcceptanceForm({
               type="radio"
               name="accepted"
               value="no"
-              checked={choice === "no"}
-              onChange={() => setChoice("no")}
+              defaultChecked={state.values?.accepted === "no"}
+              onChange={() => {
+                setChoice("no");
+                setPlayed("");
+              }}
             />
             <span className="accept-option-title">No — decline the spot</span>
             <span className="accept-option-sub">
@@ -183,6 +210,7 @@ export default function RosterAcceptanceForm({
               placeholder="Player's full name"
               autoComplete="off"
               required
+              defaultValue={state.values?.player_name ?? ""}
             />
           </div>
 
@@ -196,7 +224,12 @@ export default function RosterAcceptanceForm({
             <>
               <div className="field">
                 <label htmlFor="ra-teamId">Team *</label>
-                <select id="ra-teamId" name="teamId" defaultValue="" required>
+                <select
+                  id="ra-teamId"
+                  name="teamId"
+                  defaultValue={state.values?.teamId ?? ""}
+                  required
+                >
                   <option value="" disabled>
                     Choose the team…
                   </option>
@@ -230,6 +263,7 @@ export default function RosterAcceptanceForm({
                   label="Grad year"
                   type="number"
                   placeholder="2027"
+                  max={2100}
                 />
                 <TextField
                   name="high_school"
@@ -257,11 +291,17 @@ export default function RosterAcceptanceForm({
                   label="Weight"
                   type="number"
                   placeholder="150"
+                  max={400}
                 />
 
                 <div className="field">
                   <label htmlFor="ra-bats">Bats (L/R) *</label>
-                  <select id="ra-bats" name="bats" defaultValue="" required>
+                  <select
+                    id="ra-bats"
+                    name="bats"
+                    defaultValue={state.values?.bats ?? ""}
+                    required
+                  >
                     <option value="">Select…</option>
                     <option value="L">Left (L)</option>
                     <option value="R">Right (R)</option>
@@ -271,7 +311,12 @@ export default function RosterAcceptanceForm({
 
                 <div className="field">
                   <label htmlFor="ra-throws">Throws (L/R) *</label>
-                  <select id="ra-throws" name="throws" defaultValue="" required>
+                  <select
+                    id="ra-throws"
+                    name="throws"
+                    defaultValue={state.values?.throws ?? ""}
+                    required
+                  >
                     <option value="">Select…</option>
                     <option value="L">Left (L)</option>
                     <option value="R">Right (R)</option>
@@ -295,7 +340,7 @@ export default function RosterAcceptanceForm({
                 <select
                   id="ra-played_fce_2026"
                   name="played_fce_2026"
-                  value={played}
+                  defaultValue={state.values?.played_fce_2026 ?? ""}
                   onChange={(e) =>
                     setPlayed(e.target.value as "" | "yes" | "no")
                   }
@@ -367,5 +412,6 @@ export default function RosterAcceptanceForm({
         </p>
       ) : null}
     </form>
+    </EchoContext.Provider>
   );
 }

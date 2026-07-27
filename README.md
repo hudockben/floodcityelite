@@ -98,9 +98,13 @@ ones are:
   team's accepted submissions: returning players (`played_fce_2026 = true`) get
   their returning number with priority, then new players are assigned
   first-come-first-served, each taking the first of their three ranked options
-  that isn't already taken. Numbers a coach assigned by hand on the Teams tab
-  (players with no submission) are treated as fixed and never reassigned; a
-  player whose options are all taken is left blank for the coach to resolve.
+  that isn't already taken. The reconcile runs inside one Postgres function
+  (`fce_recompute_team_jerseys`) under a per-team advisory lock, so simultaneous
+  acceptances can't race into a duplicate number. Numbers that are fixed —
+  players added by hand on the Teams tab (no submission), and any number a coach
+  sets on the Teams-tab edit (which flips `players.jersey_locked`) — are treated
+  as taken and never reassigned; a player whose options are all taken is left
+  blank, and once the coach fills it in it stays put.
 
 ## Getting started
 

@@ -181,6 +181,82 @@ async function provision(): Promise<void> {
   // High school was added to the form after the table shipped; backfill it on
   // existing databases. Mirrors players.high_school so an accept copies it over.
   await db`ALTER TABLE roster_submissions ADD COLUMN IF NOT EXISTS high_school VARCHAR(160)`;
+
+  // The jersey-assignment automation. Reconciles the whole team's
+  // submission-linked jersey numbers in one atomic function under a per-team
+  // advisory lock (races can't hand out duplicates). Idempotent via CREATE OR
+  // REPLACE; mirrored in db/schema.sql and db/setup.mjs. Depends on
+  // players.jersey_locked (added by ensureTeamsSchema, which runs first).
+  await db`
+    CREATE OR REPLACE FUNCTION fce_recompute_team_jerseys(p_team_id integer)
+    RETURNS void
+    LANGUAGE plpgsql
+    AS $fn$
+    DECLARE
+      taken  text[];
+      r      record;
+      chosen text;
+      opt    text;
+    BEGIN
+      -- Serialize concurrent recomputes for the same team (namespaced advisory
+      -- lock held to end of this statement's implicit transaction).
+      PERFORM pg_advisory_xact_lock(hashtext('fce_jersey_recompute'), p_team_id);
+
+      -- Seed taken numbers with fixed holders: manual players (no submission)
+      -- and coach-locked players.
+      SELECT coalesce(array_agg(btrim(p.jersey_number)), ARRAY[]::text[])
+        INTO taken
+      FROM players p
+      WHERE p.team_id = p_team_id
+        AND p.jersey_number IS NOT NULL
+        AND btrim(p.jersey_number) <> ''
+        AND (p.jersey_locked
+             OR NOT EXISTS (SELECT 1 FROM roster_submissions rs WHERE rs.player_id = p.id));
+
+      -- Returners first (priority), oldest submission first, unlocked only.
+      FOR r IN
+        SELECT rs.player_id, btrim(rs.returning_jersey) AS num
+        FROM roster_submissions rs
+        JOIN players p ON p.id = rs.player_id
+        WHERE rs.team_id = p_team_id AND rs.accepted AND rs.player_id IS NOT NULL
+          AND rs.played_fce_2026 IS TRUE
+          AND p.jersey_locked = false
+        ORDER BY rs.created_at, rs.id
+      LOOP
+        IF r.num IS NOT NULL AND r.num <> '' AND NOT (r.num = ANY (taken)) THEN
+          UPDATE players SET jersey_number = r.num, updated_at = now() WHERE id = r.player_id;
+          taken := array_append(taken, r.num);
+        ELSE
+          UPDATE players SET jersey_number = NULL, updated_at = now() WHERE id = r.player_id;
+        END IF;
+      END LOOP;
+
+      -- New players next, first-come, first free option; unlocked only.
+      FOR r IN
+        SELECT rs.player_id,
+               btrim(rs.jersey_option_1) AS o1,
+               btrim(rs.jersey_option_2) AS o2,
+               btrim(rs.jersey_option_3) AS o3
+        FROM roster_submissions rs
+        JOIN players p ON p.id = rs.player_id
+        WHERE rs.team_id = p_team_id AND rs.accepted AND rs.player_id IS NOT NULL
+          AND rs.played_fce_2026 IS DISTINCT FROM TRUE
+          AND p.jersey_locked = false
+        ORDER BY rs.created_at, rs.id
+      LOOP
+        chosen := NULL;
+        FOREACH opt IN ARRAY ARRAY[r.o1, r.o2, r.o3] LOOP
+          IF opt IS NOT NULL AND opt <> '' AND NOT (opt = ANY (taken)) THEN
+            chosen := opt;
+            taken := array_append(taken, opt);
+            EXIT;
+          END IF;
+        END LOOP;
+        UPDATE players SET jersey_number = chosen, updated_at = now() WHERE id = r.player_id;
+      END LOOP;
+    END;
+    $fn$
+  `;
 }
 
 // Resolve the company id parents submit against (code: "fce"). Returns null when
@@ -311,107 +387,25 @@ export async function createRosterSubmission(
   `;
 }
 
-// Trim a jersey value to a comparable token; empty -> null. Kept deliberately
-// simple (exact trimmed string) so "0" and "00" stay distinct as they do in
-// baseball; parents are expected to enter a number consistently.
-function normJersey(value: unknown): string | null {
-  const s = String(value ?? "").trim();
-  return s === "" ? null : s;
-}
-
-// Reassign every submission-linked player's jersey number on a team from the
-// full set of accepted submissions. This is why assignment can't be done purely
-// at submit time: a returner who submits *after* a new player still outranks
-// them, so the whole team is reconciled on each accept.
+// Reassign the team's submission-linked jersey numbers from ALL accepted
+// submissions, atomically and race-free. The entire read-compute-write runs
+// inside one Postgres function (fce_recompute_team_jerseys, created in
+// provision()) guarded by a per-team advisory lock, so two accepts for the same
+// team can no longer interleave a stale read and hand out a duplicate number.
 //
-// Rules:
-//   • Numbers already held by MANUAL players (added on the Teams tab, not via a
-//     submission) are fixed and treated as taken — the automation never reassigns
-//     them or hands out a duplicate.
+// Rules (implemented in the SQL function):
+//   • Numbers held by MANUAL players (added on the Teams tab, no submission) and
+//     by coach-LOCKED players (players.jersey_locked = true, set when a coach
+//     saves a jersey on the Teams tab) are fixed — seeded as taken, never
+//     reassigned by the automation.
 //   • Returning players (played_fce_2026 = true) get their returning number with
-//     priority. Ties (or a number a manual player holds) fall through to unassigned.
-//   • New players are first-come-first-served (oldest submission first), taking
-//     the first of their three options that's still free; none free -> unassigned.
-// Unassigned players get a null jersey for the coach to resolve on the Teams tab.
+//     priority; a tie or an already-taken number falls through to unassigned.
+//   • New players are first-come (oldest submission first), taking the first of
+//     their three options that's still free; none free -> unassigned (null),
+//     which the coach can set by hand on the Teams tab (and it stays, being
+//     locked).
 async function recomputeTeamJerseys(teamId: number): Promise<void> {
-  const db = sql();
-
-  // Numbers pinned by manual (non-submission) roster players.
-  const manualRows = await db`
-    SELECT p.jersey_number
-    FROM players p
-    WHERE p.team_id = ${teamId}
-      AND p.jersey_number IS NOT NULL
-      AND NOT EXISTS (
-        SELECT 1 FROM roster_submissions rs WHERE rs.player_id = p.id
-      )
-  `;
-
-  // Accepted, still-linked submissions for the team, oldest first.
-  const subRows = (await db`
-    SELECT rs.player_id, rs.played_fce_2026, rs.returning_jersey,
-           rs.jersey_option_1, rs.jersey_option_2, rs.jersey_option_3
-    FROM roster_submissions rs
-    WHERE rs.team_id = ${teamId}
-      AND rs.accepted = true
-      AND rs.player_id IS NOT NULL
-    ORDER BY rs.created_at ASC, rs.id ASC
-  `) as Array<{
-    player_id: number;
-    played_fce_2026: boolean | null;
-    returning_jersey: string | null;
-    jersey_option_1: string | null;
-    jersey_option_2: string | null;
-    jersey_option_3: string | null;
-  }>;
-
-  const taken = new Set<string>();
-  for (const r of manualRows as Array<{ jersey_number: string | null }>) {
-    const n = normJersey(r.jersey_number);
-    if (n) taken.add(n);
-  }
-
-  const assignments = new Map<number, string | null>();
-
-  // Returners first — priority on their number.
-  for (const s of subRows) {
-    if (s.played_fce_2026 !== true) continue;
-    const want = normJersey(s.returning_jersey);
-    if (want && !taken.has(want)) {
-      taken.add(want);
-      assignments.set(Number(s.player_id), want);
-    } else {
-      assignments.set(Number(s.player_id), null);
-    }
-  }
-
-  // New players next — first free option wins, in submission order.
-  for (const s of subRows) {
-    if (s.played_fce_2026 === true) continue;
-    let picked: string | null = null;
-    for (const opt of [s.jersey_option_1, s.jersey_option_2, s.jersey_option_3]) {
-      const n = normJersey(opt);
-      if (n && !taken.has(n)) {
-        picked = n;
-        taken.add(n);
-        break;
-      }
-    }
-    assignments.set(Number(s.player_id), picked);
-  }
-
-  if (assignments.size === 0) return;
-
-  // Write the reconciled numbers back in one transaction (functional form,
-  // mirroring the bulk-upload action). Scoped by team_id as a guard; only
-  // submission-linked players are in the map, so manual players are untouched.
-  await db.transaction((txn) =>
-    [...assignments.entries()].map(
-      ([playerId, jersey]) =>
-        txn`UPDATE players SET jersey_number = ${jersey}, updated_at = now()
-            WHERE id = ${playerId} AND team_id = ${teamId}`,
-    ),
-  );
+  await sql()`SELECT fce_recompute_team_jerseys(${teamId})`;
 }
 
 // All submissions for a company, newest first. Joins to `teams` so the admin

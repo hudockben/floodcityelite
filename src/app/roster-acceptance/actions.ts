@@ -13,7 +13,32 @@ export type RosterFormState = {
   ok?: boolean;
   accepted?: boolean;
   error?: string;
+  // On an error, the raw values the parent submitted, echoed back so the form
+  // can re-fill them as `defaultValue`. React 19 auto-resets a `<form action>`
+  // after every submit (success OR error), which would otherwise wipe every
+  // field the parent typed the moment the server returns a validation error.
+  values?: Record<string, string>;
 };
+
+// The uncontrolled fields whose values we echo back on error (the accept/decline
+// choice and the "played in 2026?" answer are React state in the form, so they
+// survive the reset without echoing).
+const ECHO_FIELDS = [
+  "accepted", "played_fce_2026",
+  "player_name", "teamId", "email", "grad_year", "high_school", "date_of_birth",
+  "parent_phone", "secondary_phone", "height", "weight", "bats", "throws",
+  "primary_position", "secondary_position", "hat_size", "returning_jersey",
+  "jersey_option_1", "jersey_option_2", "jersey_option_3",
+];
+
+function collectEcho(formData: FormData): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const key of ECHO_FIELDS) {
+    const v = formData.get(key);
+    if (typeof v === "string" && v.trim() !== "") out[key] = v;
+  }
+  return out;
+}
 
 // --- form-value helpers ----------------------------------------------------
 
@@ -65,14 +90,19 @@ export async function submitRosterAcceptanceAction(
   _prev: RosterFormState,
   formData: FormData,
 ): Promise<RosterFormState> {
+  // Echo submitted values back on every error return so the form survives React
+  // 19's post-submit auto-reset (see RosterFormState.values).
+  const values = collectEcho(formData);
+  const fail = (error: string): RosterFormState => ({ error, values });
+
   const choice = String(formData.get("accepted") ?? "").trim().toLowerCase();
   if (choice !== "yes" && choice !== "no") {
-    return { error: "Please choose whether you're accepting or declining the spot." };
+    return fail("Please choose whether you're accepting or declining the spot.");
   }
   const accepted = choice === "yes";
 
   const playerName = text(formData, "player_name", 160);
-  if (!playerName) return { error: "Enter the player's name." };
+  if (!playerName) return fail("Enter the player's name.");
 
   try {
     // roster_submissions has FKs to teams(id) and players(id), so those tables
@@ -85,7 +115,7 @@ export async function submitRosterAcceptanceAction(
     const companyId = await getRosterCompanyId();
     if (companyId == null) {
       // The company row is missing (database hasn't been set up yet).
-      return { error: "This form isn't set up yet. Please check back soon." };
+      return fail("This form isn't set up yet. Please check back soon.");
     }
 
     // Resolve + validate the chosen team only when accepting.
@@ -97,13 +127,13 @@ export async function submitRosterAcceptanceAction(
       const rawTeam = String(formData.get("teamId") ?? "").trim();
       const parsed = Number.parseInt(rawTeam, 10);
       if (!Number.isFinite(parsed)) {
-        return { error: "Choose the team you're accepting a spot on." };
+        return fail("Choose the team you're accepting a spot on.");
       }
       const team = await getOwnedTeam(companyId, parsed);
       if (!team) {
-        return {
-          error: "That team is no longer available. Please refresh the page and try again.",
-        };
+        return fail(
+          "That team is no longer available. Please refresh the page and try again.",
+        );
       }
       teamId = team.id;
       teamName = team.name;
@@ -153,23 +183,25 @@ export async function submitRosterAcceptanceAction(
       ];
       const firstMissing = checks.find(([missing]) => missing)?.[1];
       if (firstMissing) {
-        return { error: `Please fill in ${firstMissing} before accepting.` };
+        return fail(`Please fill in ${firstMissing} before accepting.`);
       }
       // Jersey inputs depend on the returning-player answer.
       if (played === true && !returningJersey) {
-        return { error: "Enter the returning player's jersey number." };
+        return fail("Enter the returning player's jersey number.");
       }
       if (played === false && (!jerseyOption1 || !jerseyOption2 || !jerseyOption3)) {
-        return {
-          error: "Enter all three jersey number options in order of preference.",
-        };
+        return fail(
+          "Enter all three jersey number options in order of preference.",
+        );
       }
     }
 
     // Keep the stored jersey data consistent with the returning-player answer —
-    // returners give one number, new players give three ranked options — so the
-    // record matches the form and the jersey automation reads clean inputs.
+    // a returner gives one number (options nulled); a new player gives three
+    // ranked options (returning nulled). Gating the options on `isNewPlayer`
+    // (not merely "not a returner") also keeps a declined/blank answer clean.
     const isReturner = played === true;
+    const isNewPlayer = played === false;
 
     await createRosterSubmission({
       companyId,
@@ -191,15 +223,15 @@ export async function submitRosterAcceptanceAction(
       throws: throwsWith,
       primaryPosition,
       secondaryPosition,
-      jerseyOption1: isReturner ? null : jerseyOption1,
-      jerseyOption2: isReturner ? null : jerseyOption2,
-      jerseyOption3: isReturner ? null : jerseyOption3,
+      jerseyOption1: isNewPlayer ? jerseyOption1 : null,
+      jerseyOption2: isNewPlayer ? jerseyOption2 : null,
+      jerseyOption3: isNewPlayer ? jerseyOption3 : null,
       playedFce2026: played,
       hatSize,
     });
   } catch (err) {
     console.error("submitRosterAcceptance error:", err);
-    return { error: "Could not submit your response. Please try again." };
+    return fail("Could not submit your response. Please try again.");
   }
 
   return { ok: true, accepted };

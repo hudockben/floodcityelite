@@ -107,6 +107,7 @@ async function main() {
       primary_position    VARCHAR(48),
       secondary_position  VARCHAR(48),
       jersey_number       VARCHAR(24),
+      jersey_locked       BOOLEAN      NOT NULL DEFAULT false,
       hat_size            VARCHAR(24),
       high_school         VARCHAR(160),
       parent_phone        VARCHAR(40),
@@ -137,6 +138,10 @@ async function main() {
   // the initial roster shipped, so backfill them on databases that predate them.
   await sql`ALTER TABLE players ADD COLUMN IF NOT EXISTS jersey_number VARCHAR(24)`;
   await sql`ALTER TABLE players ADD COLUMN IF NOT EXISTS hat_size VARCHAR(24)`;
+
+  // Coach-pinned jersey flag: locked numbers are treated as fixed by the
+  // acceptance-form jersey automation (not overwritten on the next accept).
+  await sql`ALTER TABLE players ADD COLUMN IF NOT EXISTS jersey_locked BOOLEAN NOT NULL DEFAULT false`;
 
   // Payments are logged against a player (→ team → company) and power the
   // Payment Tracker tab.
@@ -467,6 +472,75 @@ async function main() {
   // High school was added to the acceptance form after the table shipped;
   // backfill it on existing databases (mirrors players.high_school).
   await sql`ALTER TABLE roster_submissions ADD COLUMN IF NOT EXISTS high_school VARCHAR(160)`;
+
+  // Jersey-assignment automation (see db/schema.sql for the annotated version):
+  // reconciles a team's submission-linked jersey numbers atomically under a
+  // per-team advisory lock. Returners get priority; new players are first-come
+  // across their three options; manual/coach-locked numbers are fixed.
+  await sql`
+    CREATE OR REPLACE FUNCTION fce_recompute_team_jerseys(p_team_id integer)
+    RETURNS void
+    LANGUAGE plpgsql
+    AS $fn$
+    DECLARE
+      taken  text[];
+      r      record;
+      chosen text;
+      opt    text;
+    BEGIN
+      PERFORM pg_advisory_xact_lock(hashtext('fce_jersey_recompute'), p_team_id);
+
+      SELECT coalesce(array_agg(btrim(p.jersey_number)), ARRAY[]::text[])
+        INTO taken
+      FROM players p
+      WHERE p.team_id = p_team_id
+        AND p.jersey_number IS NOT NULL
+        AND btrim(p.jersey_number) <> ''
+        AND (p.jersey_locked
+             OR NOT EXISTS (SELECT 1 FROM roster_submissions rs WHERE rs.player_id = p.id));
+
+      FOR r IN
+        SELECT rs.player_id, btrim(rs.returning_jersey) AS num
+        FROM roster_submissions rs
+        JOIN players p ON p.id = rs.player_id
+        WHERE rs.team_id = p_team_id AND rs.accepted AND rs.player_id IS NOT NULL
+          AND rs.played_fce_2026 IS TRUE
+          AND p.jersey_locked = false
+        ORDER BY rs.created_at, rs.id
+      LOOP
+        IF r.num IS NOT NULL AND r.num <> '' AND NOT (r.num = ANY (taken)) THEN
+          UPDATE players SET jersey_number = r.num, updated_at = now() WHERE id = r.player_id;
+          taken := array_append(taken, r.num);
+        ELSE
+          UPDATE players SET jersey_number = NULL, updated_at = now() WHERE id = r.player_id;
+        END IF;
+      END LOOP;
+
+      FOR r IN
+        SELECT rs.player_id,
+               btrim(rs.jersey_option_1) AS o1,
+               btrim(rs.jersey_option_2) AS o2,
+               btrim(rs.jersey_option_3) AS o3
+        FROM roster_submissions rs
+        JOIN players p ON p.id = rs.player_id
+        WHERE rs.team_id = p_team_id AND rs.accepted AND rs.player_id IS NOT NULL
+          AND rs.played_fce_2026 IS DISTINCT FROM TRUE
+          AND p.jersey_locked = false
+        ORDER BY rs.created_at, rs.id
+      LOOP
+        chosen := NULL;
+        FOREACH opt IN ARRAY ARRAY[r.o1, r.o2, r.o3] LOOP
+          IF opt IS NOT NULL AND opt <> '' AND NOT (opt = ANY (taken)) THEN
+            chosen := opt;
+            taken := array_append(taken, opt);
+            EXIT;
+          END IF;
+        END LOOP;
+        UPDATE players SET jersey_number = chosen, updated_at = now() WHERE id = r.player_id;
+      END LOOP;
+    END;
+    $fn$
+  `;
 
   console.log(`→ Ensuring company "${COMPANY_NAME}" (code: ${COMPANY_CODE})…`);
   const companyRows = await sql`

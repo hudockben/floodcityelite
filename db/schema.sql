@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS players (
     primary_position    VARCHAR(48),
     secondary_position  VARCHAR(48),
     jersey_number       VARCHAR(24),
+    jersey_locked       BOOLEAN      NOT NULL DEFAULT false,
     hat_size            VARCHAR(24),
     high_school         VARCHAR(160),
     parent_phone        VARCHAR(40),
@@ -383,6 +384,81 @@ CREATE TABLE IF NOT EXISTS roster_submissions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_roster_submissions_company_id ON roster_submissions (company_id);
+
+-- ---------------------------------------------------------------------------
+-- Jersey-assignment automation
+--
+-- Reconciles a team's submission-linked jersey numbers from all of its accepted
+-- roster submissions, atomically and race-free: the whole read-compute-write
+-- runs in this one function under a per-team advisory lock. Returning players
+-- (played_fce_2026 = true) get their returning number with priority; new players
+-- are first-come (oldest submission first) and take the first of their three
+-- options that's still free. Numbers held by manual players (no submission) or
+-- coach-locked players (jersey_locked = true) are fixed and never reassigned.
+-- Called on each acceptance. CREATE OR REPLACE keeps it idempotent.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION fce_recompute_team_jerseys(p_team_id integer)
+RETURNS void
+LANGUAGE plpgsql
+AS $fn$
+DECLARE
+  taken  text[];
+  r      record;
+  chosen text;
+  opt    text;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('fce_jersey_recompute'), p_team_id);
+
+  SELECT coalesce(array_agg(btrim(p.jersey_number)), ARRAY[]::text[])
+    INTO taken
+  FROM players p
+  WHERE p.team_id = p_team_id
+    AND p.jersey_number IS NOT NULL
+    AND btrim(p.jersey_number) <> ''
+    AND (p.jersey_locked
+         OR NOT EXISTS (SELECT 1 FROM roster_submissions rs WHERE rs.player_id = p.id));
+
+  FOR r IN
+    SELECT rs.player_id, btrim(rs.returning_jersey) AS num
+    FROM roster_submissions rs
+    JOIN players p ON p.id = rs.player_id
+    WHERE rs.team_id = p_team_id AND rs.accepted AND rs.player_id IS NOT NULL
+      AND rs.played_fce_2026 IS TRUE
+      AND p.jersey_locked = false
+    ORDER BY rs.created_at, rs.id
+  LOOP
+    IF r.num IS NOT NULL AND r.num <> '' AND NOT (r.num = ANY (taken)) THEN
+      UPDATE players SET jersey_number = r.num, updated_at = now() WHERE id = r.player_id;
+      taken := array_append(taken, r.num);
+    ELSE
+      UPDATE players SET jersey_number = NULL, updated_at = now() WHERE id = r.player_id;
+    END IF;
+  END LOOP;
+
+  FOR r IN
+    SELECT rs.player_id,
+           btrim(rs.jersey_option_1) AS o1,
+           btrim(rs.jersey_option_2) AS o2,
+           btrim(rs.jersey_option_3) AS o3
+    FROM roster_submissions rs
+    JOIN players p ON p.id = rs.player_id
+    WHERE rs.team_id = p_team_id AND rs.accepted AND rs.player_id IS NOT NULL
+      AND rs.played_fce_2026 IS DISTINCT FROM TRUE
+      AND p.jersey_locked = false
+    ORDER BY rs.created_at, rs.id
+  LOOP
+    chosen := NULL;
+    FOREACH opt IN ARRAY ARRAY[r.o1, r.o2, r.o3] LOOP
+      IF opt IS NOT NULL AND opt <> '' AND NOT (opt = ANY (taken)) THEN
+        chosen := opt;
+        taken := array_append(taken, opt);
+        EXIT;
+      END IF;
+    END LOOP;
+    UPDATE players SET jersey_number = chosen, updated_at = now() WHERE id = r.player_id;
+  END LOOP;
+END;
+$fn$;
 
 -- Seed the Flood City Elite company (code: fce). Idempotent.
 INSERT INTO companies (code, name)
