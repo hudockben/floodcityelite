@@ -110,6 +110,75 @@ export async function submitRosterAcceptanceAction(
       division = team.division;
     }
 
+    // Parse the player + parent detail fields.
+    const email = text(formData, "email", 160);
+    const gradYear = nonNegInt(formData, "grad_year");
+    const dateOfBirth = isoDate(formData, "date_of_birth");
+    const parentPhone = text(formData, "parent_phone", 40);
+    const secondaryPhone = text(formData, "secondary_phone", 40);
+    const height = text(formData, "height", 24);
+    const weight = nonNegInt(formData, "weight");
+    const bats = oneOf(formData, "bats", ["L", "R", "S"]);
+    const throwsWith = oneOf(formData, "throws", ["L", "R"]);
+    const primaryPosition = text(formData, "primary_position", 48);
+    const secondaryPosition = text(formData, "secondary_position", 48);
+    const hatSize = text(formData, "hat_size", 24);
+    const played = yesNo(formData, "played_fce_2026");
+    const returningJersey = text(formData, "returning_jersey", 24);
+    const jerseyOption1 = text(formData, "jersey_option_1", 24);
+    const jerseyOption2 = text(formData, "jersey_option_2", 24);
+    const jerseyOption3 = text(formData, "jersey_option_3", 24);
+
+    // On accept every field is required (the form enforces it client-side; this
+    // backs it up server-side). Report the first gap so the parent knows what to
+    // fix. A decline only needs the player name, already checked above.
+    if (accepted) {
+      const firstMissing = !email
+        ? "an email address"
+        : gradYear == null
+          ? "the grad year"
+          : !dateOfBirth
+            ? "the date of birth"
+            : !parentPhone
+              ? "the parent's cell phone number"
+              : !secondaryPhone
+                ? "a secondary cell phone number"
+                : !height
+                  ? "the height"
+                  : weight == null
+                    ? "the weight"
+                    : !bats
+                      ? "which side the player bats from"
+                      : !throwsWith
+                        ? "which hand the player throws with"
+                        : !primaryPosition
+                          ? "the primary position"
+                          : !secondaryPosition
+                            ? "the secondary position"
+                            : !hatSize
+                              ? "the hat size"
+                              : played == null
+                                ? "whether the player played in 2026"
+                                : null;
+      if (firstMissing) {
+        return { error: `Please fill in ${firstMissing} before accepting.` };
+      }
+      // Jersey inputs depend on the returning-player answer.
+      if (played === true && !returningJersey) {
+        return { error: "Enter the returning player's jersey number." };
+      }
+      if (played === false && (!jerseyOption1 || !jerseyOption2 || !jerseyOption3)) {
+        return {
+          error: "Enter all three jersey number options in order of preference.",
+        };
+      }
+    }
+
+    // Keep the stored jersey data consistent with the returning-player answer —
+    // returners give one number, new players give three ranked options — so the
+    // record matches the form and the jersey automation reads clean inputs.
+    const isReturner = played === true;
+
     await createRosterSubmission({
       companyId,
       accepted,
@@ -117,23 +186,23 @@ export async function submitRosterAcceptanceAction(
       teamName,
       division,
       playerName,
-      email: text(formData, "email", 160),
-      returningJersey: text(formData, "returning_jersey", 24),
-      gradYear: nonNegInt(formData, "grad_year"),
-      dateOfBirth: isoDate(formData, "date_of_birth"),
-      parentPhone: text(formData, "parent_phone", 40),
-      secondaryPhone: text(formData, "secondary_phone", 40),
-      height: text(formData, "height", 24),
-      weight: nonNegInt(formData, "weight"),
-      bats: oneOf(formData, "bats", ["L", "R", "S"]),
-      throws: oneOf(formData, "throws", ["L", "R"]),
-      primaryPosition: text(formData, "primary_position", 48),
-      secondaryPosition: text(formData, "secondary_position", 48),
-      jerseyOption1: text(formData, "jersey_option_1", 24),
-      jerseyOption2: text(formData, "jersey_option_2", 24),
-      jerseyOption3: text(formData, "jersey_option_3", 24),
-      playedFce2025: yesNo(formData, "played_fce_2025"),
-      hatSize: text(formData, "hat_size", 24),
+      email,
+      returningJersey: isReturner ? returningJersey : null,
+      gradYear,
+      dateOfBirth,
+      parentPhone,
+      secondaryPhone,
+      height,
+      weight,
+      bats,
+      throws: throwsWith,
+      primaryPosition,
+      secondaryPosition,
+      jerseyOption1: isReturner ? null : jerseyOption1,
+      jerseyOption2: isReturner ? null : jerseyOption2,
+      jerseyOption3: isReturner ? null : jerseyOption3,
+      playedFce2026: played,
+      hatSize,
     });
   } catch (err) {
     console.error("submitRosterAcceptance error:", err);

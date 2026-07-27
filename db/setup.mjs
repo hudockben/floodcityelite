@@ -436,13 +436,32 @@ async function main() {
       jersey_option_1     VARCHAR(24),
       jersey_option_2     VARCHAR(24),
       jersey_option_3     VARCHAR(24),
-      played_fce_2025     BOOLEAN,
+      played_fce_2026     BOOLEAN,
       hat_size            VARCHAR(24),
       created_at          TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
   `;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_roster_submissions_company_id ON roster_submissions (company_id)`;
+
+  // Rename played_fce_2025 -> played_fce_2026 on databases created before the
+  // question's year label rolled forward. Guarded (no RENAME COLUMN IF EXISTS in
+  // Postgres) so it's idempotent: only when the old column exists and the new
+  // one doesn't.
+  await sql`
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'roster_submissions'
+                   AND column_name = 'played_fce_2025')
+        AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'roster_submissions'
+                   AND column_name = 'played_fce_2026')
+      THEN
+        ALTER TABLE roster_submissions RENAME COLUMN played_fce_2025 TO played_fce_2026;
+      END IF;
+    END $$;
+  `;
 
   console.log(`→ Ensuring company "${COMPANY_NAME}" (code: ${COMPANY_CODE})…`);
   const companyRows = await sql`

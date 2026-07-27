@@ -86,11 +86,21 @@ ones are:
   accepts, the player is pushed onto the chosen team's roster in the same write
   — `player_id` links to that `players` row, and `team_name`/`division` snapshot
   the choice so it survives the team being deleted (which nulls `team_id`). The
-  accept also copies the player's hat size and (for returning players) their
-  returning jersey number onto the roster row. The remaining tryout-only fields
-  (the three jersey option preferences, secondary phone, bats/throws, whether
-  they played in 2025) live on the submission. Belongs to a company via
+  accept also copies the player's hat size onto the roster row. Jersey numbers
+  are then assigned automatically for the whole team (see below). The remaining
+  fields — `played_fce_2026` (the "Did you play in 2026?" returning-player
+  answer), the returning number, the three jersey option preferences, secondary
+  phone, and bats/throws — live on the submission. Belongs to a company via
   `company_id`.
+
+  **Jersey automation.** When a team's roster changes through an acceptance,
+  every submission-linked player's `jersey_number` is reconciled from all of the
+  team's accepted submissions: returning players (`played_fce_2026 = true`) get
+  their returning number with priority, then new players are assigned
+  first-come-first-served, each taking the first of their three ranked options
+  that isn't already taken. Numbers a coach assigned by hand on the Teams tab
+  (players with no submission) are treated as fixed and never reassigned; a
+  player whose options are all taken is left blank for the coach to resolve.
 
 ## Getting started
 

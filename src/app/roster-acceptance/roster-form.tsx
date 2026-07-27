@@ -14,23 +14,29 @@ import type { RosterTeamOption } from "@/lib/roster-submissions";
 
 const initialState: RosterFormState = {};
 
-// A plain labeled text-style input used across the accept branch.
+// A plain labeled text-style input used across the accept branch. Every accept
+// field is required, so `required` defaults to true (a caller can opt out).
 function TextField({
   name,
   label,
   type = "text",
   placeholder,
   inputMode,
+  required = true,
 }: {
   name: string;
   label: string;
   type?: string;
   placeholder?: string;
   inputMode?: "decimal" | "numeric" | "tel" | "email";
+  required?: boolean;
 }) {
   return (
     <div className="field">
-      <label htmlFor={`ra-${name}`}>{label}</label>
+      <label htmlFor={`ra-${name}`}>
+        {label}
+        {required ? " *" : ""}
+      </label>
       <input
         id={`ra-${name}`}
         name={name}
@@ -38,6 +44,7 @@ function TextField({
         placeholder={placeholder}
         inputMode={inputMode}
         autoComplete="off"
+        required={required}
         {...(type === "number" ? { min: 0 } : {})}
       />
     </div>
@@ -45,11 +52,11 @@ function TextField({
 }
 
 // A position input backed by the shared datalist of common positions (free text
-// still allowed).
+// still allowed). Required by default like the other accept fields.
 function PositionField({ name, label }: { name: string; label: string }) {
   return (
     <div className="field">
-      <label htmlFor={`ra-${name}`}>{label}</label>
+      <label htmlFor={`ra-${name}`}>{label} *</label>
       <input
         id={`ra-${name}`}
         name={name}
@@ -57,6 +64,7 @@ function PositionField({ name, label }: { name: string; label: string }) {
         list="ra-position-options"
         placeholder="e.g. SS"
         autoComplete="off"
+        required
       />
     </div>
   );
@@ -78,14 +86,19 @@ export default function RosterAcceptanceForm({
   const formRef = useRef<HTMLFormElement>(null);
   // null = no choice yet; "yes" = accepting; "no" = declining.
   const [choice, setChoice] = useState<"yes" | "no" | null>(null);
+  // The "Did you play in 2026?" answer gates the jersey inputs: "yes" (returning
+  // player) shows a single returning number; "no" (new player) shows three
+  // ranked options. "" = not answered yet, so neither is shown.
+  const [played, setPlayed] = useState<"" | "yes" | "no">("");
 
-  // On a successful submit, reset the form and clear the choice so the next
-  // parent starts fresh. The success banner (driven by `state.ok`) stays until
-  // the next submit.
+  // On a successful submit, reset the form and clear the choice + played answer
+  // so the next parent starts fresh. The success banner (driven by `state.ok`)
+  // stays until the next submit.
   useEffect(() => {
     if (state?.ok) {
       formRef.current?.reset();
       setChoice(null);
+      setPlayed("");
     }
   }, [state]);
 
@@ -213,11 +226,6 @@ export default function RosterAcceptanceForm({
                   placeholder="parent@example.com"
                 />
                 <TextField
-                  name="returning_jersey"
-                  label="Returning player jersey number"
-                  placeholder="If returning"
-                />
-                <TextField
                   name="grad_year"
                   label="Grad year"
                   type="number"
@@ -247,9 +255,9 @@ export default function RosterAcceptanceForm({
                 />
 
                 <div className="field">
-                  <label htmlFor="ra-bats">Bats (L/R)</label>
-                  <select id="ra-bats" name="bats" defaultValue="">
-                    <option value="">—</option>
+                  <label htmlFor="ra-bats">Bats (L/R) *</label>
+                  <select id="ra-bats" name="bats" defaultValue="" required>
+                    <option value="">Select…</option>
                     <option value="L">Left (L)</option>
                     <option value="R">Right (R)</option>
                     <option value="S">Switch (S)</option>
@@ -257,9 +265,9 @@ export default function RosterAcceptanceForm({
                 </div>
 
                 <div className="field">
-                  <label htmlFor="ra-throws">Throws (L/R)</label>
-                  <select id="ra-throws" name="throws" defaultValue="">
-                    <option value="">—</option>
+                  <label htmlFor="ra-throws">Throws (L/R) *</label>
+                  <select id="ra-throws" name="throws" defaultValue="" required>
+                    <option value="">Select…</option>
                     <option value="L">Left (L)</option>
                     <option value="R">Right (R)</option>
                   </select>
@@ -271,25 +279,64 @@ export default function RosterAcceptanceForm({
                   label="Secondary position"
                 />
 
-                <TextField name="jersey_option_1" label="Jersey number option #1" />
-                <TextField name="jersey_option_2" label="Jersey number option #2" />
-                <TextField name="jersey_option_3" label="Jersey number option #3" />
-
-                <div className="field">
-                  <label htmlFor="ra-played_fce_2025">Did you play FCE in 2025?</label>
-                  <select
-                    id="ra-played_fce_2025"
-                    name="played_fce_2025"
-                    defaultValue=""
-                  >
-                    <option value="">—</option>
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                  </select>
-                </div>
-
                 <TextField name="hat_size" label="Hat size" placeholder={`e.g. 7 1/4`} />
               </div>
+
+              {/* Jersey number — gated by whether the player is returning. */}
+              <div className="field">
+                <label htmlFor="ra-played_fce_2026">
+                  Did you play in 2026? *
+                </label>
+                <select
+                  id="ra-played_fce_2026"
+                  name="played_fce_2026"
+                  value={played}
+                  onChange={(e) =>
+                    setPlayed(e.target.value as "" | "yes" | "no")
+                  }
+                  required
+                >
+                  <option value="" disabled>
+                    Select…
+                  </option>
+                  <option value="yes">Yes — returning player</option>
+                  <option value="no">No — new player</option>
+                </select>
+              </div>
+
+              {played === "yes" ? (
+                <TextField
+                  name="returning_jersey"
+                  label="Returning player jersey number"
+                  placeholder="Number from last season"
+                />
+              ) : null}
+
+              {played === "no" ? (
+                <>
+                  <p className="field-hint">
+                    List three jersey numbers in order of preference — we&apos;ll
+                    assign the first one that isn&apos;t already taken on the team.
+                  </p>
+                  <div className="player-grid">
+                    <TextField
+                      name="jersey_option_1"
+                      label="Jersey number option #1"
+                      placeholder="e.g. 7"
+                    />
+                    <TextField
+                      name="jersey_option_2"
+                      label="Jersey number option #2"
+                      placeholder="e.g. 12"
+                    />
+                    <TextField
+                      name="jersey_option_3"
+                      label="Jersey number option #3"
+                      placeholder="e.g. 21"
+                    />
+                  </div>
+                </>
+              ) : null}
             </>
           )}
 

@@ -61,7 +61,7 @@ export type RosterSubmissionRow = {
   jersey_option_1: string | null;
   jersey_option_2: string | null;
   jersey_option_3: string | null;
-  played_fce_2025: boolean | null;
+  played_fce_2026: boolean | null;
   hat_size: string | null;
   created_at: string;
 };
@@ -91,7 +91,7 @@ export type RosterSubmissionInput = {
   jerseyOption1: string | null;
   jerseyOption2: string | null;
   jerseyOption3: string | null;
-  playedFce2025: boolean | null;
+  playedFce2026: boolean | null;
   hatSize: string | null;
 };
 
@@ -148,13 +148,32 @@ async function provision(): Promise<void> {
       jersey_option_1     VARCHAR(24),
       jersey_option_2     VARCHAR(24),
       jersey_option_3     VARCHAR(24),
-      played_fce_2025     BOOLEAN,
+      played_fce_2026     BOOLEAN,
       hat_size            VARCHAR(24),
       created_at          TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
   `;
 
   await db`CREATE INDEX IF NOT EXISTS idx_roster_submissions_company_id ON roster_submissions (company_id)`;
+
+  // Rename played_fce_2025 -> played_fce_2026 on databases created before the
+  // question's year label rolled forward. Postgres has no RENAME COLUMN IF
+  // EXISTS, so guard it: only rename when the old column is present and the new
+  // one isn't. Idempotent — a no-op once the table already has the 2026 column.
+  await db`
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'roster_submissions'
+                   AND column_name = 'played_fce_2025')
+        AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'roster_submissions'
+                   AND column_name = 'played_fce_2026')
+      THEN
+        ALTER TABLE roster_submissions RENAME COLUMN played_fce_2025 TO played_fce_2026;
+      END IF;
+    END $$;
+  `;
 }
 
 // Resolve the company id parents submit against (code: "fce"). Returns null when
@@ -203,12 +222,12 @@ export async function getOwnedTeam(
 // data-modifying CTE inserts the `players` row and then inserts the submission
 // carrying that new player's id, so the roster row and its submission link are
 // created atomically. The mapped roster columns are the ones the Teams tab
-// knows — name, grad year, DOB, height, weight, positions, hat size, the
-// returning jersey number (returning players keep their number; new players
-// leave the roster's jersey blank so the coach can assign it from the three
-// requested options), and the parent's phone/email. The remaining tryout-only
-// fields (the jersey option preferences, secondary phone, bats/throws,
-// played-in-2025) live on the submission record. `is_paying` defaults to true.
+// knows — name, grad year, DOB, height, weight, positions, hat size, and the
+// parent's phone/email. The player's jersey number is left blank here and then
+// assigned by recomputeTeamJerseys() (below), which reconciles the whole team's
+// numbers from every accepted submission. The remaining tryout-only fields
+// (secondary phone, bats/throws, played-in-2026, and the jersey preferences the
+// recompute reads) live on the submission record. `is_paying` defaults to true.
 export async function createRosterSubmission(
   input: RosterSubmissionInput,
 ): Promise<void> {
@@ -217,7 +236,7 @@ export async function createRosterSubmission(
       WITH new_player AS (
         INSERT INTO players (
           team_id, player_name, grad_year, date_of_birth, height, weight,
-          primary_position, secondary_position, jersey_number, hat_size,
+          primary_position, secondary_position, hat_size,
           parent_phone, parent_email
         ) VALUES (
           ${input.teamId},
@@ -228,7 +247,6 @@ export async function createRosterSubmission(
           ${input.weight},
           ${input.primaryPosition},
           ${input.secondaryPosition},
-          ${input.returningJersey},
           ${input.hatSize},
           ${input.parentPhone},
           ${input.email}
@@ -240,16 +258,29 @@ export async function createRosterSubmission(
         player_name, email, returning_jersey, grad_year, date_of_birth,
         parent_phone, secondary_phone, height, weight, bats, throws,
         primary_position, secondary_position, jersey_option_1, jersey_option_2,
-        jersey_option_3, played_fce_2025, hat_size
+        jersey_option_3, played_fce_2026, hat_size
       )
       SELECT
         ${input.companyId}, true, ${input.teamId}, ${input.teamName}, ${input.division}, new_player.id,
         ${input.playerName}, ${input.email}, ${input.returningJersey}, ${input.gradYear}, ${input.dateOfBirth},
         ${input.parentPhone}, ${input.secondaryPhone}, ${input.height}, ${input.weight}, ${input.bats}, ${input.throws},
         ${input.primaryPosition}, ${input.secondaryPosition}, ${input.jerseyOption1}, ${input.jerseyOption2},
-        ${input.jerseyOption3}, ${input.playedFce2025}, ${input.hatSize}
+        ${input.jerseyOption3}, ${input.playedFce2026}, ${input.hatSize}
       FROM new_player
     `;
+
+    // With the new player + submission committed, reconcile jersey numbers for
+    // the whole team: returners keep their number (priority), then new players
+    // take their first free option (first-come). Runs as a follow-up statement
+    // because the assignment depends on every accepted submission for the team.
+    // Best-effort: the submission + roster row are already saved, so a reconcile
+    // hiccup must not fail the whole submission (which would push the parent to
+    // resubmit into a duplicate). The next accept for the team reconciles again.
+    try {
+      await recomputeTeamJerseys(input.teamId);
+    } catch (err) {
+      console.error("recomputeTeamJerseys failed for team", input.teamId, err);
+    }
     return;
   }
 
@@ -261,15 +292,118 @@ export async function createRosterSubmission(
       player_name, email, returning_jersey, grad_year, date_of_birth,
       parent_phone, secondary_phone, height, weight, bats, throws,
       primary_position, secondary_position, jersey_option_1, jersey_option_2,
-      jersey_option_3, played_fce_2025, hat_size
+      jersey_option_3, played_fce_2026, hat_size
     ) VALUES (
       ${input.companyId}, ${input.accepted}, ${input.teamId}, ${input.teamName}, ${input.division}, NULL,
       ${input.playerName}, ${input.email}, ${input.returningJersey}, ${input.gradYear}, ${input.dateOfBirth},
       ${input.parentPhone}, ${input.secondaryPhone}, ${input.height}, ${input.weight}, ${input.bats}, ${input.throws},
       ${input.primaryPosition}, ${input.secondaryPosition}, ${input.jerseyOption1}, ${input.jerseyOption2},
-      ${input.jerseyOption3}, ${input.playedFce2025}, ${input.hatSize}
+      ${input.jerseyOption3}, ${input.playedFce2026}, ${input.hatSize}
     )
   `;
+}
+
+// Trim a jersey value to a comparable token; empty -> null. Kept deliberately
+// simple (exact trimmed string) so "0" and "00" stay distinct as they do in
+// baseball; parents are expected to enter a number consistently.
+function normJersey(value: unknown): string | null {
+  const s = String(value ?? "").trim();
+  return s === "" ? null : s;
+}
+
+// Reassign every submission-linked player's jersey number on a team from the
+// full set of accepted submissions. This is why assignment can't be done purely
+// at submit time: a returner who submits *after* a new player still outranks
+// them, so the whole team is reconciled on each accept.
+//
+// Rules:
+//   • Numbers already held by MANUAL players (added on the Teams tab, not via a
+//     submission) are fixed and treated as taken — the automation never reassigns
+//     them or hands out a duplicate.
+//   • Returning players (played_fce_2026 = true) get their returning number with
+//     priority. Ties (or a number a manual player holds) fall through to unassigned.
+//   • New players are first-come-first-served (oldest submission first), taking
+//     the first of their three options that's still free; none free -> unassigned.
+// Unassigned players get a null jersey for the coach to resolve on the Teams tab.
+async function recomputeTeamJerseys(teamId: number): Promise<void> {
+  const db = sql();
+
+  // Numbers pinned by manual (non-submission) roster players.
+  const manualRows = await db`
+    SELECT p.jersey_number
+    FROM players p
+    WHERE p.team_id = ${teamId}
+      AND p.jersey_number IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM roster_submissions rs WHERE rs.player_id = p.id
+      )
+  `;
+
+  // Accepted, still-linked submissions for the team, oldest first.
+  const subRows = (await db`
+    SELECT rs.player_id, rs.played_fce_2026, rs.returning_jersey,
+           rs.jersey_option_1, rs.jersey_option_2, rs.jersey_option_3
+    FROM roster_submissions rs
+    WHERE rs.team_id = ${teamId}
+      AND rs.accepted = true
+      AND rs.player_id IS NOT NULL
+    ORDER BY rs.created_at ASC, rs.id ASC
+  `) as Array<{
+    player_id: number;
+    played_fce_2026: boolean | null;
+    returning_jersey: string | null;
+    jersey_option_1: string | null;
+    jersey_option_2: string | null;
+    jersey_option_3: string | null;
+  }>;
+
+  const taken = new Set<string>();
+  for (const r of manualRows as Array<{ jersey_number: string | null }>) {
+    const n = normJersey(r.jersey_number);
+    if (n) taken.add(n);
+  }
+
+  const assignments = new Map<number, string | null>();
+
+  // Returners first — priority on their number.
+  for (const s of subRows) {
+    if (s.played_fce_2026 !== true) continue;
+    const want = normJersey(s.returning_jersey);
+    if (want && !taken.has(want)) {
+      taken.add(want);
+      assignments.set(Number(s.player_id), want);
+    } else {
+      assignments.set(Number(s.player_id), null);
+    }
+  }
+
+  // New players next — first free option wins, in submission order.
+  for (const s of subRows) {
+    if (s.played_fce_2026 === true) continue;
+    let picked: string | null = null;
+    for (const opt of [s.jersey_option_1, s.jersey_option_2, s.jersey_option_3]) {
+      const n = normJersey(opt);
+      if (n && !taken.has(n)) {
+        picked = n;
+        taken.add(n);
+        break;
+      }
+    }
+    assignments.set(Number(s.player_id), picked);
+  }
+
+  if (assignments.size === 0) return;
+
+  // Write the reconciled numbers back in one transaction (functional form,
+  // mirroring the bulk-upload action). Scoped by team_id as a guard; only
+  // submission-linked players are in the map, so manual players are untouched.
+  await db.transaction((txn) =>
+    [...assignments.entries()].map(
+      ([playerId, jersey]) =>
+        txn`UPDATE players SET jersey_number = ${jersey}, updated_at = now()
+            WHERE id = ${playerId} AND team_id = ${teamId}`,
+    ),
+  );
 }
 
 // All submissions for a company, newest first. Joins to `teams` so the admin
@@ -303,7 +437,7 @@ export async function listRosterSubmissions(
       rs.jersey_option_1,
       rs.jersey_option_2,
       rs.jersey_option_3,
-      rs.played_fce_2025,
+      rs.played_fce_2026,
       rs.hat_size,
       -- created_at is TIMESTAMPTZ (stored UTC); convert to the club's local zone
       -- (Flood City Elite is in Johnstown, PA — Eastern) so the admin tab shows

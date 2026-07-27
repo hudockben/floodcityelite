@@ -376,7 +376,7 @@ CREATE TABLE IF NOT EXISTS roster_submissions (
     jersey_option_1     VARCHAR(24),
     jersey_option_2     VARCHAR(24),
     jersey_option_3     VARCHAR(24),
-    played_fce_2025     BOOLEAN,
+    played_fce_2026     BOOLEAN,
     hat_size            VARCHAR(24),
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT now()
 );

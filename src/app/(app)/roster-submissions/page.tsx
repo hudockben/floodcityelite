@@ -40,8 +40,8 @@ function detailFields(s: RosterSubmissionRow): { label: string; value: string }[
     { label: "Jersey option #2", value: s.jersey_option_2 },
     { label: "Jersey option #3", value: s.jersey_option_3 },
     {
-      label: "Played FCE in 2025",
-      value: s.played_fce_2025 == null ? null : s.played_fce_2025 ? "Yes" : "No",
+      label: "Played in 2026",
+      value: s.played_fce_2026 == null ? null : s.played_fce_2026 ? "Yes" : "No",
     },
     { label: "Hat size", value: s.hat_size },
   ];
