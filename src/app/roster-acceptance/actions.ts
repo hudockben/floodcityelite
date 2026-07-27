@@ -24,7 +24,7 @@ export type RosterFormState = {
 // choice and the "played in 2026?" answer are React state in the form, so they
 // survive the reset without echoing).
 const ECHO_FIELDS = [
-  "accepted", "played_fce_2026",
+  "accepted", "played_fce_2026", "division",
   "player_name", "teamId", "email", "grad_year", "high_school", "date_of_birth",
   "parent_phone", "secondary_phone", "height", "weight", "bats", "throws",
   "primary_position", "secondary_position", "hat_size", "returning_jersey",

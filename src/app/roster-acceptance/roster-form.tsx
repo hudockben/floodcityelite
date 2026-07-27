@@ -110,15 +110,18 @@ export default function RosterAcceptanceForm({
   // player) shows a single returning number; "no" (new player) shows three
   // ranked options. "" = not answered yet, so neither is shown.
   const [played, setPlayed] = useState<"" | "yes" | "no">("");
+  // The chosen division narrows the team dropdown to that division's teams.
+  const [division, setDivision] = useState<string>("");
 
-  // On a successful submit, reset the form and clear the choice + played answer
-  // so the next parent starts fresh. The success banner (driven by `state.ok`)
-  // stays until the next submit.
+  // On a successful submit, reset the form and clear the choice / played /
+  // division state so the next parent starts fresh. The success banner (driven
+  // by `state.ok`) stays until the next submit.
   useEffect(() => {
     if (state?.ok) {
       formRef.current?.reset();
       setChoice(null);
       setPlayed("");
+      setDivision("");
     }
   }, [state]);
 
@@ -166,6 +169,7 @@ export default function RosterAcceptanceForm({
               onChange={() => {
                 setChoice("yes");
                 setPlayed("");
+                setDivision("");
               }}
               required
             />
@@ -186,6 +190,7 @@ export default function RosterAcceptanceForm({
               onChange={() => {
                 setChoice("no");
                 setPlayed("");
+                setDivision("");
               }}
             />
             <span className="accept-option-title">No — decline the spot</span>
@@ -222,25 +227,23 @@ export default function RosterAcceptanceForm({
             </p>
           ) : (
             <>
+              {/* Division first — narrows the team list below to that division. */}
               <div className="field">
-                <label htmlFor="ra-teamId">Team *</label>
+                <label htmlFor="ra-division">Division *</label>
                 <select
-                  id="ra-teamId"
-                  name="teamId"
-                  defaultValue={state.values?.teamId ?? ""}
+                  id="ra-division"
+                  name="division"
+                  defaultValue={state.values?.division ?? ""}
+                  onChange={(e) => setDivision(e.target.value)}
                   required
                 >
                   <option value="" disabled>
-                    Choose the team…
+                    Choose a division…
                   </option>
-                  {teamsByDivision.map(([division, list]) => (
-                    <optgroup key={division} label={divisionLabel(division)}>
-                      {list.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name} · {sportLabel(t.sport)}
-                        </option>
-                      ))}
-                    </optgroup>
+                  {teamsByDivision.map(([div]) => (
+                    <option key={div} value={div}>
+                      {divisionLabel(div)}
+                    </option>
                   ))}
                 </select>
                 {teams.length === 0 ? (
@@ -248,6 +251,31 @@ export default function RosterAcceptanceForm({
                     No teams are set up yet — please check back soon.
                   </p>
                 ) : null}
+              </div>
+
+              <div className="field">
+                <label htmlFor="ra-teamId">Team *</label>
+                {/* key={division} remounts the select when the division changes,
+                    so the team selection resets to the placeholder. */}
+                <select
+                  key={division}
+                  id="ra-teamId"
+                  name="teamId"
+                  defaultValue={state.values?.teamId ?? ""}
+                  required
+                  disabled={!division}
+                >
+                  <option value="">
+                    {division ? "Choose the team…" : "Pick a division first"}
+                  </option>
+                  {(teamsByDivision.find(([d]) => d === division)?.[1] ?? []).map(
+                    (t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} · {sportLabel(t.sport)}
+                      </option>
+                    ),
+                  )}
+                </select>
               </div>
 
               <div className="player-grid">
