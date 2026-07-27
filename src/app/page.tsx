@@ -65,6 +65,36 @@ export default async function HomePage() {
               </Link>
             </div>
           </section>
+
+          {/* Roster Spot division — a public accept/decline form for parents. */}
+          <section className="card division-card" aria-labelledby="div-roster">
+            <div className="division-head">
+              <span className="division-icon" aria-hidden="true">
+                ✅
+              </span>
+              <div>
+                <h2 id="div-roster" className="division-title">
+                  Roster Spot
+                </h2>
+                <p className="division-sub">Parents — accept your spot</p>
+              </div>
+            </div>
+
+            <div className="division-body">
+              <p className="division-text">
+                Made a team? Let us know if the player is accepting or declining
+                the roster spot. Accepting adds them straight to the roster.
+              </p>
+              <ul className="division-list">
+                <li>Accept or decline</li>
+                <li>Player &amp; parent details</li>
+                <li>Team, positions, jersey &amp; more</li>
+              </ul>
+              <Link href="/roster-acceptance" className="btn btn-block">
+                Open acceptance form
+              </Link>
+            </div>
+          </section>
         </div>
       </div>
     </main>

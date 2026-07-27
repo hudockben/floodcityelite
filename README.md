@@ -4,15 +4,21 @@ A [Next.js](https://nextjs.org) (App Router) app with a branded home/login
 screen backed by a [Neon](https://neon.tech) Postgres database. Members sign in
 with a **company code**, **username**, and **password**.
 
-- Home screen (`/`) — two **division cards**: **Admin** (the Flood City Elite
-  staff/coach login) and **Payroll** (a link to a public form employees use to
-  submit their hours — no account needed).
+- Home screen (`/`) — three **division cards**: **Admin** (the Flood City Elite
+  staff/coach login), **Payroll** (a link to a public form employees use to
+  submit their hours — no account needed), and **Roster Spot** (a link to a
+  public form parents use to accept or decline a roster spot — no account
+  needed).
 - Payroll form (`/payroll`) — a public, login-free page where employees log the
   hours they worked. Submissions feed the admin **Payroll** tab.
-- Member area — a protected tabbed shell (Homeplate, Teams, Payment Tracker,
-  Budgets, Fundraiser Tracker, Program/Camps, Payroll, Contact Info, Yard
-  Tournaments, Hotels, Inventory) shown after a successful login and guarded by
-  middleware.
+- Roster acceptance form (`/roster-acceptance`) — a public, login-free page
+  where a parent accepts or declines their player's roster spot. Accepting also
+  adds the player to the chosen team's roster. Responses feed the admin **Roster
+  Submissions** tab.
+- Member area — a protected tabbed shell (Homeplate, Teams, Roster Submissions,
+  Payment Tracker, Budgets, Fundraiser Tracker, Program/Camps, Payroll, Contact
+  Info, Yard Tournaments, Hotels, Inventory) shown after a successful login and
+  guarded by middleware.
 - Auth — passwords are hashed with **bcrypt**; the session is a signed
   (JWT, HS256) **httpOnly** cookie.
 
@@ -65,6 +71,17 @@ ones are:
   login): `employee_name`, an optional `role`, the `work_date`, the `hours`,
   and optional `notes`. Belongs to a company via `company_id`. The admin
   Payroll tab lists these and totals the hours.
+- **`roster_submissions`** — the **Roster Submissions** tab. Each row is one
+  parent's response to a roster offer, submitted through the public
+  `/roster-acceptance` form (no login). `accepted` is the accept/decline
+  decision; a decline records just the `player_name`, while an accept also
+  carries the player's details and the parent's contact info. When a parent
+  accepts, the player is pushed onto the chosen team's roster in the same write
+  — `player_id` links to that `players` row, and `team_name`/`division` snapshot
+  the choice so it survives the team being deleted (which nulls `team_id`). The
+  tryout-only fields the roster doesn't track (returning/option jersey numbers,
+  secondary phone, bats/throws, hat size, whether they played in 2025) live on
+  the submission. Belongs to a company via `company_id`.
 
 ## Getting started
 

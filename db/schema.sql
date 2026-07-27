@@ -332,6 +332,51 @@ CREATE TABLE IF NOT EXISTS payroll_submissions (
 
 CREATE INDEX IF NOT EXISTS idx_payroll_submissions_company_id ON payroll_submissions (company_id);
 
+-- ---------------------------------------------------------------------------
+-- Roster submissions (acceptance form)
+--
+-- One parent's response to a roster offer, sent through the public
+-- roster-acceptance form on the sign-in screen (no login). `accepted` is the
+-- decision: a decline records just the player's name, while an accept carries
+-- the full player + parent detail. On an accept the player is also pushed onto
+-- the chosen team's roster in the same write; `player_id` links to that
+-- `players` row so the admin "Roster Submissions" tab can point back to it, and
+-- `team_name`/`division` snapshot the choice so it survives the team being
+-- deleted later (which nulls `team_id`). The extra tryout fields the roster
+-- doesn't track (returning/option jersey numbers, secondary phone, bats/throws,
+-- hat size, whether they played in 2025) live here on the submission.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS roster_submissions (
+    id                  SERIAL        PRIMARY KEY,
+    company_id          INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    accepted            BOOLEAN       NOT NULL,
+    team_id             INTEGER       REFERENCES teams(id) ON DELETE SET NULL,
+    team_name           VARCHAR(120),
+    division            VARCHAR(32),
+    player_id           INTEGER       REFERENCES players(id) ON DELETE SET NULL,
+    player_name         VARCHAR(160)  NOT NULL,
+    email               VARCHAR(160),
+    returning_jersey    VARCHAR(24),
+    grad_year           SMALLINT,
+    date_of_birth       DATE,
+    parent_phone        VARCHAR(40),
+    secondary_phone     VARCHAR(40),
+    height              VARCHAR(24),
+    weight              SMALLINT,
+    bats                VARCHAR(8),
+    throws              VARCHAR(8),
+    primary_position    VARCHAR(48),
+    secondary_position  VARCHAR(48),
+    jersey_option_1     VARCHAR(24),
+    jersey_option_2     VARCHAR(24),
+    jersey_option_3     VARCHAR(24),
+    played_fce_2025     BOOLEAN,
+    hat_size            VARCHAR(24),
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_roster_submissions_company_id ON roster_submissions (company_id);
+
 -- Seed the Flood City Elite company (code: fce). Idempotent.
 INSERT INTO companies (code, name)
 VALUES ('fce', 'Flood City Elite')

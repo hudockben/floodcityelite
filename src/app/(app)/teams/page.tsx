@@ -9,6 +9,7 @@ import AddPlayerForm from "./add-player-form";
 import BulkUploadForm from "./bulk-upload-form";
 import ConfirmButton from "./confirm-button";
 import CreateTeamForm from "./create-team-form";
+import ExpandOnHash from "./expand-on-hash";
 import PlayerRowItem from "./player-row";
 import {
   DIVISIONS,
@@ -114,6 +115,7 @@ export default async function TeamsPage({
 
   return (
     <div className="teams">
+      <ExpandOnHash />
       <section className="panel">
         <div className="panel-head">
           <h1>Teams</h1>
@@ -255,7 +257,7 @@ export default async function TeamsPage({
             {teams.map((t) => {
               const teamPlayers = playersByTeam.get(t.id) ?? [];
               return (
-                <details key={t.id} className="team-group">
+                <details key={t.id} id={`team-${t.id}`} className="team-group">
                   <summary className="team-group-summary">
                     <span className="tg-caret" aria-hidden="true" />
                     <span className="tg-name">{t.name}</span>

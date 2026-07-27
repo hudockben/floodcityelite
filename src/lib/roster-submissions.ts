@@ -1,0 +1,339 @@
+// ---------------------------------------------------------------------------
+// Roster acceptance — shared schema, data access, types, and formatters
+//
+// Two sides use this module:
+//   • the public acceptance form at /roster-acceptance (no login) lets a parent
+//     accept or decline their player's roster spot;
+//   • the admin "Roster Submissions" tab at /roster-submissions reads the
+//     submissions back.
+//
+// A *roster submission* is one parent's response to a roster offer: the
+// accept/decline decision, the player's details, and the parent's contact info.
+// When a parent ACCEPTS, the player is pushed straight onto the chosen team's
+// roster (a `players` row) in the same write, and the submission records which
+// player row it created so the admin tab can link back to it.
+//
+// Plain server-side module (uses the Neon client). Imported by both the public
+// server action and the protected admin page/action.
+// ---------------------------------------------------------------------------
+
+import { sql } from "@/lib/db";
+
+// Parents submit against the Flood City Elite company (the login company code is
+// always "fce"). The public form has no session, so it resolves the company by
+// this code — mirrors the payroll form.
+export const ROSTER_COMPANY_CODE = "fce";
+
+// A team offered in the public form's dropdown. `division` is the slug so the
+// admin tab can link a submission back to the right Teams-tab division.
+export type RosterTeamOption = {
+  id: number;
+  name: string;
+  division: string;
+  sport: string;
+};
+
+// A saved roster submission, as read by the admin tab. `current_*` columns come
+// from a live join to `teams` — they're null when the team has since been
+// deleted, in which case the snapshot `team_name` still shows what was chosen.
+export type RosterSubmissionRow = {
+  id: number;
+  accepted: boolean;
+  team_id: number | null;
+  team_name: string | null; // snapshot at submit time
+  division: string | null; // snapshot slug at submit time
+  current_team_name: string | null; // live team name (null if team deleted)
+  current_division: string | null; // live division slug (null if team deleted)
+  player_id: number | null; // roster row created on accept (null on decline)
+  player_name: string;
+  email: string | null;
+  returning_jersey: string | null;
+  grad_year: number | null;
+  date_of_birth: string | null; // YYYY-MM-DD
+  parent_phone: string | null;
+  secondary_phone: string | null;
+  height: string | null;
+  weight: number | null;
+  bats: string | null;
+  throws: string | null;
+  primary_position: string | null;
+  secondary_position: string | null;
+  jersey_option_1: string | null;
+  jersey_option_2: string | null;
+  jersey_option_3: string | null;
+  played_fce_2025: boolean | null;
+  hat_size: string | null;
+  created_at: string;
+};
+
+// The fields the public form collects. Validation happens in the form's action;
+// this module just persists what it's given.
+export type RosterSubmissionInput = {
+  companyId: number;
+  accepted: boolean;
+  // Present only when accepting. teamId is validated + owned by the action.
+  teamId: number | null;
+  teamName: string | null;
+  division: string | null;
+  playerName: string;
+  email: string | null;
+  returningJersey: string | null;
+  gradYear: number | null;
+  dateOfBirth: string | null; // YYYY-MM-DD
+  parentPhone: string | null;
+  secondaryPhone: string | null;
+  height: string | null;
+  weight: number | null;
+  bats: string | null;
+  throws: string | null;
+  primaryPosition: string | null;
+  secondaryPosition: string | null;
+  jerseyOption1: string | null;
+  jerseyOption2: string | null;
+  jerseyOption3: string | null;
+  playedFce2025: boolean | null;
+  hatSize: string | null;
+};
+
+// Ensure the `roster_submissions` table exists before it's read or written. Like
+// the other tabs' schema helpers this lets the feature work on a database that
+// predates it without a separate migration step. The DDL mirrors db/schema.sql
+// and db/setup.mjs and is idempotent.
+//
+// Memoized per server instance: the DDL runs once per cold start. If it fails
+// (e.g. a transient connection error) the memo is cleared so a later request
+// can retry.
+let ensured: Promise<void> | null = null;
+
+export function ensureRosterSubmissionsSchema(): Promise<void> {
+  if (!ensured) {
+    ensured = provision().catch((err) => {
+      ensured = null;
+      throw err;
+    });
+  }
+  return ensured;
+}
+
+async function provision(): Promise<void> {
+  const db = sql();
+
+  // A roster submission is one parent's accept/decline response. `accepted`
+  // gates everything: a decline records just the player's name, while an accept
+  // carries the full player + parent detail and creates a roster row. `team_id`
+  // is nulled if the team is later deleted (the snapshot `team_name`/`division`
+  // preserve the choice); `player_id` links to the roster row an accept created.
+  await db`
+    CREATE TABLE IF NOT EXISTS roster_submissions (
+      id                  SERIAL        PRIMARY KEY,
+      company_id          INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      accepted            BOOLEAN       NOT NULL,
+      team_id             INTEGER       REFERENCES teams(id) ON DELETE SET NULL,
+      team_name           VARCHAR(120),
+      division            VARCHAR(32),
+      player_id           INTEGER       REFERENCES players(id) ON DELETE SET NULL,
+      player_name         VARCHAR(160)  NOT NULL,
+      email               VARCHAR(160),
+      returning_jersey    VARCHAR(24),
+      grad_year           SMALLINT,
+      date_of_birth       DATE,
+      parent_phone        VARCHAR(40),
+      secondary_phone     VARCHAR(40),
+      height              VARCHAR(24),
+      weight              SMALLINT,
+      bats                VARCHAR(8),
+      throws              VARCHAR(8),
+      primary_position    VARCHAR(48),
+      secondary_position  VARCHAR(48),
+      jersey_option_1     VARCHAR(24),
+      jersey_option_2     VARCHAR(24),
+      jersey_option_3     VARCHAR(24),
+      played_fce_2025     BOOLEAN,
+      hat_size            VARCHAR(24),
+      created_at          TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await db`CREATE INDEX IF NOT EXISTS idx_roster_submissions_company_id ON roster_submissions (company_id)`;
+}
+
+// Resolve the company id parents submit against (code: "fce"). Returns null when
+// the company row doesn't exist yet (before db:setup has been run).
+export async function getRosterCompanyId(): Promise<number | null> {
+  const rows = await sql()`
+    SELECT id FROM companies WHERE code = ${ROSTER_COMPANY_CODE} LIMIT 1
+  `;
+  return rows.length > 0 ? (rows[0].id as number) : null;
+}
+
+// Every team the company has, for the public form's team dropdown. Ordered by
+// division then name so the form can group them under division headings.
+export async function listRosterTeamOptions(
+  companyId: number,
+): Promise<RosterTeamOption[]> {
+  const rows = await sql()`
+    SELECT id, name, division, sport
+    FROM teams
+    WHERE company_id = ${companyId}
+    ORDER BY division, name
+  `;
+  return rows as RosterTeamOption[];
+}
+
+// Look up a team by id, scoped to the company. Used to validate the chosen team
+// and snapshot its name/division onto an acceptance. Null if it doesn't exist.
+export async function getOwnedTeam(
+  companyId: number,
+  teamId: number,
+): Promise<{ id: number; name: string; division: string } | null> {
+  const rows = await sql()`
+    SELECT id, name, division FROM teams
+    WHERE id = ${teamId} AND company_id = ${companyId}
+    LIMIT 1
+  `;
+  if (rows.length === 0) return null;
+  const t = rows[0] as { id: number; name: string; division: string };
+  return { id: Number(t.id), name: String(t.name), division: String(t.division) };
+}
+
+// Persist a submission. The caller validates the input first (and, for an
+// accept, has already confirmed the team is owned by the company).
+//
+// On ACCEPT the player is pushed onto the roster in the same statement: a
+// data-modifying CTE inserts the `players` row and then inserts the submission
+// carrying that new player's id, so the roster row and its submission link are
+// created atomically. The mapped roster columns are the ones the Teams tab
+// knows — name, grad year, DOB, height, weight, positions, and the parent's
+// phone/email; the tryout-only extras (jersey options, bats/throws, hat size,
+// etc.) live on the submission record. `is_paying` uses its default (true).
+export async function createRosterSubmission(
+  input: RosterSubmissionInput,
+): Promise<void> {
+  if (input.accepted && input.teamId != null) {
+    await sql()`
+      WITH new_player AS (
+        INSERT INTO players (
+          team_id, player_name, grad_year, date_of_birth, height, weight,
+          primary_position, secondary_position, parent_phone, parent_email
+        ) VALUES (
+          ${input.teamId},
+          ${input.playerName},
+          ${input.gradYear},
+          ${input.dateOfBirth},
+          ${input.height},
+          ${input.weight},
+          ${input.primaryPosition},
+          ${input.secondaryPosition},
+          ${input.parentPhone},
+          ${input.email}
+        )
+        RETURNING id
+      )
+      INSERT INTO roster_submissions (
+        company_id, accepted, team_id, team_name, division, player_id,
+        player_name, email, returning_jersey, grad_year, date_of_birth,
+        parent_phone, secondary_phone, height, weight, bats, throws,
+        primary_position, secondary_position, jersey_option_1, jersey_option_2,
+        jersey_option_3, played_fce_2025, hat_size
+      )
+      SELECT
+        ${input.companyId}, true, ${input.teamId}, ${input.teamName}, ${input.division}, new_player.id,
+        ${input.playerName}, ${input.email}, ${input.returningJersey}, ${input.gradYear}, ${input.dateOfBirth},
+        ${input.parentPhone}, ${input.secondaryPhone}, ${input.height}, ${input.weight}, ${input.bats}, ${input.throws},
+        ${input.primaryPosition}, ${input.secondaryPosition}, ${input.jerseyOption1}, ${input.jerseyOption2},
+        ${input.jerseyOption3}, ${input.playedFce2025}, ${input.hatSize}
+      FROM new_player
+    `;
+    return;
+  }
+
+  // Decline (or an accept with no team, which the action rejects): just record
+  // the submission. No roster row is created.
+  await sql()`
+    INSERT INTO roster_submissions (
+      company_id, accepted, team_id, team_name, division, player_id,
+      player_name, email, returning_jersey, grad_year, date_of_birth,
+      parent_phone, secondary_phone, height, weight, bats, throws,
+      primary_position, secondary_position, jersey_option_1, jersey_option_2,
+      jersey_option_3, played_fce_2025, hat_size
+    ) VALUES (
+      ${input.companyId}, ${input.accepted}, ${input.teamId}, ${input.teamName}, ${input.division}, NULL,
+      ${input.playerName}, ${input.email}, ${input.returningJersey}, ${input.gradYear}, ${input.dateOfBirth},
+      ${input.parentPhone}, ${input.secondaryPhone}, ${input.height}, ${input.weight}, ${input.bats}, ${input.throws},
+      ${input.primaryPosition}, ${input.secondaryPosition}, ${input.jerseyOption1}, ${input.jerseyOption2},
+      ${input.jerseyOption3}, ${input.playedFce2025}, ${input.hatSize}
+    )
+  `;
+}
+
+// All submissions for a company, newest first. Joins to `teams` so the admin
+// tab can link an accepted player to the (still-existing) team's roster.
+export async function listRosterSubmissions(
+  companyId: number,
+): Promise<RosterSubmissionRow[]> {
+  const rows = await sql()`
+    SELECT
+      rs.id,
+      rs.accepted,
+      rs.team_id,
+      rs.team_name,
+      rs.division,
+      t.name       AS current_team_name,
+      t.division   AS current_division,
+      rs.player_id,
+      rs.player_name,
+      rs.email,
+      rs.returning_jersey,
+      rs.grad_year,
+      rs.date_of_birth::text AS date_of_birth,
+      rs.parent_phone,
+      rs.secondary_phone,
+      rs.height,
+      rs.weight,
+      rs.bats,
+      rs.throws,
+      rs.primary_position,
+      rs.secondary_position,
+      rs.jersey_option_1,
+      rs.jersey_option_2,
+      rs.jersey_option_3,
+      rs.played_fce_2025,
+      rs.hat_size,
+      rs.created_at::text AS created_at
+    FROM roster_submissions rs
+    LEFT JOIN teams t ON t.id = rs.team_id AND t.company_id = rs.company_id
+    WHERE rs.company_id = ${companyId}
+    ORDER BY rs.created_at DESC, rs.id DESC
+  `;
+  return rows as RosterSubmissionRow[];
+}
+
+// Delete a submission once it's been processed, scoped to the company so one
+// company can't clear another's rows. Removing a submission leaves any roster
+// row it created in place (the player has already joined the team).
+export async function deleteRosterSubmission(
+  companyId: number,
+  id: number,
+): Promise<void> {
+  await sql()`
+    DELETE FROM roster_submissions
+    WHERE id = ${id} AND company_id = ${companyId}
+  `;
+}
+
+// --- formatters ------------------------------------------------------------
+
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+// Format a "YYYY-MM-DD" date without going through a Date object, which would
+// otherwise shift the day across time zones. Mirrors the payroll formatter.
+export function formatRosterDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const [y, m, d] = iso.split("-");
+  const monthIndex = Number(m) - 1;
+  if (!y || !MONTHS[monthIndex] || !d) return iso;
+  return `${MONTHS[monthIndex]} ${Number(d)}, ${y}`;
+}

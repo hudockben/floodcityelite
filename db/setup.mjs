@@ -389,6 +389,45 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_payroll_submissions_company_id ON payroll_submissions (company_id)`;
 
+  // A roster submission is one parent's accept/decline response to a roster
+  // offer, sent through the public roster-acceptance form on the sign-in screen
+  // (no login). On an accept the player is also added to the chosen team's
+  // roster in the same write (player_id links to that row); team_name/division
+  // snapshot the choice so it survives the team being deleted (which nulls
+  // team_id). The admin "Roster Submissions" tab lists these responses.
+  await sql`
+    CREATE TABLE IF NOT EXISTS roster_submissions (
+      id                  SERIAL        PRIMARY KEY,
+      company_id          INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      accepted            BOOLEAN       NOT NULL,
+      team_id             INTEGER       REFERENCES teams(id) ON DELETE SET NULL,
+      team_name           VARCHAR(120),
+      division            VARCHAR(32),
+      player_id           INTEGER       REFERENCES players(id) ON DELETE SET NULL,
+      player_name         VARCHAR(160)  NOT NULL,
+      email               VARCHAR(160),
+      returning_jersey    VARCHAR(24),
+      grad_year           SMALLINT,
+      date_of_birth       DATE,
+      parent_phone        VARCHAR(40),
+      secondary_phone     VARCHAR(40),
+      height              VARCHAR(24),
+      weight              SMALLINT,
+      bats                VARCHAR(8),
+      throws              VARCHAR(8),
+      primary_position    VARCHAR(48),
+      secondary_position  VARCHAR(48),
+      jersey_option_1     VARCHAR(24),
+      jersey_option_2     VARCHAR(24),
+      jersey_option_3     VARCHAR(24),
+      played_fce_2025     BOOLEAN,
+      hat_size            VARCHAR(24),
+      created_at          TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_roster_submissions_company_id ON roster_submissions (company_id)`;
+
   console.log(`→ Ensuring company "${COMPANY_NAME}" (code: ${COMPANY_CODE})…`);
   const companyRows = await sql`
     INSERT INTO companies (code, name)
