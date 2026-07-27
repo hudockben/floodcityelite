@@ -37,6 +37,7 @@ export const config = {
     "/budgets/:path*",
     "/fundraiser-tracker/:path*",
     "/program-camps/:path*",
+    "/payroll-admin/:path*",
     "/schedules/:path*",
     "/contact-info/:path*",
     "/yard-tournaments/:path*",

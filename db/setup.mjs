@@ -370,6 +370,25 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_camp_payments_camp_player_id ON camp_payments (camp_player_id)`;
 
+  // A payroll submission is one employee's logged hours for a day, sent through
+  // the public payroll form on the sign-in screen (no login). The admin
+  // "Payroll" tab lists these and totals the hours. Only the employee name,
+  // work date, and hours are required.
+  await sql`
+    CREATE TABLE IF NOT EXISTS payroll_submissions (
+      id             SERIAL        PRIMARY KEY,
+      company_id     INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      employee_name  VARCHAR(160)  NOT NULL,
+      role           VARCHAR(120),
+      work_date      DATE          NOT NULL,
+      hours          NUMERIC(6,2)  NOT NULL DEFAULT 0,
+      notes          TEXT,
+      created_at     TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_payroll_submissions_company_id ON payroll_submissions (company_id)`;
+
   console.log(`→ Ensuring company "${COMPANY_NAME}" (code: ${COMPANY_CODE})…`);
   const companyRows = await sql`
     INSERT INTO companies (code, name)

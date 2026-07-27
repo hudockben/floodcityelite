@@ -128,7 +128,8 @@ body {
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
   padding: 12px 14px;
   font-size: 0.98rem;
@@ -142,6 +143,13 @@ body {
     box-shadow 0.15s ease;
 }
 
+.field textarea {
+  min-height: 84px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
 .field select {
   cursor: pointer;
   appearance: none;
@@ -153,12 +161,14 @@ body {
   padding-right: 34px;
 }
 
-.field input::placeholder {
+.field input::placeholder,
+.field textarea::placeholder {
   color: #5f7690;
 }
 
 .field input:focus,
-.field select:focus {
+.field select:focus,
+.field textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
 }
@@ -248,6 +258,154 @@ body {
   background: var(--danger-bg);
   border: 1px solid rgba(220, 38, 38, 0.3);
   border-radius: 10px;
+}
+
+/* Success banner — mirrors .error, tuned green (public payroll form). */
+.success {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 0.88rem;
+  color: #bbf7d0;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  border-radius: 10px;
+}
+
+/* Anchor styled as a full-width button (e.g. the "Open payroll form" link). */
+.btn-block {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+}
+
+/* ---- Login: two division cards (Admin + Payroll) ---- */
+/* The brand sits above a row of cards. Each card is a "division": the existing
+   staff/coach sign-in, and a public Payroll form entry point. The row wraps to
+   a single stacked column on narrow screens (no media query, matching the app).*/
+.login-layout {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.divisions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: stretch;
+  gap: 20px;
+  width: 100%;
+}
+
+.division-card {
+  flex: 1 1 340px;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+}
+
+.division-head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 24px;
+}
+
+.division-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  font-size: 1.4rem;
+  line-height: 1;
+  border-radius: 12px;
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+}
+
+.division-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.division-sub {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+/* Payroll card body fills the card so its button lines up with the sign-in
+   button in the taller Admin card beside it. */
+.division-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.division-text {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.division-list {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+
+.division-body .btn-block {
+  margin-top: auto;
+}
+
+/* ---- Simple card intro / footer (public payroll page) ---- */
+.card-intro {
+  margin-bottom: 22px;
+}
+
+.card-intro-title {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.card-intro-sub {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.card-foot {
+  margin: 22px 0 0;
+  text-align: center;
+}
+
+.card-foot-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.card-foot-link:hover {
+  text-decoration: underline;
+}
+
+/* Count/hours roll-up above the admin payroll table. */
+.payroll-summary {
+  margin-top: 0;
+  margin-bottom: 18px;
 }
 
 /* ---- Dashboard ---- */

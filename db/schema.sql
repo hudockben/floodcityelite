@@ -309,6 +309,29 @@ CREATE TABLE IF NOT EXISTS camp_payments (
 
 CREATE INDEX IF NOT EXISTS idx_camp_payments_camp_player_id ON camp_payments (camp_player_id);
 
+-- ---------------------------------------------------------------------------
+-- Payroll
+--
+-- A payroll submission is one employee's logged hours for a day, sent through
+-- the public payroll form on the sign-in screen (no login required). It records
+-- the employee's name, an optional role, the date worked, the hours, and
+-- optional notes. The admin "Payroll" tab lists these rows and totals the
+-- hours. Belongs to a company so submissions are scoped like the rest of the
+-- app.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS payroll_submissions (
+    id             SERIAL        PRIMARY KEY,
+    company_id     INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    employee_name  VARCHAR(160)  NOT NULL,
+    role           VARCHAR(120),
+    work_date      DATE          NOT NULL,
+    hours          NUMERIC(6,2)  NOT NULL DEFAULT 0,
+    notes          TEXT,
+    created_at     TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payroll_submissions_company_id ON payroll_submissions (company_id);
+
 -- Seed the Flood City Elite company (code: fce). Idempotent.
 INSERT INTO companies (code, name)
 VALUES ('fce', 'Flood City Elite')

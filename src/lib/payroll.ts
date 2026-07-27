@@ -1,0 +1,169 @@
+// ---------------------------------------------------------------------------
+// Payroll — shared schema, data access, types, and formatters
+//
+// Two sides use this module:
+//   • the public employee form at /payroll (no login) submits an entry;
+//   • the admin "Payroll" tab at /payroll-admin reads the submissions back.
+//
+// A *payroll submission* is a single employee's logged hours for a day: their
+// name, an optional role, the date worked, the hours, and optional notes. The
+// admin tab lists them and totals the hours.
+//
+// Plain server-side module (uses the Neon client). Imported by both the public
+// server action and the protected admin page/action.
+// ---------------------------------------------------------------------------
+
+import { sql } from "@/lib/db";
+
+// Employees submit against the Flood City Elite company (the login company code
+// is always "fce"). The public form has no session, so it resolves the company
+// by this code.
+export const PAYROLL_COMPANY_CODE = "fce";
+
+// A saved payroll submission. `hours` arrives from Postgres NUMERIC as a string
+// (e.g. "4.50"); `work_date` is a "YYYY-MM-DD" string.
+export type PayrollSubmissionRow = {
+  id: number;
+  employee_name: string;
+  role: string | null;
+  work_date: string; // YYYY-MM-DD
+  hours: string;
+  notes: string | null;
+  created_at: string;
+};
+
+// The fields the public form collects. Validation happens in the form's action;
+// this module just persists what it's given.
+export type PayrollSubmissionInput = {
+  companyId: number;
+  employeeName: string;
+  role: string | null;
+  workDate: string; // YYYY-MM-DD
+  hours: string; // fixed-2 decimal string, e.g. "4.50"
+  notes: string | null;
+};
+
+// Ensure the `payroll_submissions` table exists before it's read or written.
+// Like the other tabs' schema helpers this lets the feature work on a database
+// that predates it without a separate migration step. The DDL mirrors
+// db/schema.sql and db/setup.mjs and is idempotent.
+//
+// Memoized per server instance: the DDL runs once per cold start. If it fails
+// (e.g. a transient connection error) the memo is cleared so a later request
+// can retry.
+let ensured: Promise<void> | null = null;
+
+export function ensurePayrollSchema(): Promise<void> {
+  if (!ensured) {
+    ensured = provision().catch((err) => {
+      ensured = null;
+      throw err;
+    });
+  }
+  return ensured;
+}
+
+async function provision(): Promise<void> {
+  const db = sql();
+
+  // A payroll submission is one employee's logged hours for a day. Only the
+  // employee name, work date, and hours are required; role and notes are
+  // optional. Submissions belong to a company so the admin tab can scope them.
+  await db`
+    CREATE TABLE IF NOT EXISTS payroll_submissions (
+      id             SERIAL        PRIMARY KEY,
+      company_id     INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      employee_name  VARCHAR(160)  NOT NULL,
+      role           VARCHAR(120),
+      work_date      DATE          NOT NULL,
+      hours          NUMERIC(6,2)  NOT NULL DEFAULT 0,
+      notes          TEXT,
+      created_at     TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await db`CREATE INDEX IF NOT EXISTS idx_payroll_submissions_company_id ON payroll_submissions (company_id)`;
+}
+
+// Resolve the company id employees submit against (code: "fce"). Returns null
+// when the company row doesn't exist yet (before db:setup has been run).
+export async function getPayrollCompanyId(): Promise<number | null> {
+  const rows = await sql()`
+    SELECT id FROM companies WHERE code = ${PAYROLL_COMPANY_CODE} LIMIT 1
+  `;
+  return rows.length > 0 ? (rows[0].id as number) : null;
+}
+
+// Persist a new submission. The caller validates the input first.
+export async function insertPayrollSubmission(
+  input: PayrollSubmissionInput,
+): Promise<void> {
+  await sql()`
+    INSERT INTO payroll_submissions (company_id, employee_name, role, work_date, hours, notes)
+    VALUES (
+      ${input.companyId},
+      ${input.employeeName},
+      ${input.role},
+      ${input.workDate},
+      ${input.hours},
+      ${input.notes}
+    )
+  `;
+}
+
+// All submissions for a company, newest work date first. Used by the admin tab.
+export async function listPayrollSubmissions(
+  companyId: number,
+): Promise<PayrollSubmissionRow[]> {
+  const rows = await sql()`
+    SELECT
+      id,
+      employee_name,
+      role,
+      work_date::text AS work_date,
+      hours::text     AS hours,
+      notes,
+      created_at::text AS created_at
+    FROM payroll_submissions
+    WHERE company_id = ${companyId}
+    ORDER BY work_date DESC, id DESC
+  `;
+  return rows as PayrollSubmissionRow[];
+}
+
+// Delete a submission, scoped to the company so one company can't clear
+// another's rows.
+export async function deletePayrollSubmission(
+  companyId: number,
+  id: number,
+): Promise<void> {
+  await sql()`
+    DELETE FROM payroll_submissions
+    WHERE id = ${id} AND company_id = ${companyId}
+  `;
+}
+
+// --- formatters ------------------------------------------------------------
+
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+// Format a "YYYY-MM-DD" date without going through a Date object, which would
+// otherwise shift the day across time zones.
+export function formatPayrollDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const [y, m, d] = iso.split("-");
+  const monthIndex = Number(m) - 1;
+  if (!y || !MONTHS[monthIndex] || !d) return iso;
+  return `${MONTHS[monthIndex]} ${Number(d)}, ${y}`;
+}
+
+// Format an hours value (string or number) trimming a trailing ".00" / ".50" →
+// "4" / "4.5". Falls back to "0" for anything non-numeric.
+export function formatHours(value: string | number): string {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return "0";
+  return String(n);
+}

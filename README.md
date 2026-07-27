@@ -4,9 +4,13 @@ A [Next.js](https://nextjs.org) (App Router) app with a branded home/login
 screen backed by a [Neon](https://neon.tech) Postgres database. Members sign in
 with a **company code**, **username**, and **password**.
 
-- Home screen (`/`) — the Flood City Elite login.
+- Home screen (`/`) — two **division cards**: **Admin** (the Flood City Elite
+  staff/coach login) and **Payroll** (a link to a public form employees use to
+  submit their hours — no account needed).
+- Payroll form (`/payroll`) — a public, login-free page where employees log the
+  hours they worked. Submissions feed the admin **Payroll** tab.
 - Member area — a protected tabbed shell (Homeplate, Teams, Payment Tracker,
-  Budgets, Fundraiser Tracker, Program/Camps, Schedules, Contact Info, Yard
+  Budgets, Fundraiser Tracker, Program/Camps, Payroll, Contact Info, Yard
   Tournaments, Hotels, Inventory) shown after a successful login and guarded by
   middleware.
 - Auth — passwords are hashed with **bcrypt**; the session is a signed
@@ -56,6 +60,11 @@ ones are:
   is independent of the Teams roster. A `camp_payment` is logged against a camp
   player and mirrors `payments` (`paid_on`, `payment_type`, `check_number`,
   `amount`), driving the per-player and per-camp totals.
+- **`payroll_submissions`** — the **Payroll** tab. Each row is one employee's
+  logged hours for a day, submitted through the public `/payroll` form (no
+  login): `employee_name`, an optional `role`, the `work_date`, the `hours`,
+  and optional `notes`. Belongs to a company via `company_id`. The admin
+  Payroll tab lists these and totals the hours.
 
 ## Getting started
 
