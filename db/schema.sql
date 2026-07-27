@@ -373,6 +373,7 @@ CREATE TABLE IF NOT EXISTS roster_submissions (
     throws              VARCHAR(8),
     primary_position    VARCHAR(48),
     secondary_position  VARCHAR(48),
+    high_school         VARCHAR(160),
     jersey_option_1     VARCHAR(24),
     jersey_option_2     VARCHAR(24),
     jersey_option_3     VARCHAR(24),

@@ -58,6 +58,7 @@ export type RosterSubmissionRow = {
   throws: string | null;
   primary_position: string | null;
   secondary_position: string | null;
+  high_school: string | null;
   jersey_option_1: string | null;
   jersey_option_2: string | null;
   jersey_option_3: string | null;
@@ -88,6 +89,7 @@ export type RosterSubmissionInput = {
   throws: string | null;
   primaryPosition: string | null;
   secondaryPosition: string | null;
+  highSchool: string | null;
   jerseyOption1: string | null;
   jerseyOption2: string | null;
   jerseyOption3: string | null;
@@ -145,6 +147,7 @@ async function provision(): Promise<void> {
       throws              VARCHAR(8),
       primary_position    VARCHAR(48),
       secondary_position  VARCHAR(48),
+      high_school         VARCHAR(160),
       jersey_option_1     VARCHAR(24),
       jersey_option_2     VARCHAR(24),
       jersey_option_3     VARCHAR(24),
@@ -174,6 +177,10 @@ async function provision(): Promise<void> {
       END IF;
     END $$;
   `;
+
+  // High school was added to the form after the table shipped; backfill it on
+  // existing databases. Mirrors players.high_school so an accept copies it over.
+  await db`ALTER TABLE roster_submissions ADD COLUMN IF NOT EXISTS high_school VARCHAR(160)`;
 }
 
 // Resolve the company id parents submit against (code: "fce"). Returns null when
@@ -236,7 +243,7 @@ export async function createRosterSubmission(
       WITH new_player AS (
         INSERT INTO players (
           team_id, player_name, grad_year, date_of_birth, height, weight,
-          primary_position, secondary_position, hat_size,
+          primary_position, secondary_position, high_school, hat_size,
           parent_phone, parent_email
         ) VALUES (
           ${input.teamId},
@@ -247,6 +254,7 @@ export async function createRosterSubmission(
           ${input.weight},
           ${input.primaryPosition},
           ${input.secondaryPosition},
+          ${input.highSchool},
           ${input.hatSize},
           ${input.parentPhone},
           ${input.email}
@@ -257,14 +265,14 @@ export async function createRosterSubmission(
         company_id, accepted, team_id, team_name, division, player_id,
         player_name, email, returning_jersey, grad_year, date_of_birth,
         parent_phone, secondary_phone, height, weight, bats, throws,
-        primary_position, secondary_position, jersey_option_1, jersey_option_2,
+        primary_position, secondary_position, high_school, jersey_option_1, jersey_option_2,
         jersey_option_3, played_fce_2026, hat_size
       )
       SELECT
         ${input.companyId}, true, ${input.teamId}, ${input.teamName}, ${input.division}, new_player.id,
         ${input.playerName}, ${input.email}, ${input.returningJersey}, ${input.gradYear}, ${input.dateOfBirth},
         ${input.parentPhone}, ${input.secondaryPhone}, ${input.height}, ${input.weight}, ${input.bats}, ${input.throws},
-        ${input.primaryPosition}, ${input.secondaryPosition}, ${input.jerseyOption1}, ${input.jerseyOption2},
+        ${input.primaryPosition}, ${input.secondaryPosition}, ${input.highSchool}, ${input.jerseyOption1}, ${input.jerseyOption2},
         ${input.jerseyOption3}, ${input.playedFce2026}, ${input.hatSize}
       FROM new_player
     `;
@@ -291,13 +299,13 @@ export async function createRosterSubmission(
       company_id, accepted, team_id, team_name, division, player_id,
       player_name, email, returning_jersey, grad_year, date_of_birth,
       parent_phone, secondary_phone, height, weight, bats, throws,
-      primary_position, secondary_position, jersey_option_1, jersey_option_2,
+      primary_position, secondary_position, high_school, jersey_option_1, jersey_option_2,
       jersey_option_3, played_fce_2026, hat_size
     ) VALUES (
       ${input.companyId}, ${input.accepted}, ${input.teamId}, ${input.teamName}, ${input.division}, NULL,
       ${input.playerName}, ${input.email}, ${input.returningJersey}, ${input.gradYear}, ${input.dateOfBirth},
       ${input.parentPhone}, ${input.secondaryPhone}, ${input.height}, ${input.weight}, ${input.bats}, ${input.throws},
-      ${input.primaryPosition}, ${input.secondaryPosition}, ${input.jerseyOption1}, ${input.jerseyOption2},
+      ${input.primaryPosition}, ${input.secondaryPosition}, ${input.highSchool}, ${input.jerseyOption1}, ${input.jerseyOption2},
       ${input.jerseyOption3}, ${input.playedFce2026}, ${input.hatSize}
     )
   `;
@@ -434,6 +442,7 @@ export async function listRosterSubmissions(
       rs.throws,
       rs.primary_position,
       rs.secondary_position,
+      rs.high_school,
       rs.jersey_option_1,
       rs.jersey_option_2,
       rs.jersey_option_3,

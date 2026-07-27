@@ -433,6 +433,7 @@ async function main() {
       throws              VARCHAR(8),
       primary_position    VARCHAR(48),
       secondary_position  VARCHAR(48),
+      high_school         VARCHAR(160),
       jersey_option_1     VARCHAR(24),
       jersey_option_2     VARCHAR(24),
       jersey_option_3     VARCHAR(24),
@@ -462,6 +463,10 @@ async function main() {
       END IF;
     END $$;
   `;
+
+  // High school was added to the acceptance form after the table shipped;
+  // backfill it on existing databases (mirrors players.high_school).
+  await sql`ALTER TABLE roster_submissions ADD COLUMN IF NOT EXISTS high_school VARCHAR(160)`;
 
   console.log(`→ Ensuring company "${COMPANY_NAME}" (code: ${COMPANY_CODE})…`);
   const companyRows = await sql`

@@ -26,6 +26,7 @@ function detailFields(s: RosterSubmissionRow): { label: string; value: string }[
   const rows: { label: string; value: string | null }[] = [
     { label: "Email", value: s.email },
     { label: "Grad year", value: s.grad_year != null ? String(s.grad_year) : null },
+    { label: "High school", value: s.high_school },
     { label: "Date of birth", value: s.date_of_birth ? formatRosterDate(s.date_of_birth) : null },
     { label: "Parent's cell", value: s.parent_phone },
     { label: "Secondary cell", value: s.secondary_phone },

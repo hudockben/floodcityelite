@@ -113,6 +113,7 @@ export async function submitRosterAcceptanceAction(
     // Parse the player + parent detail fields.
     const email = text(formData, "email", 160);
     const gradYear = nonNegInt(formData, "grad_year");
+    const highSchool = text(formData, "high_school", 160);
     const dateOfBirth = isoDate(formData, "date_of_birth");
     const parentPhone = text(formData, "parent_phone", 40);
     const secondaryPhone = text(formData, "secondary_phone", 40);
@@ -133,33 +134,24 @@ export async function submitRosterAcceptanceAction(
     // backs it up server-side). Report the first gap so the parent knows what to
     // fix. A decline only needs the player name, already checked above.
     if (accepted) {
-      const firstMissing = !email
-        ? "an email address"
-        : gradYear == null
-          ? "the grad year"
-          : !dateOfBirth
-            ? "the date of birth"
-            : !parentPhone
-              ? "the parent's cell phone number"
-              : !secondaryPhone
-                ? "a secondary cell phone number"
-                : !height
-                  ? "the height"
-                  : weight == null
-                    ? "the weight"
-                    : !bats
-                      ? "which side the player bats from"
-                      : !throwsWith
-                        ? "which hand the player throws with"
-                        : !primaryPosition
-                          ? "the primary position"
-                          : !secondaryPosition
-                            ? "the secondary position"
-                            : !hatSize
-                              ? "the hat size"
-                              : played == null
-                                ? "whether the player played in 2026"
-                                : null;
+      // [is-missing, what-to-say] in form order; the first gap is reported.
+      const checks: [boolean, string][] = [
+        [!email, "an email address"],
+        [gradYear == null, "the grad year"],
+        [!highSchool, "the high school"],
+        [!dateOfBirth, "the date of birth"],
+        [!parentPhone, "the parent's cell phone number"],
+        [!secondaryPhone, "a secondary cell phone number"],
+        [!height, "the height"],
+        [weight == null, "the weight"],
+        [!bats, "which side the player bats from"],
+        [!throwsWith, "which hand the player throws with"],
+        [!primaryPosition, "the primary position"],
+        [!secondaryPosition, "the secondary position"],
+        [!hatSize, "the hat size"],
+        [played == null, "whether the player played in 2026"],
+      ];
+      const firstMissing = checks.find(([missing]) => missing)?.[1];
       if (firstMissing) {
         return { error: `Please fill in ${firstMissing} before accepting.` };
       }
@@ -189,6 +181,7 @@ export async function submitRosterAcceptanceAction(
       email,
       returningJersey: isReturner ? returningJersey : null,
       gradYear,
+      highSchool,
       dateOfBirth,
       parentPhone,
       secondaryPhone,

@@ -231,6 +231,11 @@ export default function RosterAcceptanceForm({
                   type="number"
                   placeholder="2027"
                 />
+                <TextField
+                  name="high_school"
+                  label="High school"
+                  placeholder="e.g. Central High School"
+                />
                 <TextField name="date_of_birth" label="Date of birth" type="date" />
                 <TextField
                   name="parent_phone"
