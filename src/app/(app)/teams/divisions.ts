@@ -98,7 +98,7 @@ export const PLAYER_FIELDS: PlayerField[] = [
   { key: "primary_position", label: "Primary Position", type: "position" },
   { key: "secondary_position", label: "Secondary Position", type: "position" },
   { key: "jersey_number", label: "Jersey Number", type: "text", placeholder: "12" },
-  { key: "hat_size", label: "Hat Size", type: "text", placeholder: `7 1/4` },
+  { key: "hat_size", label: "Hat Size", type: "text", placeholder: "e.g. Small, Medium, Large" },
   { key: "high_school", label: "High School", type: "text" },
   { key: "parent_phone", label: "Parent Phone Number", type: "tel" },
   { key: "parent_email", label: "Parent Email", type: "email" },
