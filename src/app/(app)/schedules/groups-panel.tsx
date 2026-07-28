@@ -26,6 +26,7 @@ export default function GroupsPanel({
   groupSizes,
   selectedGroups,
   division,
+  seasonYear,
   onToggleGroup,
   onToggle,
   onSetAll,
@@ -35,6 +36,7 @@ export default function GroupsPanel({
   groupSizes: Map<number, number>;
   selectedGroups: Set<number>;
   division: string;
+  seasonYear: number;
   onToggleGroup: (group: number) => void;
   onToggle: (playerId: number) => void;
   onSetAll: (attending: boolean) => void;
@@ -44,8 +46,10 @@ export default function GroupsPanel({
       <div className="groups-panel">
         <p className="groups-empty">
           No players on this team yet. Add the roster on the{" "}
-          <Link href={`/teams?division=${division}`}>Teams tab</Link>, then come
-          back to pick who&apos;s attending.
+          <Link href={`/teams?division=${division}&year=${seasonYear}`}>
+            Teams tab
+          </Link>
+          , then come back to pick who&apos;s attending.
         </p>
       </div>
     );

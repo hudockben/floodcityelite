@@ -339,9 +339,16 @@ export default function SubmissionsList({
         <div className="subs-list">
           {visible.map(({ s }) => {
             const details = detailFields(s);
+            // Carry the team's season year so the #team anchor lands on the
+            // season the team actually belongs to (which may be an archived
+            // season), not whichever season is currently active.
             const teamLink =
               s.accepted && s.team_id != null && s.current_division
-                ? `/teams?division=${s.current_division}#team-${s.team_id}`
+                ? `/teams?division=${s.current_division}${
+                    s.current_season_year != null
+                      ? `&year=${s.current_season_year}`
+                      : ""
+                  }#team-${s.team_id}`
                 : null;
             const teamName = s.current_team_name ?? s.team_name;
 

@@ -49,6 +49,7 @@ export type RosterSubmissionRow = {
   division: string | null; // snapshot slug at submit time
   current_team_name: string | null; // live team name (null if team deleted)
   current_division: string | null; // live division slug (null if team deleted)
+  current_season_year: number | null; // the team's season year (null if team deleted)
   player_id: number | null; // roster row created on accept (null on decline)
   player_name: string;
   email: string | null;
@@ -432,6 +433,7 @@ export async function listRosterSubmissions(
       rs.division,
       t.name       AS current_team_name,
       t.division   AS current_division,
+      s.year       AS current_season_year,
       rs.player_id,
       rs.player_name,
       rs.email,
@@ -459,6 +461,7 @@ export async function listRosterSubmissions(
       (rs.created_at AT TIME ZONE 'America/New_York')::text AS created_at
     FROM roster_submissions rs
     LEFT JOIN teams t ON t.id = rs.team_id AND t.company_id = rs.company_id
+    LEFT JOIN seasons s ON s.id = t.season_id
     WHERE rs.company_id = ${companyId}
     ORDER BY rs.created_at DESC, rs.id DESC
   `;

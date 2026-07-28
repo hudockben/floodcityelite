@@ -70,6 +70,7 @@ function EditField({
 export default function EventRow({
   event,
   division,
+  seasonYear,
   players,
   groupCount,
   selectedGroups,
@@ -77,6 +78,7 @@ export default function EventRow({
 }: {
   event: ScheduleEventRow;
   division: string;
+  seasonYear: number;
   players: GroupPlayer[];
   groupCount: number;
   selectedGroups: number[];
@@ -364,6 +366,7 @@ export default function EventRow({
             groupSizes={groupSizes}
             selectedGroups={selected}
             division={division}
+            seasonYear={seasonYear}
             onToggleGroup={toggleGroup}
             onToggle={toggleAttendance}
             onSetAll={setAllAttendance}

@@ -391,6 +391,7 @@ export default async function SchedulesPage({
                                   key={row.id}
                                   event={row}
                                   division={division.slug}
+                                  seasonYear={season.year}
                                   players={teamPlayers}
                                   groupCount={t.roster_group_count}
                                   selectedGroups={groupsByEvent.get(row.id) ?? []}
