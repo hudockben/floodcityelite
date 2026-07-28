@@ -19,6 +19,11 @@
 
 import { sql } from "@/lib/db";
 
+// Re-exported so existing importers keep resolving `formatRosterDate` from this
+// module. The implementation lives in the DB-free `roster-format` module so
+// client components can use it without bundling the Neon client.
+export { formatRosterDate } from "@/lib/roster-format";
+
 // Parents submit against the Flood City Elite company (the login company code is
 // always "fce"). The public form has no session, so it resolves the company by
 // this code — mirrors the payroll form.
@@ -466,21 +471,4 @@ export async function deleteRosterSubmission(
     DELETE FROM roster_submissions
     WHERE id = ${id} AND company_id = ${companyId}
   `;
-}
-
-// --- formatters ------------------------------------------------------------
-
-const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
-
-// Format a "YYYY-MM-DD" date without going through a Date object, which would
-// otherwise shift the day across time zones. Mirrors the payroll formatter.
-export function formatRosterDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const [y, m, d] = iso.split("-");
-  const monthIndex = Number(m) - 1;
-  if (!y || !MONTHS[monthIndex] || !d) return iso;
-  return `${MONTHS[monthIndex]} ${Number(d)}, ${y}`;
 }

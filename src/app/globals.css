@@ -4647,6 +4647,219 @@ body {
   color: var(--text-muted);
 }
 
+/* Roster Submissions tab — search + status/team filters above the response
+   cards. All filtering is client-side (see submissions-list.tsx). */
+.subs-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 22px 0 16px;
+}
+
+/* Search box — mirrors the Payment Tracker search field. */
+.subs-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  max-width: 460px;
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.subs-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.subs-search-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+}
+
+.subs-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 11px 0;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.subs-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.subs-search-clear {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 1.15rem;
+  line-height: 1;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.subs-search-clear:hover {
+  color: var(--text);
+  background: rgba(148, 187, 233, 0.12);
+}
+
+/* Row holding the status segments and the team dropdown. */
+.subs-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+/* Segmented status control (All / Accepted / Declined). The pill can't shrink
+   below its three nowrap buttons, so let it scroll internally rather than push
+   the page wide on very narrow phones (mirrors the .tabs overflow pattern). */
+.subs-segment {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+}
+
+.subs-segment::-webkit-scrollbar {
+  display: none;
+}
+
+.subs-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 15px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.subs-seg-btn:hover {
+  color: var(--text);
+}
+
+.subs-seg-btn.is-active {
+  color: #04121f;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+}
+
+.subs-seg-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.28);
+}
+
+.subs-seg-count {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.subs-seg-btn.is-active .subs-seg-count {
+  /* Fully opaque so the count keeps AA contrast on the accent fill. */
+  color: #04121f;
+}
+
+/* Team filter dropdown. */
+.subs-team-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.subs-team-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.subs-team-select {
+  appearance: none;
+  padding: 8px 32px 8px 13px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text);
+  background-color: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  cursor: pointer;
+  outline: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 55%, calc(100% - 12px) 55%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.subs-team-select:hover {
+  border-color: var(--accent);
+}
+
+.subs-team-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.subs-team-select option,
+.subs-team-select optgroup {
+  color: var(--text);
+  background: var(--navy-800);
+}
+
+/* Inline "Clear filters" reset, shown in the summary line and empty state. */
+.subs-clear-all {
+  padding: 0;
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.subs-clear-all:hover {
+  text-decoration: underline;
+}
+
 /* Roster Submissions tab — a summary line above a list of response cards. */
 .subs-summary {
   margin-bottom: 18px;
