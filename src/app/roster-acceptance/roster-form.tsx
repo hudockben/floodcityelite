@@ -357,7 +357,7 @@ export default function RosterAcceptanceForm({
                   label="Secondary position"
                 />
 
-                <TextField name="hat_size" label="Hat size" placeholder={`e.g. 7 1/4`} />
+                <TextField name="hat_size" label="Hat size" placeholder="e.g. Small, Medium, Large" />
               </div>
 
               {/* Jersey number — gated by whether the player is returning. */}
