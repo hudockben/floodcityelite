@@ -117,6 +117,7 @@ export async function createSeasonAction(formData: FormData): Promise<void> {
     10,
   );
 
+  let created = false;
   try {
     await ensureTeamsSchema();
 
@@ -165,12 +166,20 @@ export async function createSeasonAction(formData: FormData): Promise<void> {
 
       return stmts;
     });
+
+    created = true;
   } catch (err) {
     console.error("createSeason error:", err);
   }
 
   revalidatePath("/teams");
-  redirect(`/teams?division=${division}&year=${year}`);
+  // On success land on the new season; on failure fall back to the division's
+  // active season so we never navigate to a season that wasn't created.
+  redirect(
+    created
+      ? `/teams?division=${division}&year=${year}`
+      : `/teams?division=${division}`,
+  );
 }
 
 // --- add a player to a team ------------------------------------------------

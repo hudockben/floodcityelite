@@ -279,8 +279,10 @@ export default function BulkUploadForm({
     }
   }, [state]);
 
-  // Show the form whenever the company has any team — auto-assign matches by
-  // name across all divisions, so it's useful even from a division with none.
+  // Show the form whenever the company has an active-season team — auto-assign
+  // matches by name across divisions' active seasons, so it's useful even from a
+  // division whose current season has none. Hidden only when there's nothing to
+  // route to (no viewed-season teams and no active-season teams anywhere).
   if (teams.length === 0 && !companyHasActiveTeams) return null;
   const noTeamsInDivision = teams.length === 0;
 
