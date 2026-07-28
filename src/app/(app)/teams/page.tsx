@@ -176,27 +176,43 @@ export default async function TeamsPage({
         />
 
         {teams.length > 0 ? (
-          <ul className="team-chips">
-            {teams.map((t) => (
-              <li key={t.id} className="team-chip">
-                <span className="team-chip-name">{t.name}</span>
-                <span className={`sport-badge sport-${t.sport}`}>
-                  {sportLabel(t.sport)}
-                </span>
-                <span className="team-chip-count">
-                  {t.player_count} {t.player_count === 1 ? "player" : "players"}
-                </span>
-                <ConfirmButton
-                  action={deleteTeamAction}
-                  hidden={{ teamId: t.id, division: division.slug }}
-                  confirmText={`Delete "${t.name}" and its entire roster? This cannot be undone.`}
-                  className="chip-delete"
-                >
-                  Delete
-                </ConfirmButton>
-              </li>
-            ))}
-          </ul>
+          <details className="team-manage">
+            <summary className="team-manage-summary">
+              <span className="tg-caret" aria-hidden="true" />
+              <span className="team-manage-title">
+                Manage teams in this division
+              </span>
+              <span className="team-manage-count">
+                {teams.length} {teams.length === 1 ? "team" : "teams"}
+              </span>
+            </summary>
+            <p className="team-manage-hint">
+              Rosters are shown in the {division.label} roster below. Use Delete
+              here to remove a team and all of its players.
+            </p>
+            <ul className="team-chips">
+              {teams.map((t) => (
+                <li key={t.id} className="team-chip">
+                  <span className="team-chip-name">{t.name}</span>
+                  <span className={`sport-badge sport-${t.sport}`}>
+                    {sportLabel(t.sport)}
+                  </span>
+                  <span className="team-chip-count">
+                    {t.player_count}{" "}
+                    {t.player_count === 1 ? "player" : "players"}
+                  </span>
+                  <ConfirmButton
+                    action={deleteTeamAction}
+                    hidden={{ teamId: t.id, division: division.slug }}
+                    confirmText={`Delete "${t.name}" and its entire roster? This cannot be undone.`}
+                    className="chip-delete"
+                  >
+                    Delete
+                  </ConfirmButton>
+                </li>
+              ))}
+            </ul>
+          </details>
         ) : (
           <p className="muted-note">No teams in this division yet.</p>
         )}

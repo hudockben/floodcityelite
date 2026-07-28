@@ -1183,6 +1183,73 @@ body {
   border-color: rgba(220, 38, 38, 0.5);
 }
 
+/* Collapsible "manage teams" list in step 1. The full roster lives in step 3,
+   so this stays collapsed by default to keep the create panel compact and
+   avoid the impression that rosters are edited up here. */
+.team-manage {
+  margin-top: 22px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--field-bg);
+  overflow: hidden;
+}
+
+.team-manage-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+/* Hide the native disclosure triangle (we draw our own caret). */
+.team-manage-summary::-webkit-details-marker {
+  display: none;
+}
+.team-manage-summary::marker {
+  content: "";
+}
+
+.team-manage-summary:hover {
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.team-manage[open] > .team-manage-summary {
+  border-bottom: 1px solid var(--card-border);
+}
+
+.team-manage[open] > .team-manage-summary .tg-caret {
+  transform: rotate(45deg);
+}
+
+.team-manage-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.team-manage-count {
+  margin-left: auto;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.team-manage-hint {
+  margin: 0;
+  padding: 12px 14px 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* The chip list sits flush inside the expanded manage panel. */
+.team-manage .team-chips {
+  margin: 12px 14px 14px;
+}
+
 /* Add-player form */
 .player-form {
   margin-top: 20px;
