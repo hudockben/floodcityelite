@@ -92,6 +92,56 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_teams_company_division ON teams (company_id, division)`;
 
+  // Seasons: one division's run in a given year (Spring/Summer Baseball 2026,
+  // Softball 2027, …). Each division rolls over on its own calendar, so a season
+  // is keyed by (company, division, year); a team belongs to one season via
+  // teams.season_id and rosters/schedules/budgets inherit it. One season per
+  // division is active at a time. Existing teams are backfilled into a 2026
+  // season for their division so nothing disappears from the season-scoped views.
+  await sql`
+    CREATE TABLE IF NOT EXISTS seasons (
+      id          SERIAL PRIMARY KEY,
+      company_id  INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      division    VARCHAR(32)  NOT NULL
+                    CHECK (division IN ('spring-summer-baseball', 'softball', 'fall-baseball')),
+      year        SMALLINT     NOT NULL,
+      label       VARCHAR(120),
+      is_active   BOOLEAN      NOT NULL DEFAULT true,
+      created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+      UNIQUE (company_id, division, year)
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_seasons_company_division ON seasons (company_id, division)`;
+
+  await sql`ALTER TABLE teams ADD COLUMN IF NOT EXISTS season_id INTEGER REFERENCES seasons(id) ON DELETE CASCADE`;
+
+  await sql`
+    INSERT INTO seasons (company_id, division, year, is_active)
+    SELECT DISTINCT t.company_id, t.division, 2026, true
+    FROM teams t
+    WHERE t.season_id IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM seasons s
+        WHERE s.company_id = t.company_id
+          AND s.division = t.division
+          AND s.year = 2026
+      )
+    ON CONFLICT (company_id, division, year) DO NOTHING
+  `;
+
+  await sql`
+    UPDATE teams t
+    SET season_id = s.id
+    FROM seasons s
+    WHERE t.season_id IS NULL
+      AND s.company_id = t.company_id
+      AND s.division = t.division
+      AND s.year = 2026
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_teams_season_id ON teams (season_id)`;
+
   // Players (roster rows) belong to a team. Only player_name is required.
   // `is_paying` marks whether the player pays tuition/dues and drives the
   // Budgets tab's paying-player count; it defaults to true.

@@ -10,7 +10,10 @@ import BulkUploadForm from "./bulk-upload-form";
 import ConfirmButton from "./confirm-button";
 import CreateTeamForm from "./create-team-form";
 import ExpandOnHash from "./expand-on-hash";
+import NewSeasonForm from "./new-season-form";
 import PlayerRowItem from "./player-row";
+import SeasonBar from "./season-bar";
+import { resolveSeason, seasonLabel, type Season } from "./seasons";
 import {
   DIVISIONS,
   PLAYER_FIELDS,
@@ -29,23 +32,39 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 export default async function TeamsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ division?: string | string[] }>;
+  searchParams: Promise<{ division?: string | string[]; year?: string | string[] }>;
 }) {
   const session = await getSession();
   if (!session) redirect("/");
 
   const params = await searchParams;
   const division = resolveDivision(firstParam(params.division));
+  const yearRaw = firstParam(params.year);
+  const yearParam = yearRaw ? Number.parseInt(yearRaw, 10) : null;
 
   let teams: TeamRow[] = [];
   let players: PlayerRow[] = [];
   let companyHasTeams = false;
+  let seasons: Season[] = [];
+  let season: Season | null = null;
   let loadError = false;
 
   try {
     // Create the teams/players tables on first use so the tab works even if
     // the database predates this feature. Idempotent and memoized.
     await ensureTeamsSchema();
+
+    // Pick the season to show (the ?year=, else the active/latest one) and load
+    // the divisions's seasons for the year picker. Teams — and therefore their
+    // rosters — are scoped to this one season.
+    const resolved = await resolveSeason(
+      session.companyId,
+      division.slug,
+      yearParam,
+    );
+    season = resolved.current;
+    seasons = resolved.seasons;
+    const seasonId = resolved.current.id;
 
     const [teamRows, playerRows, companyTeamRows] = await Promise.all([
       sql()`
@@ -57,7 +76,7 @@ export default async function TeamsPage({
           (SELECT count(*) FROM players p WHERE p.team_id = t.id)::int AS player_count
         FROM teams t
         WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
+          AND t.season_id = ${seasonId}
         ORDER BY t.name
       `,
       sql()`
@@ -83,7 +102,7 @@ export default async function TeamsPage({
         FROM players p
         JOIN teams t ON t.id = p.team_id
         WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
+          AND t.season_id = ${seasonId}
         ORDER BY t.name, p.player_name
       `,
       sql()`
@@ -100,6 +119,12 @@ export default async function TeamsPage({
     console.error("Teams page load error:", err);
     loadError = true;
   }
+
+  // Prefill the "Start new season" year with the year after the latest season.
+  const nextYear =
+    (seasons.length
+      ? Math.max(...seasons.map((s) => s.year))
+      : new Date().getFullYear()) + 1;
 
   const teamOptions = teams.map((t) => ({
     id: t.id,
@@ -143,9 +168,25 @@ export default async function TeamsPage({
             );
           })}
         </nav>
+
+        {/* Season (year) selector for this division, plus "start new season". */}
+        {season ? (
+          <SeasonBar
+            basePath="/teams"
+            division={division.slug}
+            seasons={seasons}
+            current={season}
+          >
+            <NewSeasonForm
+              division={division.slug}
+              sourceSeasonId={season.id}
+              nextYear={nextYear}
+            />
+          </SeasonBar>
+        ) : null}
       </section>
 
-      {loadError ? (
+      {loadError || !season ? (
         <section className="panel">
           <div className="empty">
             <div className="empty-icon" aria-hidden="true">
@@ -167,12 +208,13 @@ export default async function TeamsPage({
           <h2 className="step-title">
             <span className="step-num">1</span> Create a team
           </h2>
-          <p>New teams are added to the {division.label} division.</p>
+          <p>New teams are added to the {seasonLabel(season)} season.</p>
         </div>
 
         <CreateTeamForm
           division={division.slug}
           defaultSport={division.defaultSport}
+          seasonId={season.id}
         />
 
         {teams.length > 0 ? (
@@ -231,6 +273,7 @@ export default async function TeamsPage({
 
         <BulkUploadForm
           division={division.slug}
+          seasonYear={season.year}
           teams={teamOptions}
           companyHasTeams={companyHasTeams}
         />
@@ -241,7 +284,8 @@ export default async function TeamsPage({
         <div className="panel-head panel-head-row">
           <div>
             <h2 className="step-title">
-              <span className="step-num">3</span> {division.label} roster
+              <span className="step-num">3</span> {season.year} {division.label}{" "}
+              roster
             </h2>
             <p>
               {players.length} {players.length === 1 ? "player" : "players"}{" "}
@@ -251,7 +295,7 @@ export default async function TeamsPage({
           {teams.length > 0 ? (
             <a
               className="btn-secondary print-all-btn"
-              href={`/teams/print?division=${division.slug}`}
+              href={`/teams/print?division=${division.slug}&year=${season.year}`}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -292,7 +336,7 @@ export default async function TeamsPage({
                     <div className="tg-print-row">
                       <a
                         className="team-print-link"
-                        href={`/teams/print?division=${division.slug}&team=${t.id}`}
+                        href={`/teams/print?division=${division.slug}&team=${t.id}&year=${season.year}`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >

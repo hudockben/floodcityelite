@@ -9,9 +9,11 @@ const initialState: FormState = {};
 export default function CreateTeamForm({
   division,
   defaultSport,
+  seasonId,
 }: {
   division: DivisionSlug;
   defaultSport: Sport;
+  seasonId: number;
 }) {
   const [state, formAction, pending] = useActionState(
     createTeamAction,
@@ -27,6 +29,7 @@ export default function CreateTeamForm({
   return (
     <form ref={formRef} action={formAction} className="team-form">
       <input type="hidden" name="division" value={division} />
+      <input type="hidden" name="seasonId" value={seasonId} />
 
       <div className="field">
         <label htmlFor="team-name">Team name</label>

@@ -273,16 +273,21 @@ export async function getRosterCompanyId(): Promise<number | null> {
   return rows.length > 0 ? (rows[0].id as number) : null;
 }
 
-// Every team the company has, for the public form's team dropdown. Ordered by
-// division then name so the form can group them under division headings.
+// The teams offered in the public form's dropdown: only those in each
+// division's active season, so a parent signing up now is always placed on a
+// current-season team (never last year's roster). Ordered by division then name
+// so the form can group them under division headings. The caller ensures the
+// teams schema (which creates `seasons`) before this runs.
 export async function listRosterTeamOptions(
   companyId: number,
 ): Promise<RosterTeamOption[]> {
   const rows = await sql()`
-    SELECT id, name, division, sport
-    FROM teams
-    WHERE company_id = ${companyId}
-    ORDER BY division, name
+    SELECT t.id, t.name, t.division, t.sport
+    FROM teams t
+    JOIN seasons s ON s.id = t.season_id
+    WHERE t.company_id = ${companyId}
+      AND s.is_active
+    ORDER BY t.division, t.name
   `;
   return rows as RosterTeamOption[];
 }

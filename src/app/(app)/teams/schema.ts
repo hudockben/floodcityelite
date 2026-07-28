@@ -90,4 +90,68 @@ async function provision(): Promise<void> {
   // edit). Locked numbers are treated as fixed by the acceptance-form jersey
   // automation, so a manual assignment isn't overwritten on the next accept.
   await db`ALTER TABLE players ADD COLUMN IF NOT EXISTS jersey_locked BOOLEAN NOT NULL DEFAULT false`;
+
+  // -------------------------------------------------------------------------
+  // Seasons
+  //
+  // A season is one division's run in a given year — Spring/Summer Baseball
+  // 2026, Softball 2027, and so on. Each division rolls over on its own
+  // calendar, so a season is keyed by (company, division, year) and a team
+  // belongs to exactly one season (teams.season_id). Rosters, schedules, and
+  // budgets all hang off teams, so they inherit the season automatically. One
+  // season per division is active at a time (is_active) — the one shown by
+  // default. `label` is an optional custom name; when null the UI derives
+  // "<year> <division>".
+  // -------------------------------------------------------------------------
+  await db`
+    CREATE TABLE IF NOT EXISTS seasons (
+      id          SERIAL PRIMARY KEY,
+      company_id  INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      division    VARCHAR(32)  NOT NULL
+                    CHECK (division IN ('spring-summer-baseball', 'softball', 'fall-baseball')),
+      year        SMALLINT     NOT NULL,
+      label       VARCHAR(120),
+      is_active   BOOLEAN      NOT NULL DEFAULT true,
+      created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+      UNIQUE (company_id, division, year)
+    )
+  `;
+
+  await db`CREATE INDEX IF NOT EXISTS idx_seasons_company_division ON seasons (company_id, division)`;
+
+  // Link teams to their season. Nullable so the column can be added to an
+  // already-populated table; the backfill below stamps every existing row, and
+  // new teams are always created with a season by the app.
+  await db`ALTER TABLE teams ADD COLUMN IF NOT EXISTS season_id INTEGER REFERENCES seasons(id) ON DELETE CASCADE`;
+
+  // Backfill: existing teams predate seasons, so create a 2026 season for each
+  // (company, division) that has teams but no matching season, then stamp those
+  // teams into it. Existing data becomes the 2026 run of its division and
+  // nothing disappears from the season-scoped views. Idempotent — once every
+  // team has a season_id these are no-ops.
+  await db`
+    INSERT INTO seasons (company_id, division, year, is_active)
+    SELECT DISTINCT t.company_id, t.division, 2026, true
+    FROM teams t
+    WHERE t.season_id IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM seasons s
+        WHERE s.company_id = t.company_id
+          AND s.division = t.division
+          AND s.year = 2026
+      )
+    ON CONFLICT (company_id, division, year) DO NOTHING
+  `;
+
+  await db`
+    UPDATE teams t
+    SET season_id = s.id
+    FROM seasons s
+    WHERE t.season_id IS NULL
+      AND s.company_id = t.company_id
+      AND s.division = t.division
+      AND s.year = 2026
+  `;
+
+  await db`CREATE INDEX IF NOT EXISTS idx_teams_season_id ON teams (season_id)`;
 }

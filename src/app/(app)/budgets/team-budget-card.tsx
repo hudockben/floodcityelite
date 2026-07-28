@@ -85,9 +85,11 @@ function MoneyInput({
 export default function TeamBudgetCard({
   team,
   division,
+  seasonYear,
 }: {
   team: BudgetTeam;
   division: string;
+  seasonYear: number;
 }) {
   const [tuition, setTuition] = useState(moneyToInput(team.saved.tuitionPerPlayer));
   const [portion, setPortion] = useState(
@@ -300,7 +302,7 @@ export default function TeamBudgetCard({
               </button>
               <a
                 className="budget-print-link"
-                href={`/budgets/print?division=${division}&team=${team.id}`}
+                href={`/budgets/print?division=${division}&team=${team.id}&year=${seasonYear}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -324,6 +326,7 @@ export default function TeamBudgetCard({
             <TeamTournaments
               tournaments={team.tournaments}
               division={division}
+              seasonYear={seasonYear}
             />
             <TeamExpenses
               teamId={team.id}

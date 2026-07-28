@@ -7,6 +7,8 @@ import {
   resolveDivision,
   sportLabel,
 } from "../teams/divisions";
+import { resolveSeason, type Season } from "../teams/seasons";
+import SeasonBar from "../teams/season-bar";
 import { ensureSchedulesSchema } from "./schema";
 import AddEventForm from "./add-event-form";
 import EventRow from "./event-row";
@@ -35,25 +37,39 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 export default async function SchedulesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ division?: string | string[] }>;
+  searchParams: Promise<{ division?: string | string[]; year?: string | string[] }>;
 }) {
   const session = await getSession();
   if (!session) redirect("/");
 
   const params = await searchParams;
   const division = resolveDivision(firstParam(params.division));
+  const yearRaw = firstParam(params.year);
+  const yearParam = yearRaw ? Number.parseInt(yearRaw, 10) : null;
 
   let teams: ScheduleTeamRow[] = [];
   let events: ScheduleEventRow[] = [];
   let roster: GroupPlayer[] = [];
   let attendance: AttendanceRow[] = [];
   let eventGroups: EventGroupRow[] = [];
+  let seasons: Season[] = [];
+  let season: Season | null = null;
   let loadError = false;
 
   try {
     // Create the schedule_events table on first use so the tab works even if
     // the database predates this feature. Idempotent and memoized.
     await ensureSchedulesSchema();
+
+    // Scope everything to the selected season (its teams and their events).
+    const resolved = await resolveSeason(
+      session.companyId,
+      division.slug,
+      yearParam,
+    );
+    season = resolved.current;
+    seasons = resolved.seasons;
+    const seasonId = resolved.current.id;
 
     const [teamRows, eventRows, playerRows, attendanceRows, groupRows] =
       await Promise.all([
@@ -67,7 +83,7 @@ export default async function SchedulesPage({
             (SELECT count(*) FROM schedule_events e WHERE e.team_id = t.id)::int AS event_count
           FROM teams t
           WHERE t.company_id = ${session.companyId}
-            AND t.division = ${division.slug}
+            AND t.season_id = ${seasonId}
           ORDER BY t.name
         `,
         sql()`
@@ -84,17 +100,17 @@ export default async function SchedulesPage({
           FROM schedule_events e
           JOIN teams t ON t.id = e.team_id
           WHERE t.company_id = ${session.companyId}
-            AND t.division = ${division.slug}
+            AND t.season_id = ${seasonId}
           ORDER BY t.name, e.event_date NULLS LAST, e.id
         `,
-        // The roster for each team in this division, so an event's Groups panel
+        // The roster for each team in this season, so an event's Groups panel
         // can list who's available, and the planner knows the roster size.
         sql()`
           SELECT p.id, p.team_id, p.player_name, p.primary_position, p.roster_group
           FROM players p
           JOIN teams t ON t.id = p.team_id
           WHERE t.company_id = ${session.companyId}
-            AND t.division = ${division.slug}
+            AND t.season_id = ${seasonId}
           ORDER BY t.name, p.player_name
         `,
         // Every per-player exception (attending true or false). A row overrides
@@ -105,7 +121,7 @@ export default async function SchedulesPage({
           JOIN schedule_events e ON e.id = a.event_id
           JOIN teams t ON t.id = e.team_id
           WHERE t.company_id = ${session.companyId}
-            AND t.division = ${division.slug}
+            AND t.season_id = ${seasonId}
         `,
         // Which standing groups play each event — the attendance baseline.
         sql()`
@@ -114,7 +130,7 @@ export default async function SchedulesPage({
           JOIN schedule_events e ON e.id = g.event_id
           JOIN teams t ON t.id = e.team_id
           WHERE t.company_id = ${session.companyId}
-            AND t.division = ${division.slug}
+            AND t.season_id = ${seasonId}
         `,
       ]);
 
@@ -206,9 +222,19 @@ export default async function SchedulesPage({
             );
           })}
         </nav>
+
+        {/* Season (year) selector for this division. */}
+        {season ? (
+          <SeasonBar
+            basePath="/schedules"
+            division={division.slug}
+            seasons={seasons}
+            current={season}
+          />
+        ) : null}
       </section>
 
-      {loadError ? (
+      {loadError || !season ? (
         <section className="panel">
           <div className="empty">
             <div className="empty-icon" aria-hidden="true">
@@ -243,7 +269,9 @@ export default async function SchedulesPage({
           <section className="panel">
             <div className="panel-head panel-head-row">
               <div>
-                <h2 className="step-title">{division.label} schedule</h2>
+                <h2 className="step-title">
+                  {season.year} {division.label} schedule
+                </h2>
                 <p>
                   {events.length} {events.length === 1 ? "event" : "events"}{" "}
                   across {teams.length} {teams.length === 1 ? "team" : "teams"}.
@@ -252,7 +280,7 @@ export default async function SchedulesPage({
               {teams.length > 0 ? (
                 <a
                   className="btn-secondary print-all-btn"
-                  href={`/schedules/print?division=${division.slug}`}
+                  href={`/schedules/print?division=${division.slug}&year=${season.year}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -269,7 +297,9 @@ export default async function SchedulesPage({
                 <p className="empty-title">No teams in this division yet</p>
                 <p className="empty-sub">
                   Create a team in the{" "}
-                  <Link href={`/teams?division=${division.slug}`}>Teams tab</Link>{" "}
+                  <Link href={`/teams?division=${division.slug}&year=${season.year}`}>
+                    Teams tab
+                  </Link>{" "}
                   first, then come back to build out its schedule.
                 </p>
               </div>
@@ -317,7 +347,7 @@ export default async function SchedulesPage({
                         <div className="tg-print-row">
                           <a
                             className="team-print-link"
-                            href={`/schedules/print?division=${division.slug}&team=${t.id}`}
+                            href={`/schedules/print?division=${division.slug}&team=${t.id}&year=${season.year}`}
                             target="_blank"
                             rel="noopener noreferrer"
                           >

@@ -253,10 +253,14 @@ function ResultSummary({ result }: { result: BulkUploadResult }) {
 
 export default function BulkUploadForm({
   division,
+  seasonYear,
   teams,
   companyHasTeams,
 }: {
   division: DivisionSlug;
+  /** The viewed season's year — auto-assign matches teams within this year so
+   *  an import can't route rows onto an archived season's roster. */
+  seasonYear: number;
   teams: TeamOption[];
   /** Whether the company has any team (in any division) — auto-assign is
    *  company-wide, so the form is useful even when this division has none. */
@@ -302,6 +306,7 @@ export default function BulkUploadForm({
 
         <form ref={formRef} action={formAction} className="bulk-upload-form">
           <input type="hidden" name="division" value={division} />
+          <input type="hidden" name="seasonYear" value={seasonYear} />
 
           <div className="player-grid">
             <div className="field">

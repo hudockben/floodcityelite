@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { resolveDivision, sportLabel } from "../../teams/divisions";
+import { resolveSeason, type Season } from "../../teams/seasons";
 import { ensureTeamsSchema } from "../../teams/schema";
 import { ensureSchedulesSchema } from "../../schedules/schema";
 import { eventCostCounts, statusLabel } from "../../schedules/events";
@@ -44,7 +45,11 @@ function todayLabel(): string {
 export default async function BudgetPrintPage({
   searchParams,
 }: {
-  searchParams: Promise<{ division?: string | string[]; team?: string | string[] }>;
+  searchParams: Promise<{
+    division?: string | string[];
+    team?: string | string[];
+    year?: string | string[];
+  }>;
 }) {
   const session = await getSession();
   if (!session) redirect("/");
@@ -53,16 +58,27 @@ export default async function BudgetPrintPage({
   const division = resolveDivision(firstParam(params.division));
   const teamParam = firstParam(params.team);
   const teamId = teamParam ? Number.parseInt(teamParam, 10) : null;
+  const yearRaw = firstParam(params.year);
+  const yearParam = yearRaw ? Number.parseInt(yearRaw, 10) : null;
 
   let rows: TeamBudgetRow[] = [];
   let expenses: ExpenseRow[] = [];
   let tournaments: TournamentRow[] = [];
+  let season: Season | null = null;
   let loadError = false;
 
   try {
     await ensureTeamsSchema();
     await ensureBudgetsSchema();
     await ensureSchedulesSchema();
+
+    const resolved = await resolveSeason(
+      session.companyId,
+      division.slug,
+      yearParam,
+    );
+    season = resolved.current;
+    const seasonId = resolved.current.id;
 
     const [budgetRows, expenseRows, tournamentRows] = await Promise.all([
       sql()`
@@ -83,7 +99,7 @@ export default async function BudgetPrintPage({
         FROM teams t
         LEFT JOIN team_budgets b ON b.team_id = t.id
         WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
+          AND t.season_id = ${seasonId}
         ORDER BY t.name
       `,
       sql()`
@@ -97,7 +113,7 @@ export default async function BudgetPrintPage({
         FROM team_expenses x
         JOIN teams t ON t.id = x.team_id
         WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
+          AND t.season_id = ${seasonId}
         ORDER BY x.expense_date DESC NULLS LAST, x.id DESC
       `,
       // Each team's scheduled tournaments, itemized so the printed report shows
@@ -116,7 +132,7 @@ export default async function BudgetPrintPage({
         FROM schedule_events e
         JOIN teams t ON t.id = e.team_id
         WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
+          AND t.season_id = ${seasonId}
         ORDER BY e.event_date NULLS LAST, e.id
       `,
     ]);
@@ -148,9 +164,14 @@ export default async function BudgetPrintPage({
     else tournamentsByTeam.set(t.team_id, [t]);
   }
 
-  const backHref = `/budgets?division=${division.slug}`;
+  const backHref = season
+    ? `/budgets?division=${division.slug}&year=${season.year}`
+    : `/budgets?division=${division.slug}`;
+  const divisionScope = season
+    ? `${season.year} ${division.label}`
+    : division.label;
   const scopeLabel =
-    rows.length === 1 && teamId != null ? rows[0].name : `${division.label}`;
+    rows.length === 1 && teamId != null ? rows[0].name : divisionScope;
 
   return (
     <div className="print-view">

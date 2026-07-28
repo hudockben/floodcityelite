@@ -1088,6 +1088,121 @@ body {
   border-color: transparent;
 }
 
+/* Season (year) selector — sits just under the division tabs. Each division
+   keeps its own seasons, so this switches the ?year= within the division. */
+.season-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.season-bar-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.season-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.season-pill {
+  padding: 5px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--card-border);
+  background: var(--field-bg);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.season-pill:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.season-pill.active {
+  color: #04121f;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  border-color: transparent;
+}
+
+/* "Start new season" — a tucked-away control on the far right of the season
+   bar (Teams tab only). Opens a small form to create the next year's season. */
+.new-season {
+  margin-left: auto;
+}
+
+.new-season-summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  padding: 5px 13px;
+  border-radius: 999px;
+  border: 1px dashed var(--card-border);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.new-season-summary::-webkit-details-marker {
+  display: none;
+}
+.new-season-summary::marker {
+  content: "";
+}
+
+.new-season-summary:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.new-season-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--field-bg);
+}
+
+.new-season-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.new-season-field input {
+  width: 110px;
+}
+
+.new-season-copy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.new-season-submit {
+  margin-left: auto;
+}
+
 /* Create-team form */
 .team-form {
   display: flex;

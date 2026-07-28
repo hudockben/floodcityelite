@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { resolveDivision, sportLabel } from "../../teams/divisions";
+import { resolveSeason, type Season } from "../../teams/seasons";
 import { ensureSchedulesSchema } from "../schema";
 import {
   EVENT_FIELDS,
@@ -65,7 +66,11 @@ function cellValue(
 export default async function SchedulesPrintPage({
   searchParams,
 }: {
-  searchParams: Promise<{ division?: string | string[]; team?: string | string[] }>;
+  searchParams: Promise<{
+    division?: string | string[];
+    team?: string | string[];
+    year?: string | string[];
+  }>;
 }) {
   const session = await getSession();
   if (!session) redirect("/");
@@ -74,16 +79,27 @@ export default async function SchedulesPrintPage({
   const division = resolveDivision(firstParam(params.division));
   const teamParam = firstParam(params.team);
   const teamId = teamParam ? Number.parseInt(teamParam, 10) : null;
+  const yearRaw = firstParam(params.year);
+  const yearParam = yearRaw ? Number.parseInt(yearRaw, 10) : null;
 
   let teams: ScheduleTeamRow[] = [];
   let events: ScheduleEventRow[] = [];
   let roster: GroupPlayer[] = [];
   let attendance: AttendanceRow[] = [];
   let eventGroups: EventGroupRow[] = [];
+  let season: Season | null = null;
   let loadError = false;
 
   try {
     await ensureSchedulesSchema();
+
+    const resolved = await resolveSeason(
+      session.companyId,
+      division.slug,
+      yearParam,
+    );
+    season = resolved.current;
+    const seasonId = resolved.current.id;
 
     const [teamRows, eventRows, playerRows, attendanceRows, groupRows] =
       await Promise.all([
@@ -97,7 +113,7 @@ export default async function SchedulesPrintPage({
             (SELECT count(*) FROM schedule_events e WHERE e.team_id = t.id)::int AS event_count
           FROM teams t
           WHERE t.company_id = ${session.companyId}
-            AND t.division = ${division.slug}
+            AND t.season_id = ${seasonId}
           ORDER BY t.name
         `,
         sql()`
@@ -114,7 +130,7 @@ export default async function SchedulesPrintPage({
           FROM schedule_events e
           JOIN teams t ON t.id = e.team_id
           WHERE t.company_id = ${session.companyId}
-            AND t.division = ${division.slug}
+            AND t.season_id = ${seasonId}
           ORDER BY t.name, e.event_date NULLS LAST, e.id
         `,
         // Roster for each team so the rotation grid can list every player.
@@ -123,7 +139,7 @@ export default async function SchedulesPrintPage({
           FROM players p
           JOIN teams t ON t.id = p.team_id
           WHERE t.company_id = ${session.companyId}
-            AND t.division = ${division.slug}
+            AND t.season_id = ${seasonId}
           ORDER BY t.name, p.player_name
         `,
         // Every per-player exception (attending true or false); overrides the
@@ -134,7 +150,7 @@ export default async function SchedulesPrintPage({
           JOIN schedule_events e ON e.id = a.event_id
           JOIN teams t ON t.id = e.team_id
           WHERE t.company_id = ${session.companyId}
-            AND t.division = ${division.slug}
+            AND t.season_id = ${seasonId}
         `,
         // Which standing groups play each event — the attendance baseline.
         sql()`
@@ -143,7 +159,7 @@ export default async function SchedulesPrintPage({
           JOIN schedule_events e ON e.id = g.event_id
           JOIN teams t ON t.id = e.team_id
           WHERE t.company_id = ${session.companyId}
-            AND t.division = ${division.slug}
+            AND t.season_id = ${seasonId}
         `,
       ]);
 
@@ -214,9 +230,14 @@ export default async function SchedulesPrintPage({
     0,
   );
 
-  const backHref = `/schedules?division=${division.slug}`;
+  const backHref = season
+    ? `/schedules?division=${division.slug}&year=${season.year}`
+    : `/schedules?division=${division.slug}`;
+  const divisionScope = season
+    ? `${season.year} ${division.label}`
+    : division.label;
   const scopeLabel =
-    teams.length === 1 && teamId != null ? teams[0].name : division.label;
+    teams.length === 1 && teamId != null ? teams[0].name : divisionScope;
 
   return (
     <div className="print-view">

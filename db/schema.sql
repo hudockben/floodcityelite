@@ -32,11 +32,37 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_company_id ON users (company_id);
 
 -- ---------------------------------------------------------------------------
+-- Seasons
+--
+-- A season is one division's run in a given year (Spring/Summer Baseball 2026,
+-- Softball 2027, …). Each division rolls over on its own calendar, so a season
+-- is keyed by (company, division, year). A team belongs to one season via
+-- teams.season_id, and rosters/schedules/budgets inherit it through the team.
+-- One season per division is active (is_active) — the one shown by default.
+-- `label` is an optional custom name; when null the app derives "<year>
+-- <division>".
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS seasons (
+    id          SERIAL PRIMARY KEY,
+    company_id  INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    division    VARCHAR(32)  NOT NULL
+                  CHECK (division IN ('spring-summer-baseball', 'softball', 'fall-baseball')),
+    year        SMALLINT     NOT NULL,
+    label       VARCHAR(120),
+    is_active   BOOLEAN      NOT NULL DEFAULT true,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    UNIQUE (company_id, division, year)
+);
+
+CREATE INDEX IF NOT EXISTS idx_seasons_company_division ON seasons (company_id, division);
+
+-- ---------------------------------------------------------------------------
 -- Teams & rosters
 --
 -- Top-down organization: a team belongs to a company, sits in a division
--- (Spring/Summer Baseball, Softball, or Fall Baseball) and is assigned a sport
--- (baseball or softball). Players (roster rows) belong to a team.
+-- (Spring/Summer Baseball, Softball, or Fall Baseball), is assigned a sport
+-- (baseball or softball), and belongs to a season (its division's run for a
+-- year). Players (roster rows) belong to a team.
 -- ---------------------------------------------------------------------------
 
 -- A team belongs to a company. Divisions and sports are constrained to the
@@ -49,6 +75,9 @@ CREATE TABLE IF NOT EXISTS teams (
                   CHECK (division IN ('spring-summer-baseball', 'softball', 'fall-baseball')),
     sport       VARCHAR(16)  NOT NULL DEFAULT 'baseball'
                   CHECK (sport IN ('baseball', 'softball')),
+    -- The season (division + year) this team belongs to. Rosters, schedules,
+    -- and budgets all hang off the team, so they inherit the season through it.
+    season_id   INTEGER      REFERENCES seasons(id) ON DELETE CASCADE,
     -- How many standing roster groups this team is split into (0 = not using
     -- groups). Powers the Schedules-tab group rotation.
     roster_group_count SMALLINT NOT NULL DEFAULT 0,
@@ -57,6 +86,7 @@ CREATE TABLE IF NOT EXISTS teams (
 );
 
 CREATE INDEX IF NOT EXISTS idx_teams_company_division ON teams (company_id, division);
+CREATE INDEX IF NOT EXISTS idx_teams_season_id ON teams (season_id);
 
 -- Players (roster rows) belong to a team. Only player_name is required; every
 -- other column is optional so a coach can fill the roster out over time. The

@@ -15,11 +15,13 @@ import {
 export default function TeamTournaments({
   tournaments,
   division,
+  seasonYear,
 }: {
   tournaments: TournamentRow[];
   division: string;
+  seasonYear: number;
 }) {
-  const scheduleHref = `/schedules?division=${division}`;
+  const scheduleHref = `/schedules?division=${division}&year=${seasonYear}`;
   // Refunded tournaments are credited back, so they drop out of the scheduled
   // cost that comes off the balance (they still appear in the list, marked
   // "Refund", with their cost struck through).

@@ -10,6 +10,7 @@ import {
   type TeamRow,
 } from "../divisions";
 import { ensureTeamsSchema } from "../schema";
+import { resolveSeason, type Season } from "../seasons";
 import PrintControls from "./print-controls";
 
 export const dynamic = "force-dynamic";
@@ -79,7 +80,11 @@ function cellValue(field: (typeof PLAYER_FIELDS)[number], player: PlayerRow): st
 export default async function TeamsPrintPage({
   searchParams,
 }: {
-  searchParams: Promise<{ division?: string | string[]; team?: string | string[] }>;
+  searchParams: Promise<{
+    division?: string | string[];
+    team?: string | string[];
+    year?: string | string[];
+  }>;
 }) {
   const session = await getSession();
   if (!session) redirect("/");
@@ -88,13 +93,24 @@ export default async function TeamsPrintPage({
   const division = resolveDivision(firstParam(params.division));
   const teamParam = firstParam(params.team);
   const teamId = teamParam ? Number.parseInt(teamParam, 10) : null;
+  const yearRaw = firstParam(params.year);
+  const yearParam = yearRaw ? Number.parseInt(yearRaw, 10) : null;
 
   let teams: TeamRow[] = [];
   let players: PlayerRow[] = [];
+  let season: Season | null = null;
   let loadError = false;
 
   try {
     await ensureTeamsSchema();
+
+    const resolved = await resolveSeason(
+      session.companyId,
+      division.slug,
+      yearParam,
+    );
+    season = resolved.current;
+    const seasonId = resolved.current.id;
 
     const [teamRows, playerRows] = await Promise.all([
       sql()`
@@ -106,7 +122,7 @@ export default async function TeamsPrintPage({
           (SELECT count(*) FROM players p WHERE p.team_id = t.id)::int AS player_count
         FROM teams t
         WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
+          AND t.season_id = ${seasonId}
         ORDER BY t.name
       `,
       sql()`
@@ -132,7 +148,7 @@ export default async function TeamsPrintPage({
         FROM players p
         JOIN teams t ON t.id = p.team_id
         WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
+          AND t.season_id = ${seasonId}
         ORDER BY t.name, p.player_name
       `,
     ]);
@@ -156,9 +172,14 @@ export default async function TeamsPrintPage({
     else playersByTeam.set(p.team_id, [p]);
   }
 
-  const backHref = `/teams?division=${division.slug}`;
+  const backHref = season
+    ? `/teams?division=${division.slug}&year=${season.year}`
+    : `/teams?division=${division.slug}`;
+  const divisionScope = season
+    ? `${season.year} ${division.label}`
+    : division.label;
   const scopeLabel =
-    teams.length === 1 && teamId != null ? teams[0].name : division.label;
+    teams.length === 1 && teamId != null ? teams[0].name : divisionScope;
 
   return (
     <div className="print-view">

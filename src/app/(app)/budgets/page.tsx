@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { DIVISIONS, resolveDivision } from "../teams/divisions";
+import { resolveSeason, type Season } from "../teams/seasons";
+import SeasonBar from "../teams/season-bar";
 import { ensureTeamsSchema } from "../teams/schema";
 import { ensureSchedulesSchema } from "../schedules/schema";
 import { ensureBudgetsSchema } from "./schema";
@@ -18,17 +20,21 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 export default async function BudgetsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ division?: string | string[] }>;
+  searchParams: Promise<{ division?: string | string[]; year?: string | string[] }>;
 }) {
   const session = await getSession();
   if (!session) redirect("/");
 
   const params = await searchParams;
   const division = resolveDivision(firstParam(params.division));
+  const yearRaw = firstParam(params.year);
+  const yearParam = yearRaw ? Number.parseInt(yearRaw, 10) : null;
 
   let rows: TeamBudgetRow[] = [];
   let expenses: ExpenseRow[] = [];
   let tournaments: TournamentRow[] = [];
+  let seasons: Season[] = [];
+  let season: Season | null = null;
   let loadError = false;
 
   try {
@@ -37,6 +43,17 @@ export default async function BudgetsPage({
     await ensureTeamsSchema();
     await ensureBudgetsSchema();
     await ensureSchedulesSchema();
+
+    // Budgets are per team, so scoping the teams to the selected season scopes
+    // the whole tab (expenses and tournaments hang off those teams).
+    const resolved = await resolveSeason(
+      session.companyId,
+      division.slug,
+      yearParam,
+    );
+    season = resolved.current;
+    seasons = resolved.seasons;
+    const seasonId = resolved.current.id;
 
     const [budgetRows, expenseRows, tournamentRows] = await Promise.all([
       sql()`
@@ -57,7 +74,7 @@ export default async function BudgetsPage({
         FROM teams t
         LEFT JOIN team_budgets b ON b.team_id = t.id
         WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
+          AND t.season_id = ${seasonId}
         ORDER BY t.name
       `,
       sql()`
@@ -71,7 +88,7 @@ export default async function BudgetsPage({
         FROM team_expenses x
         JOIN teams t ON t.id = x.team_id
         WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
+          AND t.season_id = ${seasonId}
         ORDER BY x.expense_date DESC NULLS LAST, x.id DESC
       `,
       // Each team's Schedules-tab tournaments, so the scheduled cost that comes
@@ -91,7 +108,7 @@ export default async function BudgetsPage({
         FROM schedule_events e
         JOIN teams t ON t.id = e.team_id
         WHERE t.company_id = ${session.companyId}
-          AND t.division = ${division.slug}
+          AND t.season_id = ${seasonId}
         ORDER BY e.event_date NULLS LAST, e.id
       `,
     ]);
@@ -167,9 +184,19 @@ export default async function BudgetsPage({
             );
           })}
         </nav>
+
+        {/* Season (year) selector for this division. */}
+        {season ? (
+          <SeasonBar
+            basePath="/budgets"
+            division={division.slug}
+            seasons={seasons}
+            current={season}
+          />
+        ) : null}
       </section>
 
-      {loadError ? (
+      {loadError || !season ? (
         <section className="panel">
           <div className="empty">
             <div className="empty-icon" aria-hidden="true">
@@ -187,7 +214,9 @@ export default async function BudgetsPage({
         <section className="panel">
           <div className="panel-head budgets-panel-head">
             <div>
-              <h2 className="step-title">{division.label} budgets</h2>
+              <h2 className="step-title">
+                {season.year} {division.label} budgets
+              </h2>
               <p>
                 {teams.length} {teams.length === 1 ? "team" : "teams"}. Current
                 balance is each team&apos;s starting balance minus its total
@@ -197,7 +226,7 @@ export default async function BudgetsPage({
             {teams.length > 0 ? (
               <a
                 className="btn-secondary budgets-print-btn"
-                href={`/budgets/print?division=${division.slug}`}
+                href={`/budgets/print?division=${division.slug}&year=${season.year}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -214,7 +243,9 @@ export default async function BudgetsPage({
               <p className="empty-title">No teams in this division yet</p>
               <p className="empty-sub">
                 Create a team in the{" "}
-                <Link href={`/teams?division=${division.slug}`}>Teams tab</Link>{" "}
+                <Link href={`/teams?division=${division.slug}&year=${season.year}`}>
+                  Teams tab
+                </Link>{" "}
                 and it&apos;ll show up here, ready to budget.
               </p>
             </div>
@@ -225,6 +256,7 @@ export default async function BudgetsPage({
                   key={team.id}
                   team={team}
                   division={division.slug}
+                  seasonYear={season.year}
                 />
               ))}
             </div>
