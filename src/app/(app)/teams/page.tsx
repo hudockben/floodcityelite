@@ -44,7 +44,7 @@ export default async function TeamsPage({
 
   let teams: TeamRow[] = [];
   let players: PlayerRow[] = [];
-  let companyHasTeams = false;
+  let companyHasActiveTeams = false;
   let seasons: Season[] = [];
   let season: Season | null = null;
   let loadError = false;
@@ -105,16 +105,22 @@ export default async function TeamsPage({
           AND t.season_id = ${seasonId}
         ORDER BY t.name, p.player_name
       `,
+      // Whether the company has any team in an ACTIVE season (in any division).
+      // Drives the bulk-upload form's cross-division auto-assign affordance,
+      // which routes rows to active-season teams — so it must reflect those, not
+      // every team ever (a team stranded in an archived season can't be a target).
       sql()`
         SELECT EXISTS(
-          SELECT 1 FROM teams WHERE company_id = ${session.companyId}
+          SELECT 1 FROM teams t
+          JOIN seasons s ON s.id = t.season_id
+          WHERE t.company_id = ${session.companyId} AND s.is_active
         ) AS has
       `,
     ]);
 
     teams = teamRows as TeamRow[];
     players = playerRows as PlayerRow[];
-    companyHasTeams = Boolean((companyTeamRows[0] as { has?: boolean })?.has);
+    companyHasActiveTeams = Boolean((companyTeamRows[0] as { has?: boolean })?.has);
   } catch (err) {
     console.error("Teams page load error:", err);
     loadError = true;
@@ -273,9 +279,8 @@ export default async function TeamsPage({
 
         <BulkUploadForm
           division={division.slug}
-          seasonYear={season.year}
           teams={teamOptions}
-          companyHasTeams={companyHasTeams}
+          companyHasActiveTeams={companyHasActiveTeams}
         />
       </section>
 

@@ -120,37 +120,51 @@ export async function createSeasonAction(formData: FormData): Promise<void> {
   try {
     await ensureTeamsSchema();
 
-    // Exactly one active season per (company, division): clear the flag, then
-    // create-or-reactivate this year's season as the active one.
-    await sql()`
-      UPDATE seasons SET is_active = false
-      WHERE company_id = ${session.companyId} AND division = ${division}
-    `;
-    const inserted = await sql()`
-      INSERT INTO seasons (company_id, division, year, is_active)
-      VALUES (${session.companyId}, ${division}, ${year}, true)
-      ON CONFLICT (company_id, division, year) DO UPDATE SET is_active = true
-      RETURNING id
-    `;
-    const newSeasonId = Number((inserted[0] as { id: number }).id);
+    // Do the whole flip (+ optional copy) atomically in one transaction,
+    // serialized per company by an advisory lock (same pattern as the jersey
+    // automation). This keeps a concurrent or double-submitted "Start new
+    // season" from leaving two active seasons in a division or duplicating the
+    // copied-forward teams — neither of which the non-transactional, read-then-
+    // write version prevented.
+    await sql().transaction((txn) => {
+      const stmts = [
+        txn`SELECT pg_advisory_xact_lock(hashtext('fce_season_create'), ${session.companyId})`,
+        // Exactly one active season per (company, division).
+        txn`
+          UPDATE seasons SET is_active = false
+          WHERE company_id = ${session.companyId} AND division = ${division}
+        `,
+        txn`
+          INSERT INTO seasons (company_id, division, year, is_active)
+          VALUES (${session.companyId}, ${division}, ${year}, true)
+          ON CONFLICT (company_id, division, year) DO UPDATE SET is_active = true
+        `,
+      ];
 
-    // Optionally clone the team names forward with empty rosters — but only
-    // when the target season has no teams yet, so re-submitting (or picking a
-    // year that already exists) never duplicates them.
-    if (copyTeams && Number.isFinite(sourceSeasonId)) {
-      const existing = await sql()`
-        SELECT count(*)::int AS n FROM teams WHERE season_id = ${newSeasonId}
-      `;
-      if (Number((existing[0] as { n: number }).n) === 0) {
-        await sql()`
+      // Optionally clone the team names forward with empty rosters. Resolve the
+      // target season by its natural key (company, division, year) and skip any
+      // name already present, so the copy is idempotent — re-submitting, or a
+      // partially-applied prior run, never duplicates teams.
+      if (copyTeams && Number.isFinite(sourceSeasonId)) {
+        stmts.push(txn`
           INSERT INTO teams (company_id, name, division, sport, season_id)
-          SELECT company_id, name, division, sport, ${newSeasonId}
-          FROM teams
-          WHERE season_id = ${sourceSeasonId}
-            AND company_id = ${session.companyId}
-        `;
+          SELECT src.company_id, src.name, src.division, src.sport, tgt.id
+          FROM teams src
+          JOIN seasons tgt
+            ON tgt.company_id = ${session.companyId}
+           AND tgt.division = ${division}
+           AND tgt.year = ${year}
+          WHERE src.season_id = ${sourceSeasonId}
+            AND src.company_id = ${session.companyId}
+            AND NOT EXISTS (
+              SELECT 1 FROM teams dst
+              WHERE dst.season_id = tgt.id AND dst.name = src.name
+            )
+        `);
       }
-    }
+
+      return stmts;
+    });
   } catch (err) {
     console.error("createSeason error:", err);
   }
@@ -374,15 +388,6 @@ export async function bulkUploadRosterAction(
   const session = await getSession();
   if (!session) return { error: "Your session has expired. Please sign in again." };
 
-  // Auto-assign matches file rows to teams by name across divisions, but only
-  // within the season being viewed (its year), so an import can never route a
-  // row onto an archived season's roster. Null falls back to company-wide.
-  const seasonYearRaw = Number.parseInt(
-    String(formData.get("seasonYear") ?? ""),
-    10,
-  );
-  const seasonYear = Number.isFinite(seasonYearRaw) ? seasonYearRaw : null;
-
   // teamId is either "auto"/"" (route each row by its team column) or a team id.
   const teamSel = String(formData.get("teamId") ?? "").trim();
   const autoMode = teamSel === "" || teamSel === "auto";
@@ -454,19 +459,17 @@ export async function bulkUploadRosterAction(
     let resolveTeamId: (rowTeam: string | null) => number | null;
 
     if (autoMode) {
-      // Match each row's team name against this company's teams in the viewed
-      // season's year (across divisions), so imports stay within that year.
-      const companyTeams =
-        seasonYear != null
-          ? await sql()`
-              SELECT t.id, t.name, t.division
-              FROM teams t
-              JOIN seasons s ON s.id = t.season_id
-              WHERE t.company_id = ${session.companyId} AND s.year = ${seasonYear}
-            `
-          : await sql()`
-              SELECT id, name, division FROM teams WHERE company_id = ${session.companyId}
-            `;
+      // Match each row's team name against this company's ACTIVE-season teams
+      // across divisions ("the current rosters"). Scoping by is_active — not by
+      // a shared calendar year — is what keeps an import off an archived season:
+      // divisions roll over independently, so the same year can be active in one
+      // division and archived in another.
+      const companyTeams = await sql()`
+        SELECT t.id, t.name, t.division
+        FROM teams t
+        JOIN seasons s ON s.id = t.season_id
+        WHERE t.company_id = ${session.companyId} AND s.is_active
+      `;
       if (companyTeams.length === 0) {
         return {
           error:
@@ -531,17 +534,12 @@ export async function bulkUploadRosterAction(
     //    repeats within the uploaded file (per team — the same name on two
     //    different teams is not a duplicate).
     const existing = autoMode
-      ? seasonYear != null
-        ? await sql()`
-            SELECT p.team_id, p.player_name FROM players p
-            JOIN teams t ON t.id = p.team_id
-            JOIN seasons s ON s.id = t.season_id
-            WHERE t.company_id = ${session.companyId} AND s.year = ${seasonYear}
-          `
-        : await sql()`
-            SELECT team_id, player_name FROM players
-            WHERE team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})
-          `
+      ? await sql()`
+          SELECT p.team_id, p.player_name FROM players p
+          JOIN teams t ON t.id = p.team_id
+          JOIN seasons s ON s.id = t.season_id
+          WHERE t.company_id = ${session.companyId} AND s.is_active
+        `
       : await sql()`
           SELECT team_id, player_name FROM players WHERE team_id = ${explicitTeamId}
         `;

@@ -119,6 +119,29 @@ async function provision(): Promise<void> {
 
   await db`CREATE INDEX IF NOT EXISTS idx_seasons_company_division ON seasons (company_id, division)`;
 
+  // Before enforcing one-active-per-division, demote any extra active seasons
+  // (keep the newest year active) so the unique index below can always be
+  // created — even on a database where an earlier, unsafe build briefly allowed
+  // two active seasons. Idempotent: a no-op once each division has one active.
+  await db`
+    UPDATE seasons s SET is_active = false
+    WHERE s.is_active
+      AND EXISTS (
+        SELECT 1 FROM seasons s2
+        WHERE s2.company_id = s.company_id
+          AND s2.division = s.division
+          AND s2.is_active
+          AND s2.year > s.year
+      )
+  `;
+
+  // Enforce a single active season per (company, division) at the DB level, so
+  // even a race in createSeasonAction can't persist two active seasons for a
+  // division (which would, e.g., merge two years' teams into the public
+  // roster-signup dropdown). Safe to create: the backfill below and
+  // resolveSeason each make exactly one active season per division.
+  await db`CREATE UNIQUE INDEX IF NOT EXISTS ux_seasons_one_active ON seasons (company_id, division) WHERE is_active`;
+
   // Link teams to their season. Nullable so the column can be added to an
   // already-populated table; the backfill below stamps every existing row, and
   // new teams are always created with a season by the app.

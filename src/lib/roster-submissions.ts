@@ -293,15 +293,23 @@ export async function listRosterTeamOptions(
   return rows as RosterTeamOption[];
 }
 
-// Look up a team by id, scoped to the company. Used to validate the chosen team
-// and snapshot its name/division onto an acceptance. Null if it doesn't exist.
+// Look up a team by id, scoped to the company AND its active season. Used to
+// validate the chosen team on an acceptance and snapshot its name/division. The
+// public form only offers active-season teams (listRosterTeamOptions), so we
+// validate the same way here: a stale/cached form that posts an archived-season
+// team after a rollover is rejected (the accept action shows "no longer
+// available"), rather than silently adding the player to last year's roster
+// where the current-season views would never show them. Null if the team
+// doesn't exist or is no longer in its division's active season.
 export async function getOwnedTeam(
   companyId: number,
   teamId: number,
 ): Promise<{ id: number; name: string; division: string } | null> {
   const rows = await sql()`
-    SELECT id, name, division FROM teams
-    WHERE id = ${teamId} AND company_id = ${companyId}
+    SELECT t.id, t.name, t.division
+    FROM teams t
+    JOIN seasons s ON s.id = t.season_id
+    WHERE t.id = ${teamId} AND t.company_id = ${companyId} AND s.is_active
     LIMIT 1
   `;
   if (rows.length === 0) return null;

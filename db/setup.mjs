@@ -114,6 +114,22 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_seasons_company_division ON seasons (company_id, division)`;
 
+  // Demote any extra active seasons (keep the newest year) so the unique index
+  // can always be created, then enforce one active season per (company,
+  // division) at the DB level.
+  await sql`
+    UPDATE seasons s SET is_active = false
+    WHERE s.is_active
+      AND EXISTS (
+        SELECT 1 FROM seasons s2
+        WHERE s2.company_id = s.company_id
+          AND s2.division = s.division
+          AND s2.is_active
+          AND s2.year > s.year
+      )
+  `;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS ux_seasons_one_active ON seasons (company_id, division) WHERE is_active`;
+
   await sql`ALTER TABLE teams ADD COLUMN IF NOT EXISTS season_id INTEGER REFERENCES seasons(id) ON DELETE CASCADE`;
 
   await sql`

@@ -253,18 +253,15 @@ function ResultSummary({ result }: { result: BulkUploadResult }) {
 
 export default function BulkUploadForm({
   division,
-  seasonYear,
   teams,
-  companyHasTeams,
+  companyHasActiveTeams,
 }: {
   division: DivisionSlug;
-  /** The viewed season's year — auto-assign matches teams within this year so
-   *  an import can't route rows onto an archived season's roster. */
-  seasonYear: number;
   teams: TeamOption[];
-  /** Whether the company has any team (in any division) — auto-assign is
-   *  company-wide, so the form is useful even when this division has none. */
-  companyHasTeams: boolean;
+  /** Whether the company has any team in an active season (any division) —
+   *  auto-assign routes to active-season teams across divisions, so the form is
+   *  useful even when this division's season has none. */
+  companyHasActiveTeams: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     bulkUploadRosterAction,
@@ -284,7 +281,7 @@ export default function BulkUploadForm({
 
   // Show the form whenever the company has any team — auto-assign matches by
   // name across all divisions, so it's useful even from a division with none.
-  if (teams.length === 0 && !companyHasTeams) return null;
+  if (teams.length === 0 && !companyHasActiveTeams) return null;
   const noTeamsInDivision = teams.length === 0;
 
   return (
@@ -306,7 +303,6 @@ export default function BulkUploadForm({
 
         <form ref={formRef} action={formAction} className="bulk-upload-form">
           <input type="hidden" name="division" value={division} />
-          <input type="hidden" name="seasonYear" value={seasonYear} />
 
           <div className="player-grid">
             <div className="field">

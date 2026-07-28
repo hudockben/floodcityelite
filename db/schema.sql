@@ -56,6 +56,9 @@ CREATE TABLE IF NOT EXISTS seasons (
 
 CREATE INDEX IF NOT EXISTS idx_seasons_company_division ON seasons (company_id, division);
 
+-- At most one active season per (company, division).
+CREATE UNIQUE INDEX IF NOT EXISTS ux_seasons_one_active ON seasons (company_id, division) WHERE is_active;
+
 -- ---------------------------------------------------------------------------
 -- Teams & rosters
 --
