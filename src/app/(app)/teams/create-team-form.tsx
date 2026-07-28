@@ -42,7 +42,17 @@ export default function CreateTeamForm({
 
       <div className="field">
         <label htmlFor="team-sport">Sport</label>
-        <select id="team-sport" name="sport" defaultValue={defaultSport}>
+        {/* Key on the division so switching division tabs re-mounts the select
+            and re-applies that division's default sport. defaultValue only
+            takes effect on mount, so without this the uncontrolled select would
+            keep its stale value across a client-side division change. The user
+            can still override the sport for the team they're creating. */}
+        <select
+          key={division}
+          id="team-sport"
+          name="sport"
+          defaultValue={defaultSport}
+        >
           {SPORTS.map((s) => (
             <option key={s.value} value={s.value}>
               {s.label}
