@@ -3,16 +3,15 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { deleteTeamAction } from "./actions";
 import { ensureTeamsSchema } from "./schema";
 import AddPlayerForm from "./add-player-form";
 import BulkUploadForm from "./bulk-upload-form";
-import ConfirmButton from "./confirm-button";
 import CreateTeamForm from "./create-team-form";
 import ExpandOnHash from "./expand-on-hash";
 import NewSeasonForm from "./new-season-form";
 import PlayerRowItem from "./player-row";
 import SeasonBar from "./season-bar";
+import TeamChip from "./team-chip";
 import { resolveSeason, seasonLabel, type Season } from "./seasons";
 import {
   DIVISIONS,
@@ -235,29 +234,13 @@ export default async function TeamsPage({
               </span>
             </summary>
             <p className="team-manage-hint">
-              Rosters are shown in the {division.label} roster below. Use Delete
-              here to remove a team and all of its players.
+              Rosters are shown in the {division.label} roster below. Use Edit
+              here to rename a team — its roster comes along — or Delete to
+              remove the team and all of its players.
             </p>
             <ul className="team-chips">
               {teams.map((t) => (
-                <li key={t.id} className="team-chip">
-                  <span className="team-chip-name">{t.name}</span>
-                  <span className={`sport-badge sport-${t.sport}`}>
-                    {sportLabel(t.sport)}
-                  </span>
-                  <span className="team-chip-count">
-                    {t.player_count}{" "}
-                    {t.player_count === 1 ? "player" : "players"}
-                  </span>
-                  <ConfirmButton
-                    action={deleteTeamAction}
-                    hidden={{ teamId: t.id, division: division.slug }}
-                    confirmText={`Delete "${t.name}" and its entire roster? This cannot be undone.`}
-                    className="chip-delete"
-                  >
-                    Delete
-                  </ConfirmButton>
-                </li>
+                <TeamChip key={t.id} team={t} division={division.slug} />
               ))}
             </ul>
           </details>

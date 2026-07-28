@@ -1298,6 +1298,114 @@ body {
   border-color: rgba(220, 38, 38, 0.5);
 }
 
+/* Edit + Delete on a team chip. The pair is pushed to the chip's right edge as
+   a group, so Delete drops the auto margin it uses when standing alone. */
+.team-chip-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-chip-actions .chip-delete {
+  margin-left: 0;
+}
+
+.chip-edit {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.chip-edit:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.55);
+}
+
+/* Inline rename — replaces the chip's contents while a team is being edited. */
+.team-chip-editing {
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+.team-chip-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.team-chip-input {
+  flex: 1 1 240px;
+  min-width: 0;
+  padding: 9px 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.team-chip-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.chip-save {
+  padding: 8px 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #04121f;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+.chip-save:hover {
+  filter: brightness(1.06);
+}
+
+.chip-cancel {
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.chip-cancel:hover {
+  color: var(--text);
+  border-color: rgba(148, 187, 233, 0.4);
+}
+
+.chip-save:disabled,
+.chip-cancel:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* The rename error drops onto its own line under the field. */
+.chip-form-msg {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.82rem;
+}
+
 /* Collapsible "manage teams" list in step 1. The full roster lives in step 3,
    so this stays collapsed by default to keep the create panel compact and
    avoid the impression that rosters are edited up here. */

@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { divisionLabel, isDivisionSlug, isSport } from "./divisions";
+import {
+  divisionLabel,
+  isDivisionSlug,
+  isSport,
+  TEAM_NAME_MAX,
+} from "./divisions";
 import {
   mapRows,
   nameKey,
@@ -672,6 +677,73 @@ export async function bulkUploadRosterAction(
     console.error("bulkUpload insert error:", err);
     return { error: "Could not import the roster. Please try again." };
   }
+}
+
+// --- rename a team ---------------------------------------------------------
+
+// Fixing a team's name in place, so a typo doesn't cost the coach the roster:
+// the team keeps its id, and everything hanging off it (players, schedule,
+// budget, past submissions) follows the new name automatically.
+export async function renameTeamAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await getSession();
+  if (!session) return { error: "Your session has expired. Please sign in again." };
+
+  const teamId = Number.parseInt(String(formData.get("teamId") ?? ""), 10);
+  const name = text(formData, "name");
+
+  if (!Number.isFinite(teamId)) return { error: "Missing team." };
+  if (!name) return { error: "Enter a team name." };
+  // teams.name is VARCHAR(120); catch it here so an over-long name reads as a
+  // form error instead of a database failure.
+  if (name.length > TEAM_NAME_MAX) {
+    return { error: `Team names are limited to ${TEAM_NAME_MAX} characters.` };
+  }
+
+  try {
+    await ensureTeamsSchema();
+
+    // Two teams sharing a name inside one season make the bulk import's team
+    // column ambiguous (those rows get skipped) and block the copy-forward a
+    // new season does, so refuse the collision — matched case- and
+    // whitespace-insensitively, the same way the importer matches names.
+    const siblings = await sql()`
+      SELECT id, name FROM teams
+      WHERE company_id = ${session.companyId}
+        AND season_id = (
+          SELECT season_id FROM teams
+          WHERE id = ${teamId} AND company_id = ${session.companyId}
+        )
+    `;
+    const key = teamKey(name);
+    const clash = siblings.some((row) => {
+      const t = row as { id: number; name: string };
+      return Number(t.id) !== teamId && teamKey(String(t.name)) === key;
+    });
+    if (clash) {
+      return { error: "Another team in this season already has that name." };
+    }
+
+    // Scope the update to this company so a stale form can't rename someone
+    // else's team.
+    const updated = await sql()`
+      UPDATE teams SET name = ${name}, updated_at = now()
+      WHERE id = ${teamId} AND company_id = ${session.companyId}
+      RETURNING id
+    `;
+    if (updated.length === 0) return { error: "That team no longer exists." };
+  } catch (err) {
+    console.error("renameTeam error:", err);
+    return { error: "Could not rename the team. Please try again." };
+  }
+
+  // The name is shown on the Schedules and Budgets tabs too.
+  revalidatePath("/teams");
+  revalidatePath("/schedules");
+  revalidatePath("/budgets");
+  return { ok: true };
 }
 
 // --- delete a team (and its roster) ----------------------------------------

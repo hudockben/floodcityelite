@@ -35,6 +35,12 @@ export const DIVISIONS: Division[] = [
 
 export const DEFAULT_DIVISION: DivisionSlug = DIVISIONS[0].slug;
 
+/**
+ * Max length of a team name. Mirrors the teams.name VARCHAR(120) column so the
+ * form's maxLength and the server-side check stay in step with the database.
+ */
+export const TEAM_NAME_MAX = 120;
+
 export const SPORTS: { value: Sport; label: string }[] = [
   { value: "baseball", label: "Baseball" },
   { value: "softball", label: "Softball" },
