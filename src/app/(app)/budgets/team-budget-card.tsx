@@ -8,6 +8,7 @@ import {
   derivePortion,
   formatMoney,
   fundraisingPerPlayer,
+  isBudgetConfigured,
   parseMoney,
   resolvePayingCount,
   startingBalance,
@@ -316,11 +317,12 @@ export default function TeamBudgetCard({
             ? { text: "Saved", className: "bss-saved" }
             : null;
 
-  // Current balance / fundraising are only meaningful once the team has a real
-  // starting-balance basis (a per-player portion AND paying players). Until
-  // then the sheet would present un-entered inputs as a deficit, so we gate
-  // those rows and the summary figure on it.
-  const configured = starting > 0;
+  // Current balance / fundraising are only meaningful once the team has real
+  // inputs (paying players AND a tuition or portion override). Until then the
+  // sheet would present un-entered fields as a deficit, so we gate those rows
+  // and the summary figure on it. A team that *is* set up and under water shows
+  // its figures — that's the shortfall the fundraising row is there to size.
+  const configured = isBudgetConfigured(payingCount, tuitionNum, portionOverride);
 
   return (
     <details className="team-group budget-group">
@@ -482,16 +484,17 @@ export default function TeamBudgetCard({
                           `manual override · auto would be ${formatMoney(derivedPortion)}`
                         ) : tuitionNum <= 0 ? (
                           "tuition less the fixed cost per player — enter a tuition above"
-                        ) : fixedCostPerPlayer >= tuitionNum ? (
-                          // Derived, and derived to nothing. Saying so beats an
-                          // unexplained $0.00 that reads as a figure that never
-                          // calculated: the tuition doesn't cover the program's
-                          // fixed cost per player, so none of it reaches the team.
+                        ) : derivedPortion < 0 ? (
+                          // Under water: the tuition doesn't cover the program's
+                          // fixed cost per player, so every player signed puts
+                          // the team further down. Say it in those terms — the
+                          // figure is a real shortfall, not a missing number.
                           <>
                             {formatMoney(fixedCostPerPlayer)} fixed cost per
                             player is more than the {formatMoney(tuitionNum)}{" "}
-                            tuition, so none of it reaches the team budget —
-                            check the divisor on the{" "}
+                            tuition — every player starts the team{" "}
+                            {formatMoney(-derivedPortion)} down. Check the
+                            divisor on the{" "}
                             <Link className="bs-note-link" href="/fixed-cost">
                               Fixed Cost
                             </Link>{" "}
@@ -511,15 +514,41 @@ export default function TeamBudgetCard({
                           schedule();
                         }}
                         onBlur={() => void flush()}
-                        placeholder={String(derivedPortion.toFixed(2))}
+                        // Only offer the derived figure once there's a tuition
+                        // to derive it from; before that it's just the fixed
+                        // cost back as a negative, which reads as nonsense in a
+                        // field that takes a positive amount.
+                        placeholder={
+                          tuitionNum > 0 ? derivedPortion.toFixed(2) : "0.00"
+                        }
                         ariaLabel="Portion of tuition that goes to the team budget, per player (leave blank to use tuition minus the fixed cost per player)"
                       />
                     </td>
                   </tr>
 
                   <tr className="bs-total">
-                    <th scope="row">Starting Balance-Team Budget</th>
-                    <td className="bs-value">{formatMoney(starting)}</td>
+                    <th scope="row">
+                      Starting Balance-Team Budget
+                      {configured && starting < 0 ? (
+                        <span className="bs-note">
+                          the team opens the season this far down — the
+                          fundraising figure below covers it
+                        </span>
+                      ) : null}
+                    </th>
+                    {/* Gated like the rows below it: with no tuition entered
+                        there is nothing but the fixed cost to subtract, and
+                        reporting that as the team's opening deficit would be
+                        reading a number the coach hasn't typed yet. */}
+                    {configured ? (
+                      <td className={`bs-value${starting < 0 ? " bs-negative" : ""}`}>
+                        {formatMoney(starting)}
+                      </td>
+                    ) : (
+                      <td className="bs-value bs-idle">
+                        <span className="bs-muted">—</span>
+                      </td>
+                    )}
                   </tr>
 
                   <tr className="bs-current">

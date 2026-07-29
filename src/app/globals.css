@@ -2217,6 +2217,12 @@ body {
   color: var(--danger);
 }
 
+/* A starting balance can be negative too, when the program's fixed cost per
+   player runs above tuition — the team opens the season owing that much. */
+.budget-sheet .bs-total .bs-value.bs-negative {
+  color: var(--danger);
+}
+
 .budget-summary-value.bs-negative {
   color: var(--danger);
 }

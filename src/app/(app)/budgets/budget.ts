@@ -190,9 +190,14 @@ export function totalTuition(payingCount: number, tuitionPerPlayer: number): num
 /**
  * What's left of a player's tuition once the program's fixed cost per player
  * (from the Fixed Cost tab) comes off it — the portion that actually reaches
- * the team budget. Computed in integer cents so it stays exact, and floored at
- * zero: fixed costs above tuition mean nothing reaches the team, not a negative
- * starting balance.
+ * the team budget. Computed in integer cents so it stays exact.
+ *
+ * It goes negative when the fixed cost per player runs above tuition: that team
+ * costs the program money on every player it takes, and the shortfall carries
+ * through to the starting balance and out to the fundraising figure. It used to
+ * be floored at zero, which reported the same $0.00 for "tuition exactly covers
+ * the fixed cost" and "tuition is $500 short of it", and left the fundraising
+ * row — the one figure that says what to do about it — reading $0.00 too.
  */
 export function derivePortion(
   tuitionPerPlayer: number,
@@ -200,7 +205,7 @@ export function derivePortion(
 ): number {
   const cents =
     Math.round(tuitionPerPlayer * 100) - Math.round(fixedCostPerPlayer * 100);
-  return cents > 0 ? cents / 100 : 0;
+  return cents / 100;
 }
 
 /**
@@ -219,11 +224,34 @@ export function resolvePortion(
   return override != null ? override : derivePortion(tuitionPerPlayer, fixedCostPerPlayer);
 }
 
+/**
+ * Whether a team's budget has enough entered to report on: a paying player to
+ * divide across, and either a tuition or a portion override to work from.
+ *
+ * Deliberately *not* "starting balance > 0". A team whose fixed cost per player
+ * runs above its tuition has a real, negative starting balance and is precisely
+ * the team worth showing a figure for — gating on a positive balance blanked
+ * out the ones that most needed reading.
+ */
+export function isBudgetConfigured(
+  payingCount: number,
+  tuitionPerPlayer: number,
+  portionOverride: number | null,
+): boolean {
+  return payingCount > 0 && (tuitionPerPlayer > 0 || portionOverride != null);
+}
+
+/**
+ * What the team budget opens with: each paying player's portion. Negative when
+ * the portion is (see derivePortion) — the team starts the season that far down,
+ * and fundraisingPerPlayer turns the gap into a per-player target. Multiplied in
+ * whole cents so the figure stays exact.
+ */
 export function startingBalance(
   payingCount: number,
   portionToTeamBudget: number,
 ): number {
-  return payingCount * portionToTeamBudget;
+  return (payingCount * Math.round(portionToTeamBudget * 100)) / 100;
 }
 
 /**
@@ -301,6 +329,10 @@ export function summarizeExpenses(
  * scheduled cost, so a negative balance means the team is short and each paying
  * player raises an equal share to get back to zero; a non-negative balance
  * needs no fundraising.
+ *
+ * The shortfall can come from either end now — scheduled costs and expenses
+ * outrunning the balance, or a starting balance that was under water to begin
+ * with because the fixed cost per player is above tuition.
  */
 export function fundraisingPerPlayer(
   balance: number,

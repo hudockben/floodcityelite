@@ -17,6 +17,7 @@ import {
   formatDateRange,
   formatMoney,
   fundraisingPerPlayer,
+  isBudgetConfigured,
   resolvePayingCount,
   resolvePortion,
   startingBalance,
@@ -236,7 +237,13 @@ export default async function BudgetPrintPage({
             const expenseNet = totals.netCents / 100;
             const current = currentBalance(starting, scheduled, expenseNet);
             const fundraise = fundraisingPerPlayer(current, payingCount);
-            const configured = starting > 0;
+            // Same rule as the on-screen sheet: real inputs, not a positive
+            // balance — a team under water still reports its figures.
+            const configured = isBudgetConfigured(
+              payingCount,
+              tuitionPer,
+              r.portion_to_team_budget ?? null,
+            );
 
             return (
               <section className="print-team" key={r.id}>
@@ -288,13 +295,21 @@ export default async function BudgetPrintPage({
                           <td>−{formatMoney(fixedCostPerPlayer)}</td>
                         </tr>
                       ) : null}
+                      {/* Both are gated like the balance rows below: with no
+                          tuition entered there's only the fixed cost to
+                          subtract, and printing that as the team's opening
+                          deficit reports a figure nobody entered. */}
                       <tr>
                         <th>Portion to team budget</th>
-                        <td>{formatMoney(portion)}</td>
+                        <td className={portion < 0 ? "neg" : undefined}>
+                          {configured ? formatMoney(portion) : "—"}
+                        </td>
                       </tr>
                       <tr className="pt">
                         <th>Starting balance — team budget</th>
-                        <td>{formatMoney(starting)}</td>
+                        <td className={starting < 0 ? "neg" : undefined}>
+                          {configured ? formatMoney(starting) : "—"}
+                        </td>
                       </tr>
                       <tr>
                         <th>Less scheduled cost</th>

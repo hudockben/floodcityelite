@@ -14,6 +14,7 @@ import {
   type PaymentType,
 } from "../payment-tracker/payments";
 import {
+  isBudgetConfigured,
   resolvePayingCount,
   resolvePortion,
   startingBalance,
@@ -84,6 +85,8 @@ type BudgetAtRisk = {
   starting: number;
   balance: number;
   usedPct: number;
+  /** Whether the team has budget inputs worth reporting on at all. */
+  configured: boolean;
 };
 
 // ---- date helpers (server-only render, so a Date is safe here) -------------
@@ -252,7 +255,11 @@ export default async function HomeplatePage() {
       );
       const starting = startingBalance(payingCount, portion);
       const balance = currentBalance(starting, r.scheduled_cost ?? 0, r.expense_net ?? 0);
-      const usedPct = starting > 0 ? (starting - balance) / starting : 0;
+      // A team whose fixed cost per player runs above its tuition opens the
+      // season in the red: there's no positive budget to measure a percentage
+      // against, and it's already fully spent, so it counts as 100% used. The
+      // old `starting > 0` guard dropped exactly those teams off this list.
+      const usedPct = starting > 0 ? (starting - balance) / starting : 1;
       return {
         id: r.id,
         name: r.name,
@@ -261,9 +268,14 @@ export default async function HomeplatePage() {
         starting,
         balance,
         usedPct,
+        configured: isBudgetConfigured(
+          payingCount,
+          r.tuition_per_player ?? 0,
+          r.portion_to_team_budget ?? null,
+        ),
       };
     })
-    .filter((r) => r.starting > 0 && r.usedPct >= AT_RISK_FRACTION)
+    .filter((r) => r.configured && r.usedPct >= AT_RISK_FRACTION)
     .sort((a, b) => a.balance - b.balance) // most over first
     .slice(0, MAX_BUDGETS);
 
@@ -434,7 +446,9 @@ export default async function HomeplatePage() {
                           <div className="hp-row-sub">
                             {divisionLabel(b.division)}
                             <span className="hp-dot">·</span>
-                            {pct}% of {formatMoney(b.starting)} used
+                            {b.starting > 0
+                              ? `${pct}% of ${formatMoney(b.starting)} used`
+                              : `starts ${formatMoney(Math.abs(b.starting))} in the red`}
                           </div>
                           <div className={`hp-meter ${meterClass}`}>
                             <span style={{ width: `${pct}%` }} />
