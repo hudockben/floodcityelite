@@ -68,8 +68,9 @@ export default async function BudgetPrintPage({
   let tournaments: TournamentRow[] = [];
   let season: Season | null = null;
   let loadError = false;
-  // Same figure the on-screen sheet subtracts, so the printout matches it.
-  const fixedCostPerPlayer = await loadFixedCostPerPlayer(session.companyId);
+  // Same figure the on-screen sheet subtracts, so the printout matches it —
+  // resolved from the season's year once that's known, below.
+  let fixedCostPerPlayer = 0;
 
   try {
     await ensureTeamsSchema();
@@ -83,6 +84,11 @@ export default async function BudgetPrintPage({
     );
     season = resolved.current;
     const seasonId = resolved.current.id;
+
+    fixedCostPerPlayer = await loadFixedCostPerPlayer(
+      session.companyId,
+      resolved.current.year,
+    );
 
     const [budgetRows, expenseRows, tournamentRows] = await Promise.all([
       sql()`

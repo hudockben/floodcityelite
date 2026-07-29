@@ -106,7 +106,18 @@ ones are:
   team a player lands on (uniforms, insurance, facility time). A *section* is a
   group the user names; an *item* is one cost inside it. The total divided by
   the player count is the **fixed cost per player**, and that's what ties this
-  tab to Budgets:
+  tab to Budgets.
+
+  Costs are kept **per season year**, picked with the same year pills the Teams
+  and Budgets tabs use — `season_year` on the section rather than a
+  `seasons(id)`, because a season row is one *division's* run while insurance
+  and uniforms are bought once for the whole program. So one year's sheet feeds
+  every division's budgets for that year, and each year carries its own player
+  count (`fixed_cost_settings` is keyed by company **and** year). A sheet
+  written before the year existed is migrated onto the company's active season
+  year, so nothing disappears.
+
+  The tie to Budgets: 
 
   ```
   portion to team budget = tuition per player − fixed cost per player

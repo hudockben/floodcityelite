@@ -66,6 +66,8 @@ type BudgetRow = {
   /** Roster players marked "Paying" — the paying-player default (matches the
    *  Budgets tab). */
   paying_count: number;
+  /** The year of the season this team belongs to (null if unseasoned). */
+  season_year: number | null;
   tuition_per_player: number | null;
   portion_to_team_budget: number | null;
   paying_players: number | null;
@@ -136,9 +138,6 @@ export default async function HomeplatePage() {
   let payments: RecentPaymentRow[] = [];
   let budgetRows: BudgetRow[] = [];
   let loadError = false;
-  // The program's fixed cost per player, so the at-risk balances here match the
-  // ones the Budgets tab shows.
-  const fixedCostPerPlayer = await loadFixedCostPerPlayer(session.companyId);
 
   try {
     // Make sure every table these sections read exists — the tabs each do this
@@ -194,6 +193,7 @@ export default async function HomeplatePage() {
           t.sport,
           (SELECT count(*) FROM players p
              WHERE p.team_id = t.id AND p.is_paying)::int AS paying_count,
+          se.year                          AS season_year,
           b.tuition_per_player::float8     AS tuition_per_player,
           b.portion_to_team_budget::float8 AS portion_to_team_budget,
           b.paying_players                 AS paying_players,
@@ -209,6 +209,7 @@ export default async function HomeplatePage() {
                                            AS expense_net
         FROM teams t
         LEFT JOIN team_budgets b ON b.team_id = t.id
+        LEFT JOIN seasons se     ON se.id = t.season_id
         WHERE t.company_id = ${session.companyId}
       `,
     ]);
@@ -220,6 +221,19 @@ export default async function HomeplatePage() {
     console.error("Homeplate load error:", err);
     loadError = true;
   }
+
+  // Fixed costs are kept per season year, and this page spans every team the
+  // company has — so look up each year present once and index by it, keeping
+  // the at-risk balances identical to what the Budgets tab shows per season.
+  const years = [...new Set(budgetRows.map((r) => r.season_year).filter((y): y is number => y != null))];
+  const fixedCostByYear = new Map<number, number>(
+    await Promise.all(
+      years.map(
+        async (y) =>
+          [y, await loadFixedCostPerPlayer(session.companyId, y)] as const,
+      ),
+    ),
+  );
 
   const moreEvents = events.length > MAX_UPCOMING;
   const upcoming = moreEvents ? events.slice(0, MAX_UPCOMING) : events;
@@ -234,7 +248,7 @@ export default async function HomeplatePage() {
       const portion = resolvePortion(
         r.portion_to_team_budget ?? null,
         r.tuition_per_player ?? 0,
-        fixedCostPerPlayer,
+        (r.season_year != null ? fixedCostByYear.get(r.season_year) : 0) ?? 0,
       );
       const starting = startingBalance(payingCount, portion);
       const balance = currentBalance(starting, r.scheduled_cost ?? 0, r.expense_net ?? 0);

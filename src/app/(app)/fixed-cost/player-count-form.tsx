@@ -12,9 +12,12 @@ const initialState: FormState = {};
 export default function PlayerCountForm({
   override,
   rosterCount,
+  year,
 }: {
   override: number | null;
   rosterCount: number;
+  /** The season year this count belongs to. */
+  year: number;
 }) {
   const [state, formAction, pending] = useActionState(
     savePlayerCountAction,
@@ -23,6 +26,7 @@ export default function PlayerCountForm({
 
   return (
     <form action={formAction} className="fx-count-form">
+      <input type="hidden" name="year" value={year} />
       <label className="fx-count-label" htmlFor="fx-player-count">
         Players
       </label>

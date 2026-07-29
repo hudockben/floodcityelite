@@ -467,15 +467,29 @@ async function main() {
   // on the active seasons' rosters.
   await sql`
     CREATE TABLE IF NOT EXISTS fixed_cost_sections (
-      id          SERIAL        PRIMARY KEY,
-      company_id  INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-      name        VARCHAR(160)  NOT NULL,
-      created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
-      updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
+      id           SERIAL        PRIMARY KEY,
+      company_id   INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      season_year  SMALLINT      NOT NULL DEFAULT EXTRACT(YEAR FROM now()),
+      name         VARCHAR(160)  NOT NULL,
+      created_at   TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at   TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
   `;
 
-  await sql`CREATE INDEX IF NOT EXISTS idx_fixed_cost_sections_company_id ON fixed_cost_sections (company_id)`;
+  // Put an existing sheet on the company's active season year so nothing
+  // disappears when the tab starts asking for a year. Idempotent.
+  await sql`ALTER TABLE fixed_cost_sections ADD COLUMN IF NOT EXISTS season_year SMALLINT`;
+  await sql`
+    UPDATE fixed_cost_sections s
+    SET season_year = COALESCE(
+      (SELECT max(se.year) FROM seasons se WHERE se.company_id = s.company_id AND se.is_active),
+      EXTRACT(YEAR FROM now())::smallint)
+    WHERE s.season_year IS NULL
+  `;
+  await sql`ALTER TABLE fixed_cost_sections ALTER COLUMN season_year SET DEFAULT EXTRACT(YEAR FROM now())`;
+  await sql`ALTER TABLE fixed_cost_sections ALTER COLUMN season_year SET NOT NULL`;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_fixed_cost_sections_company_year ON fixed_cost_sections (company_id, season_year)`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS fixed_cost_items (
@@ -492,11 +506,30 @@ async function main() {
 
   await sql`
     CREATE TABLE IF NOT EXISTS fixed_cost_settings (
-      company_id    INTEGER      PRIMARY KEY REFERENCES companies(id) ON DELETE CASCADE,
+      company_id    INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      season_year   SMALLINT     NOT NULL DEFAULT EXTRACT(YEAR FROM now()),
       player_count  INTEGER,
       created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
       updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
     )
+  `;
+
+  // Same migration for the settings row, plus swapping its company-only primary
+  // key for a (company, year) unique index so each year carries its own count.
+  await sql`ALTER TABLE fixed_cost_settings ADD COLUMN IF NOT EXISTS season_year SMALLINT`;
+  await sql`
+    UPDATE fixed_cost_settings f
+    SET season_year = COALESCE(
+      (SELECT max(se.year) FROM seasons se WHERE se.company_id = f.company_id AND se.is_active),
+      EXTRACT(YEAR FROM now())::smallint)
+    WHERE f.season_year IS NULL
+  `;
+  await sql`ALTER TABLE fixed_cost_settings ALTER COLUMN season_year SET DEFAULT EXTRACT(YEAR FROM now())`;
+  await sql`ALTER TABLE fixed_cost_settings ALTER COLUMN season_year SET NOT NULL`;
+  await sql`ALTER TABLE fixed_cost_settings DROP CONSTRAINT IF EXISTS fixed_cost_settings_pkey`;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_fixed_cost_settings_company_year
+      ON fixed_cost_settings (company_id, season_year)
   `;
 
   // A college coach contact owned by a company — the Contact Info tab. `sport`

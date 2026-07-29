@@ -30,19 +30,37 @@ async function provision(): Promise<void> {
 
   const db = sql();
 
-  // A user-named group of fixed costs ("Uniforms", "Insurance"). Program-wide:
-  // these costs are paid once for the whole program, not per team.
+  // A user-named group of fixed costs ("Uniforms", "Insurance"), for one season
+  // year. Program-wide within that year: these costs are paid once for the whole
+  // program rather than per team or per division, which is why the year is a
+  // plain number here instead of a seasons(id) — a season row is per division.
   await db`
     CREATE TABLE IF NOT EXISTS fixed_cost_sections (
-      id          SERIAL        PRIMARY KEY,
-      company_id  INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-      name        VARCHAR(160)  NOT NULL,
-      created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
-      updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
+      id           SERIAL        PRIMARY KEY,
+      company_id   INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      season_year  SMALLINT      NOT NULL DEFAULT EXTRACT(YEAR FROM now()),
+      name         VARCHAR(160)  NOT NULL,
+      created_at   TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at   TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
   `;
 
-  await db`CREATE INDEX IF NOT EXISTS idx_fixed_cost_sections_company_id ON fixed_cost_sections (company_id)`;
+  // Add the year to a database whose sections predate it, putting the existing
+  // sheet on the company's active season year (falling back to this year) so
+  // nothing disappears when the tab starts asking for a year.
+  await db`ALTER TABLE fixed_cost_sections ADD COLUMN IF NOT EXISTS season_year SMALLINT`;
+  await db`
+    UPDATE fixed_cost_sections s
+    SET season_year = COALESCE(
+      (SELECT max(se.year) FROM seasons se
+        WHERE se.company_id = s.company_id AND se.is_active),
+      EXTRACT(YEAR FROM now())::smallint)
+    WHERE s.season_year IS NULL
+  `;
+  await db`ALTER TABLE fixed_cost_sections ALTER COLUMN season_year SET DEFAULT EXTRACT(YEAR FROM now())`;
+  await db`ALTER TABLE fixed_cost_sections ALTER COLUMN season_year SET NOT NULL`;
+
+  await db`CREATE INDEX IF NOT EXISTS idx_fixed_cost_sections_company_year ON fixed_cost_sections (company_id, season_year)`;
 
   // One line item inside a section. Deleting the section takes its items with
   // it, which is what "remove this section" means to the user.
@@ -59,15 +77,38 @@ async function provision(): Promise<void> {
 
   await db`CREATE INDEX IF NOT EXISTS idx_fixed_cost_items_section_id ON fixed_cost_items (section_id)`;
 
-  // One settings row per company. `player_count` is the optional manual
-  // override for the number of players the fixed cost is split across; NULL
-  // falls back to the players marked "Paying" on the active seasons' rosters.
+  // One settings row per company *per year*. `player_count` is the optional
+  // manual override for the number of players that year's fixed cost is split
+  // across; NULL falls back to the players marked "Paying" on the rosters of
+  // that year's seasons.
   await db`
     CREATE TABLE IF NOT EXISTS fixed_cost_settings (
-      company_id    INTEGER      PRIMARY KEY REFERENCES companies(id) ON DELETE CASCADE,
+      company_id    INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      season_year   SMALLINT     NOT NULL DEFAULT EXTRACT(YEAR FROM now()),
       player_count  INTEGER,
       created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
       updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
     )
+  `;
+
+  // Same migration for a settings table that predates the year: add it, put the
+  // saved override on the active season year, then swap the company-only
+  // primary key for a (company, year) unique index so each year can carry its
+  // own count. Every step is idempotent.
+  await db`ALTER TABLE fixed_cost_settings ADD COLUMN IF NOT EXISTS season_year SMALLINT`;
+  await db`
+    UPDATE fixed_cost_settings f
+    SET season_year = COALESCE(
+      (SELECT max(se.year) FROM seasons se
+        WHERE se.company_id = f.company_id AND se.is_active),
+      EXTRACT(YEAR FROM now())::smallint)
+    WHERE f.season_year IS NULL
+  `;
+  await db`ALTER TABLE fixed_cost_settings ALTER COLUMN season_year SET DEFAULT EXTRACT(YEAR FROM now())`;
+  await db`ALTER TABLE fixed_cost_settings ALTER COLUMN season_year SET NOT NULL`;
+  await db`ALTER TABLE fixed_cost_settings DROP CONSTRAINT IF EXISTS fixed_cost_settings_pkey`;
+  await db`
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_fixed_cost_settings_company_year
+      ON fixed_cost_settings (company_id, season_year)
   `;
 }

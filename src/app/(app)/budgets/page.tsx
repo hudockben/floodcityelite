@@ -37,9 +37,10 @@ export default async function BudgetsPage({
   let seasons: Season[] = [];
   let season: Season | null = null;
   let loadError = false;
-  // The program's fixed cost per player. Each team's portion of tuition is
-  // derived from it unless that team overrides the portion by hand.
-  const fixedCostPerPlayer = await loadFixedCostPerPlayer(session.companyId);
+  // The program's fixed cost per player for the season being viewed. Each
+  // team's portion of tuition is derived from it unless that team overrides the
+  // portion by hand. Resolved once the season is known, below.
+  let fixedCostPerPlayer = 0;
 
   try {
     // Ensure the roster tables exist first (the FK target), then the budgets
@@ -58,6 +59,12 @@ export default async function BudgetsPage({
     season = resolved.current;
     seasons = resolved.seasons;
     const seasonId = resolved.current.id;
+
+    // The fixed-cost sheet is kept per year, so this season's year picks it.
+    fixedCostPerPlayer = await loadFixedCostPerPlayer(
+      session.companyId,
+      resolved.current.year,
+    );
 
     const [budgetRows, expenseRows, tournamentRows] = await Promise.all([
       sql()`

@@ -373,19 +373,36 @@ CREATE INDEX IF NOT EXISTS idx_camp_payments_camp_player_id ON camp_payments (ca
 -- player* the Budgets tab subtracts from each team's tuition to work out the
 -- portion of a player's payment that reaches the team budget.
 --
+-- Costs are kept per season *year* (a season row is one division's run, but
+-- insurance and uniforms are bought once for the whole program), so one year's
+-- sheet feeds every division's budgets for that year.
 -- `fixed_cost_settings.player_count` is an optional manual override for that
--- divisor; when NULL it falls back to the players marked "Paying" on the
--- rosters of the company's active seasons.
+-- year's divisor; when NULL it falls back to the players marked "Paying" on the
+-- rosters of that year's seasons.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS fixed_cost_sections (
-    id          SERIAL        PRIMARY KEY,
-    company_id  INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-    name        VARCHAR(160)  NOT NULL,
-    created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
+    id           SERIAL        PRIMARY KEY,
+    company_id   INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    season_year  SMALLINT      NOT NULL DEFAULT EXTRACT(YEAR FROM now()),
+    name         VARCHAR(160)  NOT NULL,
+    created_at   TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_fixed_cost_sections_company_id ON fixed_cost_sections (company_id);
+-- Add the season year to a database whose sections predate it, putting the
+-- existing sheet on the company's active season year (falling back to this
+-- year) so nothing disappears when the tab starts asking for a year. Runs
+-- before the index below, which references the column. Idempotent.
+ALTER TABLE fixed_cost_sections ADD COLUMN IF NOT EXISTS season_year SMALLINT;
+UPDATE fixed_cost_sections s
+SET season_year = COALESCE(
+  (SELECT max(se.year) FROM seasons se WHERE se.company_id = s.company_id AND se.is_active),
+  EXTRACT(YEAR FROM now())::smallint)
+WHERE s.season_year IS NULL;
+ALTER TABLE fixed_cost_sections ALTER COLUMN season_year SET DEFAULT EXTRACT(YEAR FROM now());
+ALTER TABLE fixed_cost_sections ALTER COLUMN season_year SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_fixed_cost_sections_company_year ON fixed_cost_sections (company_id, season_year);
 
 CREATE TABLE IF NOT EXISTS fixed_cost_items (
     id          SERIAL        PRIMARY KEY,
@@ -399,11 +416,28 @@ CREATE TABLE IF NOT EXISTS fixed_cost_items (
 CREATE INDEX IF NOT EXISTS idx_fixed_cost_items_section_id ON fixed_cost_items (section_id);
 
 CREATE TABLE IF NOT EXISTS fixed_cost_settings (
-    company_id    INTEGER      PRIMARY KEY REFERENCES companies(id) ON DELETE CASCADE,
+    company_id    INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    season_year   SMALLINT     NOT NULL DEFAULT EXTRACT(YEAR FROM now()),
     player_count  INTEGER,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
+
+-- Same for the settings row, plus swapping its company-only primary key for a
+-- (company, year) unique index so each year carries its own player count.
+ALTER TABLE fixed_cost_settings ADD COLUMN IF NOT EXISTS season_year SMALLINT;
+UPDATE fixed_cost_settings f
+SET season_year = COALESCE(
+  (SELECT max(se.year) FROM seasons se WHERE se.company_id = f.company_id AND se.is_active),
+  EXTRACT(YEAR FROM now())::smallint)
+WHERE f.season_year IS NULL;
+ALTER TABLE fixed_cost_settings ALTER COLUMN season_year SET DEFAULT EXTRACT(YEAR FROM now());
+ALTER TABLE fixed_cost_settings ALTER COLUMN season_year SET NOT NULL;
+ALTER TABLE fixed_cost_settings DROP CONSTRAINT IF EXISTS fixed_cost_settings_pkey;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_fixed_cost_settings_company_year
+  ON fixed_cost_settings (company_id, season_year);
+
+
 
 -- ---------------------------------------------------------------------------
 -- Contact Info (college coaches)

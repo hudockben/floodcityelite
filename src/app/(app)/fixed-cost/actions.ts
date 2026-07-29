@@ -19,6 +19,16 @@ function revalidateAll(): void {
 
 // --- form-value helpers ----------------------------------------------------
 
+// The season year a write belongs to, carried by a hidden field on each form.
+// A missing or nonsense value falls back to the current year rather than
+// silently landing the row on some other year's sheet.
+function year(formData: FormData): number {
+  const raw = Number.parseInt(String(formData.get("year") ?? ""), 10);
+  return Number.isFinite(raw) && raw >= 2000 && raw <= 2100
+    ? raw
+    : new Date().getFullYear();
+}
+
 function name(formData: FormData, key: string, max: number): string | null {
   const value = String(formData.get(key) ?? "").trim();
   return value === "" ? null : value.slice(0, max);
@@ -50,8 +60,8 @@ export async function addSectionAction(
   try {
     await ensureFixedCostSchema();
     await sql()`
-      INSERT INTO fixed_cost_sections (company_id, name)
-      VALUES (${session.companyId}, ${sectionName})
+      INSERT INTO fixed_cost_sections (company_id, season_year, name)
+      VALUES (${session.companyId}, ${year(formData)}, ${sectionName})
     `;
   } catch (err) {
     console.error("addSection error:", err);
@@ -227,10 +237,11 @@ export async function savePlayerCountAction(
 
   try {
     await ensureFixedCostSchema();
+    // One row per (company, year) — the unique index the schema creates.
     await sql()`
-      INSERT INTO fixed_cost_settings (company_id, player_count, updated_at)
-      VALUES (${session.companyId}, ${count}, now())
-      ON CONFLICT (company_id) DO UPDATE SET
+      INSERT INTO fixed_cost_settings (company_id, season_year, player_count, updated_at)
+      VALUES (${session.companyId}, ${year(formData)}, ${count}, now())
+      ON CONFLICT (company_id, season_year) DO UPDATE SET
         player_count = EXCLUDED.player_count,
         updated_at   = now()
     `;

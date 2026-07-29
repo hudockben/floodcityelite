@@ -6,49 +6,73 @@ import { formatCents } from "../budgets/budget";
 import AddSectionForm from "./add-section-form";
 import PlayerCountForm from "./player-count-form";
 import SectionCard from "./section-card";
-import { loadFixedCostBasis, type FixedCostBasis } from "./basis";
+import {
+  activeSeasonYear,
+  emptyBasis,
+  listFixedCostYears,
+  loadFixedCostBasis,
+  resolveFixedCostYear,
+  type FixedCostBasis,
+} from "./basis";
+import YearBar from "./year-bar";
 import type { FixedCostItem, FixedCostSection } from "./fixed-costs";
 
 export const dynamic = "force-dynamic";
 
-const EMPTY_BASIS: FixedCostBasis = {
-  totalCents: 0,
-  rosterPlayerCount: 0,
-  overrideCount: null,
-  playerCount: 0,
-  perPlayerCents: 0,
-  perPlayer: 0,
-};
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
 
-export default async function FixedCostPage() {
+export default async function FixedCostPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string | string[] }>;
+}) {
   const session = await getSession();
   if (!session) redirect("/");
 
+  const params = await searchParams;
+  const yearRaw = firstParam(params.year);
+  const requestedYear = yearRaw ? Number.parseInt(yearRaw, 10) : null;
+
   let sections: FixedCostSection[] = [];
   let items: FixedCostItem[] = [];
-  let basis = EMPTY_BASIS;
+  let years: number[] = [];
+  let basis: FixedCostBasis = emptyBasis(
+    Number.isFinite(requestedYear) && requestedYear != null
+      ? requestedYear
+      : new Date().getFullYear(),
+  );
   let loadError = false;
 
   try {
-    // loadFixedCostBasis provisions the tables on first use, so the tab works
+    // listFixedCostYears provisions the tables on first use, so the tab works
     // even if the database predates this feature. Idempotent and memoized.
-    basis = await loadFixedCostBasis(session.companyId);
+    years = await listFixedCostYears(session.companyId);
+    const year = resolveFixedCostYear(
+      Number.isFinite(requestedYear) ? requestedYear : null,
+      years,
+      await activeSeasonYear(session.companyId),
+    );
 
-    const [sectionRows, itemRows] = await Promise.all([
+    const [loadedBasis, sectionRows, itemRows] = await Promise.all([
+      loadFixedCostBasis(session.companyId, year),
       sql()`
         SELECT id, name
         FROM fixed_cost_sections
-        WHERE company_id = ${session.companyId}
+        WHERE company_id = ${session.companyId} AND season_year = ${year}
         ORDER BY id
       `,
       sql()`
         SELECT i.id, i.section_id, i.name, i.amount::text AS amount
         FROM fixed_cost_items i
         JOIN fixed_cost_sections s ON s.id = i.section_id
-        WHERE s.company_id = ${session.companyId}
+        WHERE s.company_id = ${session.companyId} AND s.season_year = ${year}
         ORDER BY i.id
       `,
     ]);
+
+    basis = loadedBasis;
 
     sections = sectionRows as FixedCostSection[];
     items = itemRows as FixedCostItem[];
@@ -72,15 +96,20 @@ export default async function FixedCostPage() {
           <h1>Fixed Cost</h1>
           <p>
             What the program pays for up front — uniforms, insurance, facility
-            time — grouped into sections you name. The total split across your
-            players is the fixed cost per player, and the{" "}
+            time — grouped into sections you name, one sheet per season. The
+            total split across that season&apos;s players is the fixed cost per
+            player, and the{" "}
             <Link className="inline-link" href="/budgets">
               Budgets
             </Link>{" "}
-            tab takes it off each team&apos;s tuition to work out how much of
-            every player&apos;s payment reaches the team.
+            tab takes it off the tuition of every team in that season, to work
+            out how much of each player&apos;s payment reaches their team.
           </p>
         </div>
+
+        {!loadError && years.length > 0 ? (
+          <YearBar years={years} current={basis.year} />
+        ) : null}
 
         {!loadError ? (
           <div className="fx-summary">
@@ -99,11 +128,12 @@ export default async function FixedCostPage() {
               <PlayerCountForm
                 override={basis.overrideCount}
                 rosterCount={basis.rosterPlayerCount}
+                year={basis.year}
               />
               <span className="fx-tile-note">
                 {basis.overrideCount == null
-                  ? `from the rosters (${basis.rosterPlayerCount} marked paying this season)`
-                  : `manual override · rosters have ${basis.rosterPlayerCount} marked paying`}
+                  ? `from the ${basis.year} rosters (${basis.rosterPlayerCount} marked paying)`
+                  : `manual override · ${basis.year} rosters have ${basis.rosterPlayerCount} marked paying`}
               </span>
             </div>
 
@@ -150,14 +180,14 @@ export default async function FixedCostPage() {
               </p>
             </div>
 
-            <AddSectionForm />
+            <AddSectionForm year={basis.year} />
           </section>
 
           {/* Step 2 — the sheet */}
           <section className="panel">
             <div className="panel-head">
               <h2 className="step-title">
-                <span className="step-num">2</span> Fixed costs
+                <span className="step-num">2</span> {basis.year} fixed costs
               </h2>
               <p>
                 Every cost under its section. Subtotals — and what each works out
@@ -170,7 +200,7 @@ export default async function FixedCostPage() {
                 <div className="empty-icon" aria-hidden="true">
                   🧾
                 </div>
-                <p className="empty-title">No sections yet</p>
+                <p className="empty-title">No sections for {basis.year} yet</p>
                 <p className="empty-sub">
                   Add one above — something like Uniforms, Insurance, or Facility
                   — then list what it costs.
