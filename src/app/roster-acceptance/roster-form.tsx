@@ -107,27 +107,77 @@ export default function RosterAcceptanceForm({
   const formRef = useRef<HTMLFormElement>(null);
   // null = no choice yet; "yes" = accepting; "no" = declining.
   const [choice, setChoice] = useState<"yes" | "no" | null>(null);
+
+  // Every <select> on the form is CONTROLLED, and deliberately so. React 19
+  // resets a `<form action>` after each submit, and an uncontrolled <select>
+  // ignores a changed `defaultValue` on re-render — unlike an <input>, whose
+  // value attribute React does keep in sync. Left uncontrolled, a select would
+  // therefore blank out on a server error while its React state stayed put
+  // (e.g. an empty Division above a Team list still filtered to the division
+  // the parent picked). Driving them from state, and restoring that state from
+  // the echo below, keeps the whole form intact through an error.
+  //
+  // The chosen division narrows the team dropdown to that division's teams.
+  // Both are asked on accept AND decline, and survive a yes/no toggle.
+  const [division, setDivision] = useState("");
+  const [teamId, setTeamId] = useState("");
+  const [bats, setBats] = useState("");
+  const [throwsWith, setThrowsWith] = useState("");
   // The "Did you play in 2026?" answer gates the jersey inputs: "yes" (returning
   // player) shows a single returning number; "no" (new player) shows three
   // ranked options. "" = not answered yet, so neither is shown.
   const [played, setPlayed] = useState<"" | "yes" | "no">("");
-  // The chosen division narrows the team dropdown to that division's teams. Both
-  // selects are asked on accept AND decline (and stay mounted across a yes/no
-  // toggle), so this is deliberately NOT reset when the choice changes — that
-  // would leave the state out of step with the still-rendered <select>.
-  const [division, setDivision] = useState<string>("");
 
-  // On a successful submit, reset the form and clear the choice / played /
-  // division state so the next parent starts fresh. The success banner (driven
-  // by `state.ok`) stays until the next submit.
+  // Controlling the selects isn't enough on its own: React 19's post-submit
+  // reset reverts each one to its first non-disabled <option> behind React's
+  // back, and React won't rewrite a controlled node whose `value` prop hasn't
+  // changed — so the DOM would sit there disagreeing with our state (a Division
+  // reading "Spring/Summer Baseball" over a team list still filtered to
+  // Softball). Bumping this key on every action result remounts the selects, so
+  // React builds fresh nodes and writes the current state value into each.
+  const [selectKey, setSelectKey] = useState(0);
+
   useEffect(() => {
-    if (state?.ok) {
+    // Nothing has been submitted yet (the initial state) — leave the form alone.
+    if (!state?.ok && !state?.values) return;
+
+    // On a successful submit, reset the form and clear the choice and every
+    // select so the next parent starts fresh. The success banner (driven by
+    // `state.ok`) stays until the next submit.
+    if (state.ok) {
       formRef.current?.reset();
       setChoice(null);
-      setPlayed("");
       setDivision("");
+      setTeamId("");
+      setBats("");
+      setThrowsWith("");
+      setPlayed("");
+    } else if (state.values) {
+      // On an error, re-fill the selects from the echoed values — belt and
+      // braces, since the state that drives them survives the reset anyway
+      // (this is what restores them if the form is ever remounted outright).
+      // The text inputs re-fill themselves through `defaultValue`.
+      const echo = state.values;
+      setDivision(echo.division ?? "");
+      setTeamId(echo.teamId ?? "");
+      setBats(echo.bats ?? "");
+      setThrowsWith(echo.throws ?? "");
+      const answer = echo.played_fce_2026;
+      setPlayed(answer === "yes" || answer === "no" ? answer : "");
     }
+
+    // Remount the selects so the values above are written into fresh DOM nodes,
+    // undoing React 19's reset (see selectKey).
+    setSelectKey((k) => k + 1);
   }, [state]);
+
+  // Division + team are mandatory — except for a decline when there's nothing to
+  // pick from. The team list renders empty both when no teams are set up yet and
+  // when the page's load failed (it swallows the error), and a parent turning a
+  // spot down shouldn't be blocked by our side being down. An ACCEPT still
+  // requires a team either way: without one there's no roster to join. The
+  // server applies the same rule (it re-checks that the list is really empty).
+  const teamRequired = choice === "yes" || teams.length > 0;
 
   // Group the teams by division so the dropdown can show them under headings.
   const teamsByDivision = useMemo(() => {
@@ -234,13 +284,21 @@ export default function RosterAcceptanceForm({
               offer still records which spot was turned down. Division first: it
               narrows the team list below to that division. */}
           <div className="field">
-            <label htmlFor="ra-division">Division *</label>
+            <label htmlFor="ra-division">
+              Division{teamRequired ? " *" : ""}
+            </label>
             <select
+              key={selectKey}
               id="ra-division"
               name="division"
-              defaultValue={state.values?.division ?? ""}
-              onChange={(e) => setDivision(e.target.value)}
-              required
+              value={division}
+              onChange={(e) => {
+                setDivision(e.target.value);
+                // The team list below is about to change; drop any team picked
+                // under the previous division.
+                setTeamId("");
+              }}
+              required={teamRequired}
             >
               <option value="" disabled>
                 Choose a division…
@@ -253,23 +311,25 @@ export default function RosterAcceptanceForm({
             </select>
             {teams.length === 0 ? (
               <p className="field-hint">
-                No teams are set up yet — please check back soon.
+                {choice === "no"
+                  ? "No teams are listed right now — go ahead and submit and we'll match your response up on our end."
+                  : "No teams are set up yet — please check back soon."}
               </p>
             ) : null}
           </div>
 
           <div className="field">
             <label htmlFor="ra-teamId">
-              {choice === "no" ? "Team you're declining" : "Team"} *
+              {choice === "no" ? "Team you're declining" : "Team"}
+              {teamRequired ? " *" : ""}
             </label>
-            {/* key={division} remounts the select when the division changes,
-                so the team selection resets to the placeholder. */}
             <select
-              key={division}
+              key={selectKey}
               id="ra-teamId"
               name="teamId"
-              defaultValue={state.values?.teamId ?? ""}
-              required
+              value={teamId}
+              onChange={(e) => setTeamId(e.target.value)}
+              required={teamRequired}
               disabled={!division}
             >
               <option value="">
@@ -339,9 +399,11 @@ export default function RosterAcceptanceForm({
                 <div className="field">
                   <label htmlFor="ra-bats">Bats (L/R) *</label>
                   <select
+                    key={selectKey}
                     id="ra-bats"
                     name="bats"
-                    defaultValue={state.values?.bats ?? ""}
+                    value={bats}
+                    onChange={(e) => setBats(e.target.value)}
                     required
                   >
                     <option value="">Select…</option>
@@ -354,9 +416,11 @@ export default function RosterAcceptanceForm({
                 <div className="field">
                   <label htmlFor="ra-throws">Throws (L/R) *</label>
                   <select
+                    key={selectKey}
                     id="ra-throws"
                     name="throws"
-                    defaultValue={state.values?.throws ?? ""}
+                    value={throwsWith}
+                    onChange={(e) => setThrowsWith(e.target.value)}
                     required
                   >
                     <option value="">Select…</option>
@@ -380,9 +444,10 @@ export default function RosterAcceptanceForm({
                   Did you play in 2026? *
                 </label>
                 <select
+                  key={selectKey}
                   id="ra-played_fce_2026"
                   name="played_fce_2026"
-                  defaultValue={state.values?.played_fce_2026 ?? ""}
+                  value={played}
                   onChange={(e) =>
                     setPlayed(e.target.value as "" | "yes" | "no")
                   }

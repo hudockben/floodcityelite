@@ -302,25 +302,42 @@ export async function listRosterTeamOptions(
   return rows as RosterTeamOption[];
 }
 
-// Look up a team by id, scoped to the company AND its active season. Used to
-// validate the chosen team on an acceptance and snapshot its name/division. The
-// public form only offers active-season teams (listRosterTeamOptions), so we
-// validate the same way here: a stale/cached form that posts an archived-season
-// team after a rollover is rejected (the accept action shows "no longer
-// available"), rather than silently adding the player to last year's roster
-// where the current-season views would never show them. Null if the team
-// doesn't exist or is no longer in its division's active season.
+// Look up a team by id, scoped to the company, and (by default) to its active
+// season. Used to validate the chosen team on a submission and snapshot its
+// name/division. Null if the team doesn't exist, belongs to another company, or
+// — when `requireActiveSeason` — is no longer in its division's active season.
+//
+// An ACCEPT requires the active season. The public form only offers
+// active-season teams (listRosterTeamOptions), so we validate the same way: a
+// stale/cached form that posts an archived-season team after a rollover is
+// rejected (the action shows "no longer available") rather than silently adding
+// the player to last year's roster, where the current-season views would never
+// show them.
+//
+// A DECLINE passes requireActiveSeason: false. It creates no roster row, so
+// there's nothing to misfile — and recording the team the offer was actually
+// for beats rejecting the response, or pushing the parent to re-pick a
+// current-season team, just because the season rolled over while they were
+// deciding.
 export async function getOwnedTeam(
   companyId: number,
   teamId: number,
+  { requireActiveSeason = true }: { requireActiveSeason?: boolean } = {},
 ): Promise<{ id: number; name: string; division: string } | null> {
-  const rows = await sql()`
-    SELECT t.id, t.name, t.division
-    FROM teams t
-    JOIN seasons s ON s.id = t.season_id
-    WHERE t.id = ${teamId} AND t.company_id = ${companyId} AND s.is_active
-    LIMIT 1
-  `;
+  const rows = requireActiveSeason
+    ? await sql()`
+        SELECT t.id, t.name, t.division
+        FROM teams t
+        JOIN seasons s ON s.id = t.season_id
+        WHERE t.id = ${teamId} AND t.company_id = ${companyId} AND s.is_active
+        LIMIT 1
+      `
+    : await sql()`
+        SELECT t.id, t.name, t.division
+        FROM teams t
+        WHERE t.id = ${teamId} AND t.company_id = ${companyId}
+        LIMIT 1
+      `;
   if (rows.length === 0) return null;
   const t = rows[0] as { id: number; name: string; division: string };
   return { id: Number(t.id), name: String(t.name), division: String(t.division) };

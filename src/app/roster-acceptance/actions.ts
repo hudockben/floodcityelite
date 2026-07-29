@@ -5,6 +5,7 @@ import {
   ensureRosterSubmissionsSchema,
   getOwnedTeam,
   getRosterCompanyId,
+  listRosterTeamOptions,
 } from "@/lib/roster-submissions";
 import { ensureTeamsSchema } from "@/app/(app)/teams/schema";
 
@@ -123,24 +124,42 @@ export async function submitRosterAcceptanceAction(
     // to create the roster row, and a decline needs it so the office can see
     // which team's spot was turned down. The team record is authoritative for the
     // stored division (the form's `division` select only filters the team list).
+    let teamId: number | null = null;
+    let teamName: string | null = null;
+    let division: string | null = null;
+
     const rawTeam = String(formData.get("teamId") ?? "").trim();
     const parsed = Number.parseInt(rawTeam, 10);
-    if (!Number.isFinite(parsed)) {
-      return fail(
-        accepted
-          ? "Choose the team you're accepting a spot on."
-          : "Choose the division and team whose spot you're declining.",
-      );
+
+    if (Number.isFinite(parsed)) {
+      const team = await getOwnedTeam(companyId, parsed, {
+        // An accept has to land on a current-season roster; a decline creates no
+        // roster row, so it can name the team as offered even after a rollover.
+        requireActiveSeason: accepted,
+      });
+      if (!team) {
+        return fail(
+          "That team is no longer available. Please refresh the page and try again.",
+        );
+      }
+      teamId = team.id;
+      teamName = team.name;
+      division = team.division;
+    } else if (accepted) {
+      return fail("Choose the team you're accepting a spot on.");
+    } else {
+      // Declining without a team is allowed only when there was nothing to pick
+      // from: the form renders an empty team list both when none are set up yet
+      // and when its load failed (the page swallows that error). A parent
+      // turning a spot down shouldn't be blocked by our side having a bad
+      // minute — the office still gets the response, just without a team on it.
+      // Re-checking here (rather than trusting the empty post) keeps the field
+      // mandatory whenever there was in fact something to choose.
+      const options = await listRosterTeamOptions(companyId);
+      if (options.length > 0) {
+        return fail("Choose the division and team whose spot you're declining.");
+      }
     }
-    const team = await getOwnedTeam(companyId, parsed);
-    if (!team) {
-      return fail(
-        "That team is no longer available. Please refresh the page and try again.",
-      );
-    }
-    const teamId = team.id;
-    const teamName = team.name;
-    const division = team.division;
 
     // Parse the player + parent detail fields.
     const email = text(formData, "email", 160);
