@@ -56,6 +56,18 @@ ones are:
   `is_paying` flag (default `true`) shown as a **Paying** checkmark on the Teams
   roster; the Budgets tab's paying-player count is the number of players marked
   paying (with an optional manual override on the budget for edge cases).
+
+  **View Field.** Each team on the Teams tab has a **View Field** button that
+  opens a diamond with every player placed at their primary position (solid
+  dot) and secondary position (hollow dot), so stacked and thin spots read at a
+  glance. Positions are free text, so
+  [`field-positions.ts`](src/app/(app)/teams/field-positions.ts) maps what
+  coaches actually type (`3rd base`, `3rd`, `Short`, `SS`…) onto the nine
+  fielding spots. Anything it can't place confidently — DH, utility, a generic
+  `OF`, a typo, or a blank — is listed under the field as typed instead of being
+  guessed onto a spot, since a wrong placement would quietly skew the counts the
+  view exists to show. (Bare numbers are deliberately not mapped: `6` could be
+  scorer's notation for shortstop or a half-typed ordinal.)
 - **`payments`** — payments logged against a player via `player_id`
   (`ON DELETE CASCADE`). Each row records `paid_on`, a `payment_type` (`check`
   or `cash`), an optional `check_number` (for check payments), and an `amount`.

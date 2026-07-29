@@ -8,6 +8,7 @@ import AddPlayerForm from "./add-player-form";
 import BulkUploadForm from "./bulk-upload-form";
 import CreateTeamForm from "./create-team-form";
 import ExpandOnHash from "./expand-on-hash";
+import FieldView from "./field-view";
 import NewSeasonForm from "./new-season-form";
 import PlayerRowItem from "./player-row";
 import SeasonBar from "./season-bar";
@@ -314,6 +315,21 @@ export default async function TeamsPage({
                     <span className={`sport-badge sport-${t.sport}`}>
                       {sportLabel(t.sport)}
                     </span>
+                    {teamPlayers.length > 0 ? (
+                      // Quick-look depth chart. Only the columns it maps are
+                      // handed to the client — not the parents' contact details.
+                      <FieldView
+                        teamName={t.name}
+                        sport={t.sport}
+                        players={teamPlayers.map((p) => ({
+                          id: p.id,
+                          player_name: p.player_name,
+                          jersey_number: p.jersey_number,
+                          primary_position: p.primary_position,
+                          secondary_position: p.secondary_position,
+                        }))}
+                      />
+                    ) : null}
                     <span className="tg-count">
                       {teamPlayers.length}{" "}
                       {teamPlayers.length === 1 ? "player" : "players"}
