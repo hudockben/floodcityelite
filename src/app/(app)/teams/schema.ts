@@ -59,6 +59,7 @@ async function provision(): Promise<void> {
       parent_name         VARCHAR(160),
       closest_facility    VARCHAR(160),
       is_paying           BOOLEAN      NOT NULL DEFAULT true,
+      is_returning        BOOLEAN,
       created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
       updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now()
     )
@@ -70,6 +71,10 @@ async function provision(): Promise<void> {
   // rows default to paying, so the Budgets tab's paying-player count keeps
   // matching the full roster size until a coach unchecks someone.
   await db`ALTER TABLE players ADD COLUMN IF NOT EXISTS is_paying BOOLEAN NOT NULL DEFAULT true`;
+
+  // The roster's New/Returning override. Nullable on purpose: null means "use
+  // the acceptance form's answer", which is what every existing player wants.
+  await db`ALTER TABLE players ADD COLUMN IF NOT EXISTS is_returning BOOLEAN`;
 
   // Roster groups (playing-time rotation). A team can be split into standing,
   // position-balanced groups; `roster_group_count` is how many groups the coach

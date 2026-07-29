@@ -8,6 +8,7 @@ import {
   divisionLabel,
   isDivisionSlug,
   isSport,
+  parseRosterStatus,
   TEAM_NAME_MAX,
 } from "./divisions";
 import {
@@ -41,6 +42,14 @@ function isoDate(formData: FormData, key: string): string | null {
   const raw = String(formData.get(key) ?? "").trim();
   if (raw === "") return null;
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+}
+
+// The roster's New/Returning select: "returning"/"new" set the flag by hand,
+// blank hands the row back to the acceptance form's answer. Deliberately kept
+// off roster_submissions — that row records what the parent actually said, and
+// the jersey automation reads it to decide who keeps a returning number.
+function rosterStatus(formData: FormData): boolean | null {
+  return parseRosterStatus(String(formData.get("roster_status") ?? "").trim());
 }
 
 // A checkbox is present in the submitted form only when it's checked, so a
@@ -216,7 +225,7 @@ export async function addPlayerAction(
         team_id, player_name, grad_year, date_of_birth, height, weight,
         primary_position, secondary_position, jersey_number, hat_size,
         high_school, parent_phone, parent_email, parent_name, closest_facility,
-        is_paying
+        is_paying, is_returning
       ) VALUES (
         ${teamId},
         ${playerName},
@@ -233,7 +242,8 @@ export async function addPlayerAction(
         ${text(formData, "parent_email")},
         ${text(formData, "parent_name")},
         ${text(formData, "closest_facility")},
-        ${checkbox(formData, "is_paying")}
+        ${checkbox(formData, "is_paying")},
+        ${rosterStatus(formData)}
       )
     `;
   } catch (err) {
@@ -289,6 +299,7 @@ export async function updatePlayerAction(
         parent_email       = ${text(formData, "parent_email")},
         parent_name        = ${text(formData, "parent_name")},
         closest_facility   = ${text(formData, "closest_facility")},
+        is_returning       = ${rosterStatus(formData)},
         updated_at         = now()
       WHERE id = ${playerId}
         AND team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})

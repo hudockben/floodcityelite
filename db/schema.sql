@@ -95,7 +95,10 @@ CREATE INDEX IF NOT EXISTS idx_teams_season_id ON teams (season_id);
 -- other column is optional so a coach can fill the roster out over time. The
 -- columns mirror the Teams-tab roster headers. `is_paying` marks whether the
 -- player pays tuition/dues — it defaults to true (everyone pays unless marked
--- otherwise) and drives the Budgets tab's paying-player count.
+-- otherwise) and drives the Budgets tab's paying-player count. `is_returning`
+-- is the roster's New/Returning override: null falls back to the acceptance
+-- form's "Did you play in 2026?" answer, and reads as unknown when there's no
+-- submission behind the player either.
 CREATE TABLE IF NOT EXISTS players (
     id                  SERIAL PRIMARY KEY,
     team_id             INTEGER      NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
@@ -115,6 +118,7 @@ CREATE TABLE IF NOT EXISTS players (
     parent_name         VARCHAR(160),
     closest_facility    VARCHAR(160),
     is_paying           BOOLEAN      NOT NULL DEFAULT true,
+    is_returning        BOOLEAN,
     -- Which standing roster group the player is in (1..team.roster_group_count),
     -- or null when ungrouped. Used by the Schedules-tab group rotation.
     roster_group        SMALLINT,
@@ -123,6 +127,12 @@ CREATE TABLE IF NOT EXISTS players (
 );
 
 CREATE INDEX IF NOT EXISTS idx_players_team_id ON players (team_id);
+
+-- Add the New/Returning override to a database whose `players` table predates
+-- it (CREATE TABLE IF NOT EXISTS above leaves an existing table alone).
+-- Nullable, so every existing player keeps falling back to the acceptance
+-- form's answer until a coach sets one. Idempotent.
+ALTER TABLE players ADD COLUMN IF NOT EXISTS is_returning BOOLEAN;
 
 -- ---------------------------------------------------------------------------
 -- Payments

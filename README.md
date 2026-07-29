@@ -58,15 +58,23 @@ ones are:
   roster; the Budgets tab's paying-player count is the number of players marked
   paying (with an optional manual override on the budget for edge cases).
 
-  **New / Returning.** The roster's next column labels each player from the
-  acceptance form's *"Did you play in 2026?"* answer — a green **Returning**
-  pill for yes, a blue **New** pill for no. It isn't stored on the player: it's
-  read from their accepted `roster_submissions` row, so it always matches what
-  the parent actually said and never needs maintaining. A player added by hand
-  on the Teams tab or through a bulk upload has no submission behind them, so
-  nobody answered the question and the cell shows an em dash rather than
-  guessing. The column prints with the roster (as plain words, since colour
-  doesn't survive a mono printer).
+  **New / Returning.** The roster's next column labels each player — a green
+  **Returning** pill, a blue **New** one. It reads from two places, in order:
+  `players.is_returning`, the coach's own setting on the add/edit player form,
+  and failing that the acceptance form's *"Did you play in 2026?"* answer on
+  their accepted `roster_submissions` row. Set nothing and it simply tracks what
+  the parent said; set it and yours wins. A player added by hand or through a
+  bulk upload has neither until someone sets it, so the cell shows an em dash
+  rather than guessing at "new". Each pill's tooltip says which of the two it's
+  coming from.
+
+  The override is a column on `players` rather than an edit to the submission on
+  purpose: that row records what the parent actually said, and the jersey
+  automation reads `played_fce_2026` to decide who keeps a returning number —
+  editing it from the roster would quietly reshuffle jersey numbers. Clearing
+  the field on the editor (choosing *From the acceptance form*) hands the player
+  back to the form's answer. The column prints with the roster, as plain words,
+  since colour doesn't survive a mono printer.
 
   **View Field.** Each team on the Teams tab has a **View Field** button that
   opens a diamond with every player placed at their primary position (solid

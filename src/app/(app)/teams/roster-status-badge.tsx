@@ -1,35 +1,44 @@
 import { rosterStatus } from "./divisions";
 
 /**
- * "Returning" / "New" pill for a roster row, from the acceptance form's
- * "Did you play in 2026?" answer.
+ * "Returning" / "New" pill for a roster row.
  *
- * A player added by hand on the Teams tab or through a bulk upload has no
- * submission behind them, so nobody ever answered the question — that shows as
- * an em dash rather than being guessed at as "new".
+ * The value is the coach's own setting when they've made one, otherwise the
+ * acceptance form's "Did you play in 2026?" answer. A player added by hand or
+ * bulk-uploaded has neither until someone sets it, so the cell reads as an em
+ * dash rather than being guessed at as "new". The tooltip says which of the two
+ * a pill is coming from.
  */
 export default function RosterStatusBadge({
   playedLastSeason,
+  override,
 }: {
   playedLastSeason: boolean | null;
+  override: boolean | null;
 }) {
-  const status = rosterStatus(playedLastSeason);
+  const status = rosterStatus(playedLastSeason, override);
 
   if (status == null) {
     return (
-      <span className="cell-empty" title="No acceptance form on file for this player">
+      <span
+        className="cell-empty"
+        title="Not set — no acceptance form on file. Use Edit to set it."
+      >
         —
       </span>
     );
   }
+
+  const source =
+    override != null ? "set on the roster" : "from the acceptance form";
 
   return (
     <span
       className={`rs-badge rs-${status}`}
       title={
         status === "returning"
-          ? "Played last season — from the acceptance form"
-          : "New to the program — from the acceptance form"
+          ? `Played last season — ${source}`
+          : `New to the program — ${source}`
       }
     >
       {status === "returning" ? "Returning" : "New"}

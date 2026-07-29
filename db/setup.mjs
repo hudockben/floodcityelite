@@ -181,6 +181,7 @@ async function main() {
       parent_name         VARCHAR(160),
       closest_facility    VARCHAR(160),
       is_paying           BOOLEAN      NOT NULL DEFAULT true,
+      is_returning        BOOLEAN,
       created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
       updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now()
     )
@@ -192,6 +193,10 @@ async function main() {
   // Existing rows default to paying, matching the previous behavior where the
   // paying-player count was the full roster size.
   await sql`ALTER TABLE players ADD COLUMN IF NOT EXISTS is_paying BOOLEAN NOT NULL DEFAULT true`;
+
+  // The New/Returning override a coach can set on the roster. Nullable, so
+  // existing players keep falling back to the acceptance form's answer.
+  await sql`ALTER TABLE players ADD COLUMN IF NOT EXISTS is_returning BOOLEAN`;
 
   // Roster groups: split a team into standing, position-balanced groups.
   // `teams.roster_group_count` is how many groups the coach set up (0 = off) and

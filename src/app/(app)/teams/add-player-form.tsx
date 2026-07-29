@@ -5,6 +5,7 @@ import { addPlayerAction, type FormState } from "./actions";
 import {
   PLAYER_FIELDS,
   POSITIONS,
+  ROSTER_STATUS_OPTIONS,
   sportLabel,
   type DivisionSlug,
   type PlayerField,
@@ -104,6 +105,18 @@ export default function AddPlayerForm({
               </label>
               <FieldInput field={field} />
             </div>
+            {field.key === "player_name" ? (
+              <div className="field">
+                <label htmlFor="player-roster_status">New / Returning</label>
+                <select id="player-roster_status" name="roster_status" defaultValue="">
+                  {ROSTER_STATUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             {field.key === "player_name" ? (
               <div className="field field-check">
                 <label htmlFor="player-is_paying">Paying</label>

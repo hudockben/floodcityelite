@@ -70,8 +70,11 @@ const COL_WIDTHS: Record<string, string> = {
 
 // On paper the pill becomes plain words — colour doesn't survive a mono print,
 // and a blank cell means nobody ever filled in an acceptance form for them.
-function rosterLabel(playedLastSeason: boolean | null): string {
-  const status = rosterStatus(playedLastSeason);
+function rosterLabel(
+  playedLastSeason: boolean | null,
+  override: boolean | null,
+): string {
+  const status = rosterStatus(playedLastSeason, override);
   if (status == null) return "—";
   return status === "returning" ? "Returning" : "New";
 }
@@ -163,6 +166,7 @@ export default async function TeamsPrintPage({
           p.parent_name,
           p.closest_facility,
           p.is_paying,
+          p.is_returning,
           -- The acceptance form's "Did you play in 2026?" answer, if this
           -- player came in through one: true = returning, false = new, and no
           -- row at all (added by hand or bulk-uploaded) leaves it null. Read as
@@ -306,7 +310,7 @@ export default async function TeamsPrintPage({
                                     {p.is_paying ? "✓" : "—"}
                                   </td>
                                   <td className="col-roster-status">
-                                    {rosterLabel(p.played_last_season)}
+                                    {rosterLabel(p.played_last_season, p.is_returning)}
                                   </td>
                                 </>
                               ) : null}

@@ -6633,3 +6633,10 @@ body {
   color: var(--text);
   border-color: var(--accent);
 }
+
+/* Small hint under a field in the player editor (e.g. what the acceptance form
+   answered, beneath the New/Returning override). */
+.player-grid .field-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}

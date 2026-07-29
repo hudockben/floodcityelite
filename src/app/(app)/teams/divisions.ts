@@ -126,10 +126,44 @@ export const ROSTER_HEADERS = ["Team", ...PLAYER_FIELDS.map((f) => f.label)];
  */
 export type RosterStatus = "returning" | "new" | null;
 
-/** Resolve the stored answer (true/false/null) to a roster status. */
-export function rosterStatus(playedLastSeason: boolean | null): RosterStatus {
-  if (playedLastSeason == null) return null;
-  return playedLastSeason ? "returning" : "new";
+/**
+ * Resolve a player's roster status.
+ *
+ * A coach's own setting (`override`, the roster's New/Returning field) wins
+ * when present; otherwise it's whatever the parent answered on the acceptance
+ * form. Null from both means nobody has said — an em dash, not a guess.
+ *
+ * The override lives on the player rather than being written back onto the
+ * submission: that row is the record of what the parent actually said, and the
+ * jersey automation reads it to decide who keeps a returning number.
+ */
+export function rosterStatus(
+  playedLastSeason: boolean | null,
+  override: boolean | null = null,
+): RosterStatus {
+  const value = override ?? playedLastSeason;
+  if (value == null) return null;
+  return value ? "returning" : "new";
+}
+
+/** The New/Returning select's options, in display order. */
+export const ROSTER_STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "From the acceptance form" },
+  { value: "returning", label: "Returning" },
+  { value: "new", label: "New" },
+];
+
+/** Form value ("returning"/"new"/blank) → the stored override. */
+export function parseRosterStatus(value: string): boolean | null {
+  if (value === "returning") return true;
+  if (value === "new") return false;
+  return null;
+}
+
+/** The stored override → the select's value. */
+export function rosterStatusValue(override: boolean | null): string {
+  if (override == null) return "";
+  return override ? "returning" : "new";
 }
 
 /** Header for the New/Returning column. Shared by the roster and its printout. */
@@ -161,6 +195,8 @@ export type PlayerRow = {
   is_paying: boolean;
   /** The acceptance form's answer; null when the player never came through it. */
   played_last_season: boolean | null;
+  /** The coach's own New/Returning setting; null defers to the form answer. */
+  is_returning: boolean | null;
 };
 
 export type TeamRow = {

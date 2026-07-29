@@ -106,6 +106,7 @@ export default async function TeamsPage({
           p.parent_name,
           p.closest_facility,
           p.is_paying,
+          p.is_returning,
           -- The acceptance form's "Did you play in 2026?" answer, if this
           -- player came in through one: true = returning, false = new, and no
           -- row at all (added by hand or bulk-uploaded) leaves it null. Read as

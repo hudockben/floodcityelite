@@ -11,6 +11,8 @@ import PayingToggle from "./paying-toggle";
 import RosterStatusBadge from "./roster-status-badge";
 import {
   PLAYER_FIELDS,
+  ROSTER_STATUS_OPTIONS,
+  rosterStatusValue,
   type DivisionSlug,
   type PlayerField,
   type PlayerRow as PlayerRowData,
@@ -102,12 +104,36 @@ export default function PlayerRow({
                 editor can't resurrect a stale value over a just-made toggle. */}
             <div className="player-grid">
               {PLAYER_FIELDS.map((f) => (
-                <EditField
-                  key={f.key}
-                  field={f}
-                  playerId={player.id}
-                  value={player[f.key as keyof PlayerRowData]}
-                />
+                <Fragment key={f.key}>
+                  <EditField
+                    field={f}
+                    playerId={player.id}
+                    value={player[f.key as keyof PlayerRowData]}
+                  />
+                  {f.key === "player_name" ? (
+                    <div className="field">
+                      <label htmlFor={`edit-${player.id}-roster_status`}>
+                        New / Returning
+                      </label>
+                      <select
+                        id={`edit-${player.id}-roster_status`}
+                        name="roster_status"
+                        defaultValue={rosterStatusValue(player.is_returning)}
+                      >
+                        {ROSTER_STATUS_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="field-hint">
+                        {player.played_last_season == null
+                          ? "No acceptance form on file — set it here."
+                          : `The form said ${player.played_last_season ? "returning" : "new"}.`}
+                      </span>
+                    </div>
+                  ) : null}
+                </Fragment>
               ))}
             </div>
 
@@ -155,7 +181,10 @@ export default function PlayerRow({
                   />
                 </td>
                 <td className="col-roster-status">
-                  <RosterStatusBadge playedLastSeason={player.played_last_season} />
+                  <RosterStatusBadge
+                    playedLastSeason={player.played_last_season}
+                    override={player.is_returning}
+                  />
                 </td>
               </>
             ) : null}
