@@ -8,6 +8,7 @@ import SeasonBar from "../teams/season-bar";
 import { ensureTeamsSchema } from "../teams/schema";
 import { ensureSchedulesSchema } from "../schedules/schema";
 import { ensureBudgetsSchema } from "./schema";
+import { loadFixedCostPerPlayer } from "../fixed-cost/basis";
 import { type ExpenseRow, type TeamBudgetRow, type TournamentRow } from "./budget";
 import TeamBudgetCard, { type BudgetTeam } from "./team-budget-card";
 
@@ -36,6 +37,9 @@ export default async function BudgetsPage({
   let seasons: Season[] = [];
   let season: Season | null = null;
   let loadError = false;
+  // The program's fixed cost per player. Each team's portion of tuition is
+  // derived from it unless that team overrides the portion by hand.
+  const fixedCostPerPlayer = await loadFixedCostPerPlayer(session.companyId);
 
   try {
     // Ensure the roster tables exist first (the FK target), then the budgets
@@ -147,7 +151,8 @@ export default async function BudgetsPage({
     scheduledCost: r.scheduled_cost ?? 0,
     saved: {
       tuitionPerPlayer: r.tuition_per_player ?? 0,
-      portionToTeamBudget: r.portion_to_team_budget ?? 0,
+      // NULL (or no budget row at all) means "derive it" — see resolvePortion.
+      portionToTeamBudget: r.portion_to_team_budget ?? null,
       payingPlayersOverride: r.paying_players ?? null,
     },
     expenses: expensesByTeam.get(r.id) ?? [],
@@ -160,11 +165,16 @@ export default async function BudgetsPage({
         <div className="panel-head">
           <h1>Budgets</h1>
           <p>
-            One budget per team. Pick a division, then expand a team to set
-            tuition and the per-player portion that goes to the team budget —
-            totals update as you type. The paying-player count comes from the
-            players marked <strong>Paying</strong> on each team&apos;s roster on
-            the Teams tab.
+            One budget per team. Pick a division, then expand a team to set its
+            tuition — totals update as you type. The portion of that tuition
+            reaching the team budget is what&apos;s left after the program&apos;s
+            fixed cost per player from the{" "}
+            <Link className="inline-link" href="/fixed-cost">
+              Fixed Cost
+            </Link>{" "}
+            tab, unless you override it for a team. The paying-player count
+            comes from the players marked <strong>Paying</strong> on each
+            team&apos;s roster on the Teams tab.
           </p>
         </div>
 
@@ -257,6 +267,7 @@ export default async function BudgetsPage({
                   team={team}
                   division={division.slug}
                   seasonYear={season.year}
+                  fixedCostPerPlayer={fixedCostPerPlayer}
                 />
               ))}
             </div>

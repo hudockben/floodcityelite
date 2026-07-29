@@ -7,6 +7,7 @@ import { ensureTeamsSchema } from "../../teams/schema";
 import { ensureSchedulesSchema } from "../../schedules/schema";
 import { eventCostCounts, statusLabel } from "../../schedules/events";
 import { ensureBudgetsSchema } from "../schema";
+import { loadFixedCostPerPlayer } from "../../fixed-cost/basis";
 import {
   amountToCents,
   currentBalance,
@@ -17,6 +18,7 @@ import {
   formatMoney,
   fundraisingPerPlayer,
   resolvePayingCount,
+  resolvePortion,
   startingBalance,
   summarizeExpenses,
   totalTuition,
@@ -66,6 +68,8 @@ export default async function BudgetPrintPage({
   let tournaments: TournamentRow[] = [];
   let season: Season | null = null;
   let loadError = false;
+  // Same figure the on-screen sheet subtracts, so the printout matches it.
+  const fixedCostPerPlayer = await loadFixedCostPerPlayer(session.companyId);
 
   try {
     await ensureTeamsSchema();
@@ -205,7 +209,13 @@ export default async function BudgetPrintPage({
               r.paying_count,
             );
             const tuitionPer = r.tuition_per_player ?? 0;
-            const portion = r.portion_to_team_budget ?? 0;
+            // Same rule as the on-screen sheet: a saved figure is this team's
+            // override, otherwise tuition less the fixed cost per player.
+            const portion = resolvePortion(
+              r.portion_to_team_budget ?? null,
+              tuitionPer,
+              fixedCostPerPlayer,
+            );
             const tuitionTotal = totalTuition(payingCount, tuitionPer);
             const starting = startingBalance(payingCount, portion);
             const scheduled = r.scheduled_cost ?? 0;
@@ -266,6 +276,12 @@ export default async function BudgetPrintPage({
                       <tr className="ph">
                         <th colSpan={2}>Player Expense</th>
                       </tr>
+                      {fixedCostPerPlayer > 0 ? (
+                        <tr>
+                          <th>Fixed cost per player</th>
+                          <td>−{formatMoney(fixedCostPerPlayer)}</td>
+                        </tr>
+                      ) : null}
                       <tr>
                         <th>Portion to team budget</th>
                         <td>{formatMoney(portion)}</td>

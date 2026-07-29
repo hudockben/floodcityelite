@@ -26,19 +26,28 @@ async function provision(): Promise<void> {
 
   // One budget row per team (team_id is the primary key). Money columns are
   // stored as NUMERIC. Everything defaults to 0 / NULL so a team can be listed
-  // before its budget has been filled in. paying_players is an optional
-  // override — when NULL the tab falls back to the team's roster count.
+  // before its budget has been filled in. Two columns are optional overrides:
+  // paying_players (NULL falls back to the team's roster count) and
+  // portion_to_team_budget (NULL derives it — tuition per player minus the
+  // program's fixed cost per player, from the Fixed Cost tab).
   await db`
     CREATE TABLE IF NOT EXISTS team_budgets (
       team_id                 INTEGER       PRIMARY KEY
                                 REFERENCES teams(id) ON DELETE CASCADE,
       tuition_per_player      NUMERIC(12,2) NOT NULL DEFAULT 0,
-      portion_to_team_budget  NUMERIC(12,2) NOT NULL DEFAULT 0,
+      portion_to_team_budget  NUMERIC(12,2),
       paying_players          INTEGER,
       created_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
       updated_at              TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
   `;
+
+  // Let the portion be NULL on databases whose team_budgets predates the Fixed
+  // Cost tab, where the column was NOT NULL DEFAULT 0. Existing rows keep their
+  // saved number — so those budgets carry on unchanged, as manual overrides —
+  // and clearing the field on the sheet hands the row to the derivation.
+  await db`ALTER TABLE team_budgets ALTER COLUMN portion_to_team_budget DROP NOT NULL`;
+  await db`ALTER TABLE team_budgets ALTER COLUMN portion_to_team_budget DROP DEFAULT`;
 
   // Ad-hoc expenses logged against a team (a coach's hotel, gas, gear, etc.).
   // Each row carries a date, vendor, amount, and a status: 'paid' is deducted

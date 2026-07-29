@@ -159,11 +159,20 @@ CREATE TABLE IF NOT EXISTS team_budgets (
     team_id                 INTEGER       PRIMARY KEY
                               REFERENCES teams(id) ON DELETE CASCADE,
     tuition_per_player      NUMERIC(12,2) NOT NULL DEFAULT 0,
-    portion_to_team_budget  NUMERIC(12,2) NOT NULL DEFAULT 0,
+    -- NULL means "derive it": tuition per player minus the fixed cost per
+    -- player (see fixed_cost_* below). A number is a manual override.
+    portion_to_team_budget  NUMERIC(12,2),
     paying_players          INTEGER,
     created_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_at              TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
+
+-- Let the portion be NULL on a database whose team_budgets predates the Fixed
+-- Cost tab, where the column was NOT NULL DEFAULT 0 (CREATE TABLE IF NOT EXISTS
+-- above leaves an existing table alone). Saved numbers stay put as manual
+-- overrides; clearing the field on the sheet derives it instead. Idempotent.
+ALTER TABLE team_budgets ALTER COLUMN portion_to_team_budget DROP NOT NULL;
+ALTER TABLE team_budgets ALTER COLUMN portion_to_team_budget DROP DEFAULT;
 
 -- Team expenses
 --
@@ -344,6 +353,47 @@ CREATE TABLE IF NOT EXISTS camp_payments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_camp_payments_camp_player_id ON camp_payments (camp_player_id);
+
+-- ---------------------------------------------------------------------------
+-- Fixed costs
+--
+-- What the program pays for up front regardless of which team a player lands
+-- on: uniforms, insurance, facility time. Costs are grouped under sections the
+-- user names, and the total divided by the player count is the *fixed cost per
+-- player* the Budgets tab subtracts from each team's tuition to work out the
+-- portion of a player's payment that reaches the team budget.
+--
+-- `fixed_cost_settings.player_count` is an optional manual override for that
+-- divisor; when NULL it falls back to the players marked "Paying" on the
+-- rosters of the company's active seasons.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS fixed_cost_sections (
+    id          SERIAL        PRIMARY KEY,
+    company_id  INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name        VARCHAR(160)  NOT NULL,
+    created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_fixed_cost_sections_company_id ON fixed_cost_sections (company_id);
+
+CREATE TABLE IF NOT EXISTS fixed_cost_items (
+    id          SERIAL        PRIMARY KEY,
+    section_id  INTEGER       NOT NULL REFERENCES fixed_cost_sections(id) ON DELETE CASCADE,
+    name        VARCHAR(160)  NOT NULL,
+    amount      NUMERIC(12,2) NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_fixed_cost_items_section_id ON fixed_cost_items (section_id);
+
+CREATE TABLE IF NOT EXISTS fixed_cost_settings (
+    company_id    INTEGER      PRIMARY KEY REFERENCES companies(id) ON DELETE CASCADE,
+    player_count  INTEGER,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
 
 -- ---------------------------------------------------------------------------
 -- Contact Info (college coaches)

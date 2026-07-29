@@ -1,9 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import Link from "next/link";
 import { saveBudgetAction, type FormState } from "./actions";
 import {
   currentBalance,
+  derivePortion,
   formatMoney,
   fundraisingPerPlayer,
   parseMoney,
@@ -46,6 +48,14 @@ function normalizeOverride(raw: string): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
+/** Blank string ↔ null; otherwise a non-negative amount (the portion override). */
+function normalizeMoneyOverride(raw: string): number | null {
+  const t = raw.trim();
+  if (t === "") return null;
+  const n = Number.parseFloat(t.replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 function moneyToInput(n: number): string {
   return n === 0 ? "" : String(n);
 }
@@ -55,11 +65,13 @@ function MoneyInput({
   value,
   onChange,
   ariaLabel,
+  placeholder = "0.00",
 }: {
   name: string;
   value: string;
   onChange: (v: string) => void;
   ariaLabel: string;
+  placeholder?: string;
 }) {
   return (
     <div className="budget-money">
@@ -73,7 +85,7 @@ function MoneyInput({
         min={0}
         step="0.01"
         inputMode="decimal"
-        placeholder="0.00"
+        placeholder={placeholder}
         aria-label={ariaLabel}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -86,14 +98,20 @@ export default function TeamBudgetCard({
   team,
   division,
   seasonYear,
+  fixedCostPerPlayer,
 }: {
   team: BudgetTeam;
   division: string;
   seasonYear: number;
+  /** The program's fixed cost per player, from the Fixed Cost tab. */
+  fixedCostPerPlayer: number;
 }) {
   const [tuition, setTuition] = useState(moneyToInput(team.saved.tuitionPerPlayer));
+  // Blank means "derive it" — the placeholder shows what that comes to.
   const [portion, setPortion] = useState(
-    moneyToInput(team.saved.portionToTeamBudget),
+    team.saved.portionToTeamBudget == null
+      ? ""
+      : String(team.saved.portionToTeamBudget),
   );
   const [paying, setPaying] = useState(
     team.saved.payingPlayersOverride == null
@@ -114,7 +132,7 @@ export default function TeamBudgetCard({
     if (state?.ok) {
       setBaseline({
         tuitionPerPlayer: parseMoney(tuition),
-        portionToTeamBudget: parseMoney(portion),
+        portionToTeamBudget: normalizeMoneyOverride(portion),
         payingPlayersOverride: normalizeOverride(paying),
       });
     }
@@ -123,7 +141,11 @@ export default function TeamBudgetCard({
 
   // Live-computed figures (recompute every keystroke, spreadsheet-style).
   const tuitionNum = parseMoney(tuition);
-  const portionNum = parseMoney(portion);
+  // The portion is derived from tuition minus the program's fixed cost per
+  // player unless this team overrides it by typing one in.
+  const portionOverride = normalizeMoneyOverride(portion);
+  const derivedPortion = derivePortion(tuitionNum, fixedCostPerPlayer);
+  const portionNum = portionOverride ?? derivedPortion;
   const override = normalizeOverride(paying);
   const payingCount = resolvePayingCount(override, team.payingRosterCount);
   const tuitionTotal = totalTuition(payingCount, tuitionNum);
@@ -141,7 +163,7 @@ export default function TeamBudgetCard({
 
   const dirty =
     tuitionNum !== baseline.tuitionPerPlayer ||
-    portionNum !== baseline.portionToTeamBudget ||
+    portionOverride !== baseline.portionToTeamBudget ||
     override !== baseline.payingPlayersOverride;
 
   // Current balance / fundraising are only meaningful once the team has a real
@@ -237,13 +259,50 @@ export default function TeamBudgetCard({
                   </tr>
 
                   <tr>
-                    <th scope="row">Portion to team budget</th>
+                    <th scope="row">
+                      Fixed cost per player
+                      <span className="bs-note">
+                        {fixedCostPerPlayer > 0 ? (
+                          <>
+                            from the{" "}
+                            <Link className="bs-note-link" href="/fixed-cost">
+                              Fixed Cost
+                            </Link>{" "}
+                            tab
+                          </>
+                        ) : (
+                          <>
+                            nothing logged on the{" "}
+                            <Link className="bs-note-link" href="/fixed-cost">
+                              Fixed Cost
+                            </Link>{" "}
+                            tab yet
+                          </>
+                        )}
+                      </span>
+                    </th>
+                    <td className="bs-value bs-deduct">
+                      {fixedCostPerPlayer > 0 ? "−" : ""}
+                      {formatMoney(fixedCostPerPlayer)}
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <th scope="row">
+                      Portion to team budget
+                      <span className="bs-note">
+                        {portionOverride == null
+                          ? `tuition less the fixed cost per player (${formatMoney(derivedPortion)})`
+                          : `manual override · auto would be ${formatMoney(derivedPortion)}`}
+                      </span>
+                    </th>
                     <td>
                       <MoneyInput
                         name="portion_to_team_budget"
                         value={portion}
                         onChange={setPortion}
-                        ariaLabel="Portion of tuition that goes to the team budget, per player"
+                        placeholder={String(derivedPortion.toFixed(2))}
+                        ariaLabel="Portion of tuition that goes to the team budget, per player (leave blank to use tuition minus the fixed cost per player)"
                       />
                     </td>
                   </tr>
@@ -314,10 +373,12 @@ export default function TeamBudgetCard({
                 </p>
               ) : null}
               <p className="budget-hint">
-                Current balance = starting balance minus this team&apos;s total
-                scheduled cost on the Schedules tab and its paid expenses (less
-                refunds). Fundraising covers any shortfall, split across paying
-                players.
+                Portion to team budget = tuition per player minus the program&apos;s
+                fixed cost per player, unless you type a figure here to override
+                it for this team. Current balance = starting balance minus this
+                team&apos;s total scheduled cost on the Schedules tab and its paid
+                expenses (less refunds). Fundraising covers any shortfall, split
+                across paying players.
               </p>
             </div>
           </form>

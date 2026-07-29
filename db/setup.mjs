@@ -237,7 +237,7 @@ async function main() {
     CREATE TABLE IF NOT EXISTS team_budgets (
       team_id                 INTEGER       PRIMARY KEY REFERENCES teams(id) ON DELETE CASCADE,
       tuition_per_player      NUMERIC(12,2) NOT NULL DEFAULT 0,
-      portion_to_team_budget  NUMERIC(12,2) NOT NULL DEFAULT 0,
+      portion_to_team_budget  NUMERIC(12,2),
       paying_players          INTEGER,
       created_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
       updated_at              TIMESTAMPTZ   NOT NULL DEFAULT now()
@@ -263,6 +263,12 @@ async function main() {
   `;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_team_expenses_team_id ON team_expenses (team_id)`;
+
+  // Let the portion be NULL on databases whose team_budgets predates the Fixed
+  // Cost tab (it was NOT NULL DEFAULT 0). Saved numbers stay put as manual
+  // overrides; clearing the field on the sheet derives it instead.
+  await sql`ALTER TABLE team_budgets ALTER COLUMN portion_to_team_budget DROP NOT NULL`;
+  await sql`ALTER TABLE team_budgets ALTER COLUMN portion_to_team_budget DROP DEFAULT`;
 
   // Schedule events (tournaments/games) belong to a team. Only event_name is
   // required; cost is optional and summed per team on the Schedules tab.
@@ -447,6 +453,46 @@ async function main() {
   `;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_camp_payments_camp_player_id ON camp_payments (camp_player_id)`;
+
+// Fixed costs: what the program pays up front (uniforms, insurance, facility
+  // time), grouped under sections the user names. The total divided by the
+  // player count is the fixed cost per player the Budgets tab subtracts from
+  // each team's tuition. fixed_cost_settings.player_count is an optional
+  // override for that divisor; NULL falls back to the players marked "Paying"
+  // on the active seasons' rosters.
+  await sql`
+    CREATE TABLE IF NOT EXISTS fixed_cost_sections (
+      id          SERIAL        PRIMARY KEY,
+      company_id  INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      name        VARCHAR(160)  NOT NULL,
+      created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_fixed_cost_sections_company_id ON fixed_cost_sections (company_id)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS fixed_cost_items (
+      id          SERIAL        PRIMARY KEY,
+      section_id  INTEGER       NOT NULL REFERENCES fixed_cost_sections(id) ON DELETE CASCADE,
+      name        VARCHAR(160)  NOT NULL,
+      amount      NUMERIC(12,2) NOT NULL DEFAULT 0,
+      created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_fixed_cost_items_section_id ON fixed_cost_items (section_id)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS fixed_cost_settings (
+      company_id    INTEGER      PRIMARY KEY REFERENCES companies(id) ON DELETE CASCADE,
+      player_count  INTEGER,
+      created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+      updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
+    )
+  `;
 
   // A college coach contact owned by a company — the Contact Info tab. `sport`
   // splits the tab into its Baseball and Softball lists and uses the same two

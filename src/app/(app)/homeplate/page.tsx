@@ -15,9 +15,11 @@ import {
 } from "../payment-tracker/payments";
 import {
   resolvePayingCount,
+  resolvePortion,
   startingBalance,
   currentBalance,
 } from "../budgets/budget";
+import { loadFixedCostPerPlayer } from "../fixed-cost/basis";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +66,7 @@ type BudgetRow = {
   /** Roster players marked "Paying" — the paying-player default (matches the
    *  Budgets tab). */
   paying_count: number;
+  tuition_per_player: number | null;
   portion_to_team_budget: number | null;
   paying_players: number | null;
   scheduled_cost: number;
@@ -133,6 +136,9 @@ export default async function HomeplatePage() {
   let payments: RecentPaymentRow[] = [];
   let budgetRows: BudgetRow[] = [];
   let loadError = false;
+  // The program's fixed cost per player, so the at-risk balances here match the
+  // ones the Budgets tab shows.
+  const fixedCostPerPlayer = await loadFixedCostPerPlayer(session.companyId);
 
   try {
     // Make sure every table these sections read exists — the tabs each do this
@@ -188,6 +194,7 @@ export default async function HomeplatePage() {
           t.sport,
           (SELECT count(*) FROM players p
              WHERE p.team_id = t.id AND p.is_paying)::int AS paying_count,
+          b.tuition_per_player::float8     AS tuition_per_player,
           b.portion_to_team_budget::float8 AS portion_to_team_budget,
           b.paying_players                 AS paying_players,
           (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e
@@ -222,7 +229,14 @@ export default async function HomeplatePage() {
   const budgetsAtRisk: BudgetAtRisk[] = budgetRows
     .map((r) => {
       const payingCount = resolvePayingCount(r.paying_players ?? null, r.paying_count);
-      const starting = startingBalance(payingCount, r.portion_to_team_budget ?? 0);
+      // Same rule as the Budgets tab: a saved portion is that team's
+      // override, otherwise tuition less the program's fixed cost per player.
+      const portion = resolvePortion(
+        r.portion_to_team_budget ?? null,
+        r.tuition_per_player ?? 0,
+        fixedCostPerPlayer,
+      );
+      const starting = startingBalance(payingCount, portion);
       const balance = currentBalance(starting, r.scheduled_cost ?? 0, r.expense_net ?? 0);
       const usedPct = starting > 0 ? (starting - balance) / starting : 0;
       return {

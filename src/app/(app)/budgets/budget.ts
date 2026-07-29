@@ -34,7 +34,11 @@ export type TeamBudgetRow = {
 // The saved inputs handed to the client card (already coalesced to numbers).
 export type SavedBudget = {
   tuitionPerPlayer: number;
-  portionToTeamBudget: number;
+  /**
+   * null → derive it: tuition per player minus the program's fixed cost per
+   * player. A saved number is a deliberate manual override for this team.
+   */
+  portionToTeamBudget: number | null;
   /** null → fall back to the roster's paying-player count. */
   payingPlayersOverride: number | null;
 };
@@ -181,6 +185,38 @@ export function resolvePayingCount(
 
 export function totalTuition(payingCount: number, tuitionPerPlayer: number): number {
   return payingCount * tuitionPerPlayer;
+}
+
+/**
+ * What's left of a player's tuition once the program's fixed cost per player
+ * (from the Fixed Cost tab) comes off it — the portion that actually reaches
+ * the team budget. Computed in integer cents so it stays exact, and floored at
+ * zero: fixed costs above tuition mean nothing reaches the team, not a negative
+ * starting balance.
+ */
+export function derivePortion(
+  tuitionPerPlayer: number,
+  fixedCostPerPlayer: number,
+): number {
+  const cents =
+    Math.round(tuitionPerPlayer * 100) - Math.round(fixedCostPerPlayer * 100);
+  return cents > 0 ? cents / 100 : 0;
+}
+
+/**
+ * The per-player portion the budget runs on: the team's manual override when
+ * one is saved, otherwise the figure derived from tuition and the fixed cost.
+ *
+ * A budget saved before the Fixed Cost tab existed has a stored number, so it
+ * keeps behaving exactly as it did; clearing that field on the sheet stores
+ * NULL and hands the row over to the derivation.
+ */
+export function resolvePortion(
+  override: number | null,
+  tuitionPerPlayer: number,
+  fixedCostPerPlayer: number,
+): number {
+  return override != null ? override : derivePortion(tuitionPerPlayer, fixedCostPerPlayer);
 }
 
 export function startingBalance(

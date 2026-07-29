@@ -18,9 +18,9 @@ with a **company code**, **username**, and **password**.
   turned down. Accepting also adds the player to the chosen team's roster.
   Responses feed the admin **Roster Submissions** tab.
 - Member area — a protected tabbed shell (Homeplate, Teams, Roster Submissions,
-  Payment Tracker, Budgets, Schedules, Fundraiser Tracker, Program/Camps,
-  Payroll, Contact Info, Hotels, Inventory) shown after a successful login and
-  guarded by middleware.
+  Payment Tracker, Budgets, Fixed Cost, Schedules, Fundraiser Tracker,
+  Program/Camps, Payroll, Contact Info, Hotels, Inventory) shown after a
+  successful login and guarded by middleware.
 - Auth — passwords are hashed with **bcrypt**; the session is a signed
   (JWT, HS256) **httpOnly** cookie.
 
@@ -83,6 +83,28 @@ ones are:
   is independent of the Teams roster. A `camp_payment` is logged against a camp
   player and mirrors `payments` (`paid_on`, `payment_type`, `check_number`,
   `amount`), driving the per-player and per-camp totals.
+- **`fixed_cost_sections`**, **`fixed_cost_items`**, **`fixed_cost_settings`** —
+  the **Fixed Cost** tab: what the program pays for up front regardless of which
+  team a player lands on (uniforms, insurance, facility time). A *section* is a
+  group the user names; an *item* is one cost inside it. The total divided by
+  the player count is the **fixed cost per player**, and that's what ties this
+  tab to Budgets:
+
+  ```
+  portion to team budget = tuition per player − fixed cost per player
+  ```
+
+  so raising a fixed cost lowers every team's starting balance without anyone
+  retyping a number. The divisor is the players marked **Paying** on the active
+  seasons' rosters, with `fixed_cost_settings.player_count` as an optional
+  manual override (mirroring the Budgets tab's paying-player field).
+
+  On the Budgets sheet the fixed cost per player shows as its own deduction row,
+  and `team_budgets.portion_to_team_budget` is now **nullable**: NULL means
+  "derive it" and a saved number is a deliberate per-team override. Budgets
+  written before this tab existed carry a number, so they keep behaving exactly
+  as they did until that field is cleared. Homeplate's at-risk balances and the
+  Budgets print view resolve the portion the same way.
 - **`college_coaches`** — the **Contact Info** tab, a recruiting contact book
   for college programs. The tab is split by `sport` (`baseball` or `softball`,
   the same two values a team carries), so each sport keeps its own list and the

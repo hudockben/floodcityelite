@@ -18,6 +18,16 @@ function money(formData: FormData, key: string): number {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
+// Optional money field (the per-player portion override). Blank → null, which
+// tells the tab to derive it from tuition minus the fixed cost per player.
+// Anything unparseable is treated as blank rather than silently becoming 0.
+function optionalMoney(formData: FormData, key: string): number | null {
+  const raw = String(formData.get(key) ?? "").trim();
+  if (raw === "") return null;
+  const n = Number.parseFloat(raw.replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 // Optional non-negative integer (the paying-player override). Blank → null,
 // which tells the tab to fall back to the roster count.
 function optionalCount(formData: FormData, key: string): number | null {
@@ -64,7 +74,9 @@ export async function saveBudgetAction(
   if (!Number.isFinite(teamId)) return { error: "Missing team." };
 
   const tuitionPerPlayer = money(formData, "tuition_per_player");
-  const portionToTeamBudget = money(formData, "portion_to_team_budget");
+  // Blank means "derive from tuition minus the fixed cost per player" — the
+  // Fixed Cost tab owns that figure, so the column stays NULL.
+  const portionToTeamBudget = optionalMoney(formData, "portion_to_team_budget");
   const payingPlayers = optionalCount(formData, "paying_players");
 
   try {
