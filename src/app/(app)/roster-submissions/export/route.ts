@@ -93,23 +93,28 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const filename = `roster-submissions-${todayStamp()}.${format}`;
-  const disposition = `attachment; filename="${filename}"`;
+  // Every signed-in user hits the same URL for their own company's responses,
+  // and this file is personal data. Without no-store a shared cache keyed on
+  // the URL could hand one company's export to the next person who asks —
+  // Next's Vary header covers its router headers, not the session cookie — and
+  // the browser could re-serve a stale file after new responses arrive.
+  const headers = {
+    "Content-Disposition": `attachment; filename="${filename}"`,
+    "Cache-Control": "no-store, private",
+  };
 
   if (format === "xlsx") {
     return new Response(await toXlsx(rows), {
       headers: {
+        ...headers,
         "Content-Type":
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": disposition,
       },
     });
   }
 
   // A UTF-8 BOM so Excel reads accented names correctly instead of mojibake.
   return new Response(`﻿${toCsv(rows)}`, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": disposition,
-    },
+    headers: { ...headers, "Content-Type": "text/csv; charset=utf-8" },
   });
 }
