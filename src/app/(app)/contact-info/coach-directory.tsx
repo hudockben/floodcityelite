@@ -83,10 +83,10 @@ export default function CoachDirectory({
 
   return (
     <>
-      <div className="coach-filters">
-        <div className="coach-search">
+      <div className="dir-filters">
+        <div className="dir-search">
           <svg
-            className="coach-search-icon"
+            className="dir-search-icon"
             viewBox="0 0 20 20"
             fill="none"
             aria-hidden="true"
@@ -104,7 +104,7 @@ export default function CoachDirectory({
           </svg>
           <input
             type="search"
-            className="coach-search-input"
+            className="dir-search-input"
             placeholder="Search school, coach, conference, city…"
             value={query}
             aria-label="Search contacts"
@@ -114,7 +114,7 @@ export default function CoachDirectory({
           {query !== "" ? (
             <button
               type="button"
-              className="coach-search-clear"
+              className="dir-search-clear"
               aria-label="Clear search"
               onClick={() => setQuery("")}
             >
@@ -124,13 +124,13 @@ export default function CoachDirectory({
         </div>
 
         {levels.length > 0 ? (
-          <div className="coach-level-filter">
-            <label className="coach-level-label" htmlFor="coach-level-filter">
+          <div className="dir-filter">
+            <label className="dir-filter-label" htmlFor="dir-filter">
               Division level
             </label>
             <select
-              id="coach-level-filter"
-              className="coach-select"
+              id="dir-filter"
+              className="dir-select"
               value={activeLevel}
               onChange={(e) => setLevel(e.target.value)}
             >
@@ -144,14 +144,14 @@ export default function CoachDirectory({
           </div>
         ) : null}
 
-        <span className="coach-count">
+        <span className="dir-count">
           {filtered.length === coaches.length
             ? `${coaches.length} ${coaches.length === 1 ? "school" : "schools"}`
             : `${filtered.length} of ${coaches.length} schools`}
           {filtering ? (
             <>
               {" · "}
-              <button type="button" className="coach-clear-all" onClick={clearFilters}>
+              <button type="button" className="dir-clear-all" onClick={clearFilters}>
                 Clear filters
               </button>
             </>
@@ -159,8 +159,8 @@ export default function CoachDirectory({
         </span>
       </div>
 
-      <div className="coach-scroll">
-        <table className="coach-table">
+      <div className="dir-scroll">
+        <table className="dir-table">
           <thead>
             <tr>
               {COACH_FIELDS.map((f) => (
@@ -174,11 +174,11 @@ export default function CoachDirectory({
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={COACH_FIELDS.length + 1} className="coach-empty-row">
+                <td colSpan={COACH_FIELDS.length + 1} className="dir-empty-row">
                   No contacts match these filters.{" "}
                   <button
                     type="button"
-                    className="coach-clear-all"
+                    className="dir-clear-all"
                     onClick={clearFilters}
                   >
                     Clear filters

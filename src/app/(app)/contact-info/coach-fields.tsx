@@ -61,7 +61,7 @@ export default function CoachFields({
           return (
             <div
               key={f.key}
-              className={`field${f.type === "notes" ? " coach-field-wide" : ""}`}
+              className={`field${f.type === "notes" ? " dir-field-wide" : ""}`}
             >
               <label htmlFor={id}>
                 {f.label}

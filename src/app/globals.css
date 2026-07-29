@@ -5911,21 +5911,22 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
-   Contact Info — college coaches
+   Directory tables — Contact Info (college coaches) and Hotels
    -------------------------------------------------------------------------*/
-/* The tab splits by sport (the shared .subtabs), then each sport shows a
-   filter bar above a wide contact table. The table mirrors the Teams roster:
-   content-sized columns, a sticky header, and a frozen first column (the
-   school) so the school stays put while scrolling out to the notes. */
+/* Both tabs are the same shape: a filter bar (search + dropdowns + a count)
+   above a wide table of records that edit inline. The table mirrors the Teams
+   roster — content-sized columns, a sticky header, and a frozen first column
+   (the school / the hotel) so the name stays put while scrolling out to the
+   notes — with the row actions pinned to the other edge. */
 
 /* Notes get the full width of the add/edit field grid — a line of context
    doesn't fit a 210px cell. */
-.coach-field-wide {
+.dir-field-wide {
   grid-column: 1 / -1;
 }
 
 /* Filter bar: search + division level + the result count. */
-.coach-filters {
+.dir-filters {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -5934,7 +5935,7 @@ body {
 }
 
 /* Search box — mirrors the Payment Tracker / Roster Submissions search field. */
-.coach-search {
+.dir-search {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -5949,19 +5950,19 @@ body {
     box-shadow 0.15s ease;
 }
 
-.coach-search:focus-within {
+.dir-search:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
 }
 
-.coach-search-icon {
+.dir-search-icon {
   flex: none;
   width: 18px;
   height: 18px;
   color: var(--text-muted);
 }
 
-.coach-search-input {
+.dir-search-input {
   flex: 1 1 auto;
   min-width: 0;
   padding: 11px 0;
@@ -5972,17 +5973,17 @@ body {
   outline: none;
 }
 
-.coach-search-input::placeholder {
+.dir-search-input::placeholder {
   color: var(--text-muted);
 }
 
 /* The type="search" input draws its own clear button in some browsers; ours
    is the only one shown. */
-.coach-search-input::-webkit-search-cancel-button {
+.dir-search-input::-webkit-search-cancel-button {
   display: none;
 }
 
-.coach-search-clear {
+.dir-search-clear {
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -6002,26 +6003,26 @@ body {
     background 0.15s ease;
 }
 
-.coach-search-clear:hover {
+.dir-search-clear:hover {
   color: var(--text);
   background: rgba(148, 187, 233, 0.12);
 }
 
 /* Division-level dropdown. */
-.coach-level-filter {
+.dir-filter {
   display: inline-flex;
   align-items: center;
   gap: 9px;
 }
 
-.coach-level-label {
+.dir-filter-label {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-muted);
   letter-spacing: 0.02em;
 }
 
-.coach-select {
+.dir-select {
   appearance: none;
   padding: 8px 32px 8px 13px;
   font-size: 0.86rem;
@@ -6042,28 +6043,28 @@ body {
     box-shadow 0.15s ease;
 }
 
-.coach-select:hover {
+.dir-select:hover {
   border-color: var(--accent);
 }
 
-.coach-select:focus {
+.dir-select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
 }
 
-.coach-select option {
+.dir-select option {
   color: var(--text);
   background: var(--navy-800);
 }
 
-.coach-count {
+.dir-count {
   margin-left: auto;
   font-size: 0.85rem;
   color: var(--text-muted);
 }
 
 /* Inline "Clear filters" reset, shown in the count line and the empty row. */
-.coach-clear-all {
+.dir-clear-all {
   padding: 0;
   font-size: inherit;
   font-weight: 600;
@@ -6073,12 +6074,12 @@ body {
   cursor: pointer;
 }
 
-.coach-clear-all:hover {
+.dir-clear-all:hover {
   text-decoration: underline;
 }
 
 /* Contact table */
-.coach-scroll {
+.dir-scroll {
   margin-top: 18px;
   overflow-x: auto;
   border: 1px solid var(--card-border);
@@ -6094,14 +6095,14 @@ body {
    left alone it would start off-screen whenever the table is scrolled right.
    Pinning it to the scroller's visible width keeps the whole form in view at
    any scroll offset, and its field grid just wraps onto more rows. */
-.coach-table .player-edit-form {
+.dir-table .player-edit-form {
   position: sticky;
   left: 0;
   box-sizing: border-box;
   width: 100cqw;
 }
 
-.coach-table {
+.dir-table {
   border-collapse: collapse;
   /* Content-sized (like the roster) so columns stay tight and the table
      scrolls only when it genuinely overflows. */
@@ -6110,7 +6111,7 @@ body {
   font-size: 0.84rem;
 }
 
-.coach-table thead th {
+.dir-table thead th {
   position: sticky;
   top: 0;
   z-index: 2;
@@ -6125,40 +6126,40 @@ body {
   border-bottom: 1px solid var(--card-border);
 }
 
-.coach-table tbody td {
+.dir-table tbody td {
   padding: 9px 12px;
   white-space: nowrap;
   border-bottom: 1px solid rgba(148, 187, 233, 0.08);
   vertical-align: middle;
 }
 
-.coach-table tbody tr:last-child td {
+.dir-table tbody tr:last-child td {
   border-bottom: none;
 }
 
-.coach-table tbody tr:not(.player-edit-row):hover td {
+.dir-table tbody tr:not(.player-edit-row):hover td {
   background: var(--roster-hover-bg);
 }
 
 /* Freeze the first column (School Name) while scrolling sideways. The
    full-width edit row is excluded so it keeps spanning every column. */
-.coach-table thead th:first-child,
-.coach-table tbody tr:not(.player-edit-row) td:first-child {
+.dir-table thead th:first-child,
+.dir-table tbody tr:not(.player-edit-row) td:first-child {
   position: sticky;
   left: 0;
   box-shadow: 1px 0 0 var(--card-border);
 }
 
-.coach-table tbody tr:not(.player-edit-row) td:first-child {
+.dir-table tbody tr:not(.player-edit-row) td:first-child {
   z-index: 1;
   background: var(--roster-bg);
 }
 
-.coach-table tbody tr:not(.player-edit-row):hover td:first-child {
+.dir-table tbody tr:not(.player-edit-row):hover td:first-child {
   background: var(--roster-hover-bg);
 }
 
-.coach-table thead th:first-child {
+.dir-table thead th:first-child {
   z-index: 3;
 }
 
@@ -6168,43 +6169,43 @@ body {
    long school name there is no scroll offset that frees them. The higher
    z-index settles the overlap in the buttons' favour, so they stay clickable
    at every width; the school name is still readable by scrolling back left. */
-.coach-table thead th:last-child,
-.coach-table tbody tr:not(.player-edit-row) td:last-child {
+.dir-table thead th:last-child,
+.dir-table tbody tr:not(.player-edit-row) td:last-child {
   position: sticky;
   right: 0;
   box-shadow: -1px 0 0 var(--card-border);
 }
 
-.coach-table tbody tr:not(.player-edit-row) td:last-child {
+.dir-table tbody tr:not(.player-edit-row) td:last-child {
   z-index: 2;
   background: var(--roster-bg);
 }
 
-.coach-table tbody tr:not(.player-edit-row):hover td:last-child {
+.dir-table tbody tr:not(.player-edit-row):hover td:last-child {
   background: var(--roster-hover-bg);
 }
 
-.coach-table thead th:last-child {
+.dir-table thead th:last-child {
   z-index: 4;
   background: var(--roster-head-bg);
 }
 
-.coach-table .col-name {
+.dir-table .col-name {
   font-weight: 600;
 }
 
 /* Phone / email / website open from the table. */
-.coach-link {
+.dir-link {
   color: var(--accent);
   text-decoration: none;
 }
 
-.coach-link:hover {
+.dir-link:hover {
   text-decoration: underline;
 }
 
 /* Division level reads as a pill so D1/D2/JUCO scans down the column. */
-.coach-badge {
+.dir-badge {
   display: inline-block;
   padding: 3px 10px;
   border-radius: 999px;
@@ -6218,14 +6219,27 @@ body {
 }
 
 /* Notes can run long — cap the column and keep the full text in the tooltip. */
-.coach-notes {
+.dir-notes {
   max-width: 280px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.coach-empty-row {
+.dir-empty-row {
   padding: 30px 14px;
   text-align: center;
+  color: var(--text-muted);
+}
+
+/* Right-aligned figure column (the Hotels tab's nightly rate). */
+.dir-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A tournament that has since been deleted from the Schedules tab. The stay
+   keeps the name it was booked for, shown as context rather than a dead link. */
+.dir-removed {
+  font-style: italic;
   color: var(--text-muted);
 }

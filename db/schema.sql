@@ -377,6 +377,37 @@ CREATE TABLE IF NOT EXISTS college_coaches (
 CREATE INDEX IF NOT EXISTS idx_college_coaches_company_sport ON college_coaches (company_id, sport);
 
 -- ---------------------------------------------------------------------------
+-- Hotels (team travel)
+--
+-- A hotel the program books for travel, owned by a company. Only the name is
+-- required. `division` is a teams division slug (or null), and `event_id` ties
+-- the stay to a Schedules-tab tournament — set to null if that tournament is
+-- later deleted, which is why `event_name` snapshots what the stay was booked
+-- for. `avg_cost_per_night` is the nightly room rate the Hotels tab averages
+-- across the list in view.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS hotels (
+    id                  SERIAL        PRIMARY KEY,
+    company_id          INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name                VARCHAR(160)  NOT NULL,
+    address             VARCHAR(300),
+    city                VARCHAR(120),
+    state               VARCHAR(40),
+    division            VARCHAR(32),
+    event_id            INTEGER       REFERENCES schedule_events(id) ON DELETE SET NULL,
+    event_name          VARCHAR(200),
+    avg_cost_per_night  NUMERIC(10,2),
+    phone               VARCHAR(40),
+    website             VARCHAR(300),
+    notes               TEXT,
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_hotels_company_id ON hotels (company_id);
+CREATE INDEX IF NOT EXISTS idx_hotels_event_id ON hotels (event_id);
+
+-- ---------------------------------------------------------------------------
 -- Payroll
 --
 -- A payroll submission is one employee's logged hours for a day, sent through

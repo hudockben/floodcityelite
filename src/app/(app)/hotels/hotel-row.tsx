@@ -1,34 +1,65 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import Link from "next/link";
 import { telHref, websiteHref, websiteLabel } from "@/lib/links";
 import ConfirmButton from "../teams/confirm-button";
-import { SPORTS } from "../teams/divisions";
+import { divisionLabel } from "../teams/divisions";
+import { formatMoney } from "../schedules/events";
+import { deleteHotelAction, updateHotelAction, type FormState } from "./actions";
+import HotelFields from "./hotel-fields";
 import {
-  deleteCoachAction,
-  updateCoachAction,
-  type FormState,
-} from "./actions";
-import CoachFields from "./coach-fields";
-import {
-  COACH_FIELDS,
-  coachValue,
-  type CoachField,
-  type CoachRow as CoachRowData,
-} from "./coaches";
+  HOTEL_FIELDS,
+  formatShortDate,
+  hotelValue,
+  scheduleHref,
+  type HotelField,
+  type HotelRow as HotelRowData,
+  type TournamentOption,
+} from "./hotels";
 
 const initialState: FormState = {};
-// Every contact field, plus the actions column.
-const COL_SPAN = COACH_FIELDS.length + 1;
+// The hotel name, the tournament and division columns, the rest of the fields,
+// and the actions column.
+const COL_SPAN = HOTEL_FIELDS.length + 3;
 
-// One cell's contents. Phone, email, and website become tap-to-use links so a
-// contact can be called or opened straight from the table; the level renders as
-// a pill so D1/D2/JUCO reads at a glance down the column.
-function CoachCell({ field, value }: { field: CoachField; value: string | null }) {
+// Which tournament the stay is for. A live one links through to that
+// tournament's Schedules view; if the tournament was deleted the snapshot name
+// is kept but shown as struck-out context rather than a dead link.
+function TournamentCell({ hotel }: { hotel: HotelRowData }) {
+  if (!hotel.event_name) return <span className="cell-empty">—</span>;
+
+  const when = formatShortDate(hotel.event_date);
+
+  if (hotel.event_id != null) {
+    return (
+      <Link
+        className="dir-link"
+        href={scheduleHref(hotel.event_division, hotel.event_year)}
+        title={`${hotel.event_name}${when ? ` · ${when}` : ""} — open on the Schedules tab`}
+      >
+        {hotel.event_name}
+      </Link>
+    );
+  }
+
+  return (
+    <span
+      className="dir-removed"
+      title="This tournament was removed from the Schedules tab"
+    >
+      {hotel.event_name}
+    </span>
+  );
+}
+
+// One typed field's cell. Phone and website become tap-to-use links; the
+// nightly rate is formatted as money.
+function HotelCell({ field, value }: { field: HotelField; value: string | null }) {
   if (value == null) return <span className="cell-empty">—</span>;
 
-  switch (field.key) {
-    case "cell_phone": {
+  switch (field.type) {
+    case "tel": {
       const href = telHref(value);
       // Free text: only linkify what can actually be dialed (see telHref).
       return href ? (
@@ -39,13 +70,7 @@ function CoachCell({ field, value }: { field: CoachField; value: string | null }
         <>{value}</>
       );
     }
-    case "email":
-      return (
-        <a className="dir-link" href={`mailto:${value}`}>
-          {value}
-        </a>
-      );
-    case "website": {
+    case "link": {
       const href = websiteHref(value);
       // Anything that isn't an http(s) link stays plain text (see websiteHref).
       return href ? (
@@ -61,17 +86,23 @@ function CoachCell({ field, value }: { field: CoachField; value: string | null }
         <>{value}</>
       );
     }
-    case "division_level":
-      return <span className="dir-badge">{value}</span>;
+    case "money":
+      return <>{formatMoney(value)}</>;
     default:
       return <>{value}</>;
   }
 }
 
-export default function CoachRow({ coach }: { coach: CoachRowData }) {
+export default function HotelRow({
+  hotel,
+  tournaments,
+}: {
+  hotel: HotelRowData;
+  tournaments: TournamentOption[];
+}) {
   const [editing, setEditing] = useState(false);
   const [state, formAction, pending] = useActionState(
-    updateCoachAction,
+    updateHotelAction,
     initialState,
   );
 
@@ -86,33 +117,16 @@ export default function CoachRow({ coach }: { coach: CoachRowData }) {
       <tr className="player-edit-row">
         <td colSpan={COL_SPAN}>
           <form action={formAction} className="player-edit-form">
-            <input type="hidden" name="coachId" value={coach.id} />
+            <input type="hidden" name="hotelId" value={hotel.id} />
 
             <div className="player-edit-head">
-              Editing <strong>{coach.school_name}</strong>
+              Editing <strong>{hotel.name}</strong>
             </div>
 
-            <CoachFields
-              idPrefix={`coach-edit-${coach.id}`}
-              coach={coach}
-              leading={
-                // Editable here (and only here) so a contact filed under the
-                // wrong sport can be moved to the other list.
-                <div className="field">
-                  <label htmlFor={`coach-edit-${coach.id}-sport`}>Sport</label>
-                  <select
-                    id={`coach-edit-${coach.id}-sport`}
-                    name="sport"
-                    defaultValue={coach.sport}
-                  >
-                    {SPORTS.map((s) => (
-                      <option key={s.value} value={s.value}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              }
+            <HotelFields
+              idPrefix={`hotel-edit-${hotel.id}`}
+              hotel={hotel}
+              tournaments={tournaments}
             />
 
             <div className="player-form-actions">
@@ -139,13 +153,31 @@ export default function CoachRow({ coach }: { coach: CoachRowData }) {
     );
   }
 
+  // The name is rendered explicitly (it's the frozen first column), so the
+  // mapped tail starts at the second field.
+  const [, ...restFields] = HOTEL_FIELDS;
+
   return (
     <tr>
-      {COACH_FIELDS.map((f) => {
-        const value = coachValue(coach, f.key);
+      <td className="col-name">{hotel.name}</td>
+
+      <td>
+        <TournamentCell hotel={hotel} />
+      </td>
+
+      <td>
+        {hotel.division ? (
+          <span className="dir-badge">{divisionLabel(hotel.division)}</span>
+        ) : (
+          <span className="cell-empty">—</span>
+        )}
+      </td>
+
+      {restFields.map((f) => {
+        const value = hotelValue(hotel, f.key);
         const classes = [
-          f.key === "school_name" ? "col-name" : null,
           f.type === "notes" ? "dir-notes" : null,
+          f.type === "money" ? "dir-num" : null,
         ]
           .filter(Boolean)
           .join(" ");
@@ -155,10 +187,11 @@ export default function CoachRow({ coach }: { coach: CoachRowData }) {
             className={classes || undefined}
             title={f.type === "notes" && value ? value : undefined}
           >
-            <CoachCell field={f} value={value} />
+            <HotelCell field={f} value={value} />
           </td>
         );
       })}
+
       <td className="col-actions">
         <div className="row-actions">
           <button
@@ -169,9 +202,9 @@ export default function CoachRow({ coach }: { coach: CoachRowData }) {
             Edit
           </button>
           <ConfirmButton
-            action={deleteCoachAction}
-            hidden={{ coachId: coach.id }}
-            confirmText={`Remove ${coach.school_name} from the contact list?`}
+            action={deleteHotelAction}
+            hidden={{ hotelId: hotel.id }}
+            confirmText={`Remove ${hotel.name} from the hotel list?`}
             className="row-delete"
           >
             Remove

@@ -95,6 +95,19 @@ ones are:
   search box plus a division-level filter narrow the list. Rows are edited
   inline — the editor also carries the Sport, so a contact filed under the wrong
   list can be moved. Belongs to a company via `company_id`.
+- **`hotels`** — the **Hotels** tab, the program's travel list. Built like
+  Contact Info: an add form over a searchable table whose rows edit inline.
+  Only `name` is required; `address`, `city`, `state`, `avg_cost_per_night`
+  (the nightly room rate), `phone`, `website`, and `notes` fill in as a stay is
+  booked. Two dropdown columns tie a stay to the rest of the app: `division` (a
+  teams division slug, or null) and `event_id` — the **Schedules**-tab
+  tournament the stay is for. `event_name` snapshots that tournament's name, so
+  deleting it from the Schedules tab (which nulls `event_id`) leaves the hotel
+  still showing what it was booked for instead of losing the context. A live
+  tournament's cell links through to its Schedules view. The list can be
+  filtered by division and by tournament, and the count line averages the
+  nightly rate across whatever is in view. Belongs to a company via
+  `company_id`.
 - **`payroll_submissions`** — the **Payroll** tab, which has two subtabs:
   **Submissions** and **Reports**. Each row is one employee's logged hours for a
   day, submitted through the public `/payroll` form (no login): `employee_name`,
