@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { saveBudgetAction, type FormState } from "./actions";
 import {
@@ -21,7 +21,12 @@ import TeamExpenses from "./team-expenses";
 import TeamTournaments from "./team-tournaments";
 import { sportLabel, type Sport } from "../teams/divisions";
 
-const initialState: FormState = {};
+/**
+ * How long the sheet waits after the last keystroke before saving itself.
+ * Long enough to type "1500" as one figure, short enough that walking away
+ * from the screen leaves the figure saved.
+ */
+const AUTOSAVE_DELAY_MS = 800;
 
 export type BudgetTeam = {
   id: number;
@@ -60,16 +65,50 @@ function moneyToInput(n: number): string {
   return n === 0 ? "" : String(n);
 }
 
+/** Do two sets of budget inputs hold the same figures? */
+function sameBudget(a: SavedBudget, b: SavedBudget): boolean {
+  return (
+    a.tuitionPerPlayer === b.tuitionPerPlayer &&
+    a.portionToTeamBudget === b.portionToTeamBudget &&
+    a.payingPlayersOverride === b.payingPlayersOverride
+  );
+}
+
+/**
+ * The payload saveBudgetAction expects. Built by hand rather than serialized
+ * from the form, so a save can be fired from anywhere — a debounce, a blur, or
+ * the card unmounting as the coach clicks another tab.
+ */
+function budgetFormData(teamId: number, values: SavedBudget): FormData {
+  const fd = new FormData();
+  fd.set("teamId", String(teamId));
+  fd.set("tuition_per_player", String(values.tuitionPerPlayer));
+  // Blank ⇒ NULL ⇒ "derive it" for both overrides (see budget.ts).
+  fd.set(
+    "portion_to_team_budget",
+    values.portionToTeamBudget == null ? "" : String(values.portionToTeamBudget),
+  );
+  fd.set(
+    "paying_players",
+    values.payingPlayersOverride == null
+      ? ""
+      : String(values.payingPlayersOverride),
+  );
+  return fd;
+}
+
 function MoneyInput({
   name,
   value,
   onChange,
+  onBlur,
   ariaLabel,
   placeholder = "0.00",
 }: {
   name: string;
   value: string;
   onChange: (v: string) => void;
+  onBlur: () => void;
   ariaLabel: string;
   placeholder?: string;
 }) {
@@ -89,6 +128,7 @@ function MoneyInput({
         aria-label={ariaLabel}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
       />
     </div>
   );
@@ -119,25 +159,15 @@ export default function TeamBudgetCard({
       : String(team.saved.payingPlayersOverride),
   );
 
-  // Baseline the saved values so the Save button only lights up on real edits.
-  const [baseline, setBaseline] = useState<SavedBudget>(team.saved);
-
-  const [state, formAction, pending] = useActionState(
-    saveBudgetAction,
-    initialState,
+  // What's on screen vs. what's in the database. `persisted` drives the render
+  // (so the status reads right); `persistedRef` is the copy the save loop reads,
+  // since that runs outside React's render.
+  const [persisted, setPersisted] = useState<SavedBudget>(team.saved);
+  const persistedRef = useRef<SavedBudget>(team.saved);
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle",
   );
-
-  // After a successful save, the persisted values become the new baseline.
-  useEffect(() => {
-    if (state?.ok) {
-      setBaseline({
-        tuitionPerPlayer: parseMoney(tuition),
-        portionToTeamBudget: normalizeMoneyOverride(portion),
-        payingPlayersOverride: normalizeOverride(paying),
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
+  const [error, setError] = useState<string | null>(null);
 
   // Live-computed figures (recompute every keystroke, spreadsheet-style).
   const tuitionNum = parseMoney(tuition);
@@ -161,10 +191,130 @@ export default function TeamBudgetCard({
   const current = currentBalance(starting, team.scheduledCost, expenseNet);
   const fundraise = fundraisingPerPlayer(current, payingCount);
 
-  const dirty =
-    tuitionNum !== baseline.tuitionPerPlayer ||
-    portionOverride !== baseline.portionToTeamBudget ||
-    override !== baseline.payingPlayersOverride;
+  // The figures as typed, kept in a ref so the save loop, the debounce timer and
+  // the unmount handler all read what's on screen *now* rather than whatever was
+  // current when they were created.
+  const values: SavedBudget = {
+    tuitionPerPlayer: tuitionNum,
+    portionToTeamBudget: portionOverride,
+    payingPlayersOverride: override,
+  };
+  const latest = useRef<SavedBudget>(values);
+  latest.current = values;
+
+  const dirty = !sameBudget(values, persisted);
+
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saving = useRef(false);
+  // False once the card has unmounted, so an in-flight save doesn't call
+  // setState on a component that's gone.
+  const alive = useRef(true);
+
+  /**
+   * Write whatever is on screen. Loops until the saved copy matches it, so
+   * edits made while a save was in flight get their own write instead of
+   * sitting there unsaved. Only one loop runs at a time; a call that arrives
+   * mid-save can return, because the running loop re-reads `latest` after every
+   * write and there is no await between that check and releasing the lock.
+   */
+  const flush = useCallback(async () => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+    if (saving.current) return;
+    saving.current = true;
+    try {
+      while (!sameBudget(latest.current, persistedRef.current)) {
+        const snapshot = latest.current;
+        if (alive.current) {
+          setStatus("saving");
+          setError(null);
+        }
+        let result: FormState;
+        try {
+          result = await saveBudgetAction({}, budgetFormData(team.id, snapshot));
+        } catch {
+          // A dropped connection never reaches the action's own error handling,
+          // and silence here is exactly the "it just didn't stick" this is meant
+          // to stop.
+          result = {
+            error:
+              "the save couldn't reach the server. Check your connection — your figures are still on screen.",
+          };
+        }
+        if (!result?.ok) {
+          if (alive.current) {
+            setError(result?.error ?? "Could not save the budget.");
+            setStatus("error");
+          }
+          // Leave it dirty: the figures stay on screen and Save budget retries.
+          return;
+        }
+        persistedRef.current = snapshot;
+        if (alive.current) {
+          setPersisted(snapshot);
+          setStatus("saved");
+          setError(null);
+        }
+      }
+    } finally {
+      saving.current = false;
+    }
+  }, [team.id]);
+
+  /** Save shortly after the coach stops typing. */
+  const schedule = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      void flush();
+    }, AUTOSAVE_DELAY_MS);
+  }, [flush]);
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+      // Leaving the tab is the moment this bug used to bite: a figure typed and
+      // then abandoned mid-debounce. The request outlives the component, so fire
+      // it without waiting for it. A save already in flight is left alone — its
+      // loop re-reads the figures once it lands and writes them itself.
+      if (!saving.current && !sameBudget(latest.current, persistedRef.current)) {
+        void saveBudgetAction(
+          {},
+          budgetFormData(team.id, latest.current),
+        ).catch(() => {});
+      }
+    };
+  }, [team.id]);
+
+  // Closing the tab or a hard reload can't be saved through, so say so rather
+  // than dropping the figures silently. Only armed while something is unsaved.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  const saveStatus =
+    status === "error"
+      ? { text: "Not saved", className: "bss-error" }
+      : status === "saving"
+        ? { text: "Saving…", className: "bss-saving" }
+        : dirty
+          ? { text: "Unsaved", className: "bss-dirty" }
+          : status === "saved"
+            ? { text: "Saved", className: "bss-saved" }
+            : null;
 
   // Current balance / fundraising are only meaningful once the team has a real
   // starting-balance basis (a per-player portion AND paying players). Until
@@ -198,15 +348,20 @@ export default function TeamBudgetCard({
 
       <div className="budget-body">
         <div className="budget-columns">
-          <form action={formAction} className="budget-col-sheet">
-            <input type="hidden" name="teamId" value={team.id} />
-
+          <form
+            className="budget-col-sheet"
+            onSubmit={(e) => {
+              // Enter in a field, or the Save button, writes immediately.
+              e.preventDefault();
+              void flush();
+            }}
+          >
             {/* Above the sheet on purpose: the Save button sits under a tall
                 table, so a failure reported down there is easy to scroll past
                 and read as "my figure just didn't stick". */}
-            {state?.error ? (
+            {error ? (
               <p className="error budget-save-error" role="alert">
-                {state.error}
+                {error}
               </p>
             ) : null}
 
@@ -215,7 +370,19 @@ export default function TeamBudgetCard({
                 <tbody>
                   <tr className="bs-head">
                     <th colSpan={2} scope="colgroup">
-                      Team Budget
+                      {/* The section header doubles as the sheet's save
+                          readout, so it sits beside the fields it reports on
+                          rather than below the table. */}
+                      <span className="bs-head-live">
+                        <span>Team Budget</span>
+                        <span
+                          className={`bs-save-status${saveStatus ? ` ${saveStatus.className}` : ""}`}
+                          role="status"
+                          aria-live="polite"
+                        >
+                          {saveStatus?.text ?? ""}
+                        </span>
+                      </span>
                     </th>
                   </tr>
 
@@ -239,7 +406,11 @@ export default function TeamBudgetCard({
                         aria-label="Number of paying players (leave blank to use the count marked Paying on the roster)"
                         placeholder={String(team.payingRosterCount)}
                         value={paying}
-                        onChange={(e) => setPaying(e.target.value)}
+                        onChange={(e) => {
+                          setPaying(e.target.value);
+                          schedule();
+                        }}
+                        onBlur={() => void flush()}
                       />
                     </td>
                   </tr>
@@ -250,7 +421,11 @@ export default function TeamBudgetCard({
                       <MoneyInput
                         name="tuition_per_player"
                         value={tuition}
-                        onChange={setTuition}
+                        onChange={(v) => {
+                          setTuition(v);
+                          schedule();
+                        }}
+                        onBlur={() => void flush()}
                         ariaLabel="Tuition per player"
                       />
                     </td>
@@ -303,16 +478,39 @@ export default function TeamBudgetCard({
                     <th scope="row">
                       Portion to team budget
                       <span className="bs-note">
-                        {portionOverride == null
-                          ? `tuition less the fixed cost per player (${formatMoney(derivedPortion)})`
-                          : `manual override · auto would be ${formatMoney(derivedPortion)}`}
+                        {portionOverride != null ? (
+                          `manual override · auto would be ${formatMoney(derivedPortion)}`
+                        ) : tuitionNum <= 0 ? (
+                          "tuition less the fixed cost per player — enter a tuition above"
+                        ) : fixedCostPerPlayer >= tuitionNum ? (
+                          // Derived, and derived to nothing. Saying so beats an
+                          // unexplained $0.00 that reads as a figure that never
+                          // calculated: the tuition doesn't cover the program's
+                          // fixed cost per player, so none of it reaches the team.
+                          <>
+                            {formatMoney(fixedCostPerPlayer)} fixed cost per
+                            player is more than the {formatMoney(tuitionNum)}{" "}
+                            tuition, so none of it reaches the team budget —
+                            check the divisor on the{" "}
+                            <Link className="bs-note-link" href="/fixed-cost">
+                              Fixed Cost
+                            </Link>{" "}
+                            tab
+                          </>
+                        ) : (
+                          `${formatMoney(tuitionNum)} tuition less ${formatMoney(fixedCostPerPlayer)} fixed cost = ${formatMoney(derivedPortion)}`
+                        )}
                       </span>
                     </th>
                     <td>
                       <MoneyInput
                         name="portion_to_team_budget"
                         value={portion}
-                        onChange={setPortion}
+                        onChange={(v) => {
+                          setPortion(v);
+                          schedule();
+                        }}
+                        onBlur={() => void flush()}
                         placeholder={String(derivedPortion.toFixed(2))}
                         ariaLabel="Portion of tuition that goes to the team budget, per player (leave blank to use tuition minus the fixed cost per player)"
                       />
@@ -367,9 +565,13 @@ export default function TeamBudgetCard({
               <button
                 type="submit"
                 className="btn budget-save-btn"
-                disabled={pending || !dirty}
+                disabled={status === "saving" || !dirty}
               >
-                {pending ? "Saving…" : dirty ? "Save budget" : "Saved"}
+                {status === "saving"
+                  ? "Saving…"
+                  : dirty
+                    ? "Save budget"
+                    : "Saved"}
               </button>
               <a
                 className="budget-print-link"
@@ -380,12 +582,14 @@ export default function TeamBudgetCard({
                 🖨 Print / Save PDF
               </a>
               <p className="budget-hint">
-                Portion to team budget = tuition per player minus the program&apos;s
-                fixed cost per player, unless you type a figure here to override
-                it for this team. Current balance = starting balance minus this
-                team&apos;s total scheduled cost on the Schedules tab and its paid
-                expenses (less refunds). Fundraising covers any shortfall, split
-                across paying players.
+                These figures save themselves a moment after you stop typing, and
+                again as you leave the field — the button is only there to write
+                them right now. Portion to team budget = tuition per player minus
+                the program&apos;s fixed cost per player, unless you type a
+                figure here to override it for this team. Current balance =
+                starting balance minus this team&apos;s total scheduled cost on
+                the Schedules tab and its paid expenses (less refunds).
+                Fundraising covers any shortfall, split across paying players.
               </p>
             </div>
           </form>

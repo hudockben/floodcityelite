@@ -173,7 +173,8 @@ export default async function BudgetsPage({
           <h1>Budgets</h1>
           <p>
             One budget per team. Pick a division, then expand a team to set its
-            tuition — totals update as you type. The portion of that tuition
+            tuition — totals update as you type, and the figures save themselves
+            a moment after you stop. The portion of that tuition
             reaching the team budget is what&apos;s left after the program&apos;s
             fixed cost per player from the{" "}
             <Link className="inline-link" href="/fixed-cost">

@@ -2133,10 +2133,43 @@ body {
   padding: 16px 14px 6px;
   font-size: 0.72rem;
   font-weight: 700;
+  text-align: left;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
   border-bottom: 1px solid var(--card-border);
+}
+
+/* The "Team Budget" header doubles as the sheet's autosave readout — the title
+   on the left, whether the figures are saved on the right — so the answer to
+   "did that stick?" sits beside the fields instead of below a tall table. */
+.bs-head-live {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bs-save-status {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  /* Reserved even when empty, so the row doesn't jump as the status changes. */
+  min-height: 1em;
+}
+
+.bs-save-status.bss-dirty,
+.bs-save-status.bss-saving {
+  color: var(--text-muted);
+}
+
+.bs-save-status.bss-saved {
+  color: #6ee7b7;
+}
+
+.bs-save-status.bss-error {
+  color: var(--danger);
 }
 
 /* The very first section header sits flush with the top of the sheet. */
