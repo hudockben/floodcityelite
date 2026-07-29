@@ -61,7 +61,8 @@ export default async function RosterSubmissionsPage() {
           records the team the spot was for, so a decline shows which roster just
           opened back up. When a parent accepts, the player is added to that
           team&apos;s roster automatically — the team name below links to it.
-          Delete a response once it&apos;s been processed.
+          Delete a response once it&apos;s been processed, or download what
+          you&apos;re looking at as a CSV or Excel file.
         </p>
       </div>
 

@@ -162,6 +162,18 @@ ones are:
   the choice so it survives the team being deleted (which nulls `team_id`). The
   accept also copies the player's high school and hat size, and the parent's
   name, onto the roster row.
+  **Export.** The tab's ⬇ CSV / ⬇ Excel buttons download the responses as a
+  spreadsheet — one row per response, one column per question, blank where a
+  parent didn't answer. The download honours the tab's search, status, and team
+  filters: the buttons carry them to `/roster-submissions/export`, which
+  re-applies the *same* predicates the list uses (both import them from
+  [`submissions.ts`](<src/app/(app)/roster-submissions/submissions.ts>)), so the
+  file holds exactly the rows that were on screen. CSV values that open with
+  `=`, `+`, `-`, or `@` are prefixed with an apostrophe so a spreadsheet treats
+  what a parent typed as text rather than a formula; the `.xlsx` needs no such
+  guard, since its cells are written as strings and Excel only evaluates cells
+  actually typed as formulas.
+
   Jersey numbers are then assigned automatically for the whole team (see below). The remaining
   fields — `played_fce_2026` (the "Did you play in 2026?" returning-player
   answer), the returning number, the three jersey option preferences, secondary

@@ -6,18 +6,24 @@ import { divisionLabel } from "../teams/divisions";
 import { formatRosterDate } from "@/lib/roster-format";
 import type { RosterSubmissionRow } from "@/lib/roster-submissions";
 import ConfirmButton from "../teams/confirm-button";
+import {
+  handednessLabel,
+  haystackOf,
+  matchesSearchAndTeam,
+  matchesStatus,
+  teamKeyOf,
+  teamNameOf,
+  type StatusFilter,
+} from "./submissions";
 
 // The interactive Roster Submissions list: a broad text search plus status and
 // team filters over the already-loaded responses. All filtering is client-side
 // (the whole company's responses are a small set), so narrowing is instant and
 // needs no round-trip. The server page owns loading + the delete action, which
 // is threaded through as a prop.
-
-function handednessLabel(value: string | null): string | null {
-  if (!value) return null;
-  const map: Record<string, string> = { L: "Left (L)", R: "Right (R)", S: "Switch (S)" };
-  return map[value] ?? value;
-}
+//
+// The filter predicates themselves live in ./submissions, shared with the
+// export route so a downloaded file holds exactly what the screen showed.
 
 // The labeled detail fields shown on a submission card, in display order. Empty
 // values are dropped so a decline (which carries almost nothing) stays compact.
@@ -49,55 +55,8 @@ function detailFields(s: RosterSubmissionRow): { label: string; value: string }[
   return rows.filter((r): r is { label: string; value: string } => r.value != null && r.value !== "");
 }
 
-type StatusFilter = "all" | "accepted" | "declined";
-
 // A distinct team appearing across the submissions, for the team dropdown.
 type TeamOption = { key: string; name: string; division: string | null; removed: boolean };
-
-// A stable key for the team a submission chose: prefer the live team id, fall
-// back to the snapshot name (a team that's since been deleted). Declines with no
-// team at all return null and belong to no team group.
-function teamKeyOf(s: RosterSubmissionRow): string | null {
-  if (s.team_id != null) return `id:${s.team_id}`;
-  const name = s.current_team_name ?? s.team_name;
-  return name ? `name:${name}` : null;
-}
-
-function teamNameOf(s: RosterSubmissionRow): string | null {
-  return s.current_team_name ?? s.team_name;
-}
-
-// The lowercased text a submission is matched against — every field a user might
-// reasonably type. Built once per submission so keystrokes stay cheap.
-function haystackOf(s: RosterSubmissionRow): string {
-  const parts: (string | number | null)[] = [
-    s.player_name,
-    s.email,
-    s.high_school,
-    s.primary_position,
-    s.secondary_position,
-    s.parent_name,
-    s.parent_phone,
-    s.secondary_phone,
-    s.returning_jersey,
-    s.jersey_option_1,
-    s.jersey_option_2,
-    s.jersey_option_3,
-    s.grad_year,
-    s.height,
-    s.weight,
-    s.hat_size,
-    handednessLabel(s.bats),
-    handednessLabel(s.throws),
-    teamNameOf(s),
-    s.current_division ? divisionLabel(s.current_division) : null,
-    s.division ? divisionLabel(s.division) : null,
-  ];
-  return parts
-    .filter((p) => p != null && p !== "")
-    .join(" ")
-    .toLowerCase();
-}
 
 export default function SubmissionsList({
   submissions,
@@ -154,23 +113,18 @@ export default function SubmissionsList({
 
   // Apply search + team first; the status counts and the visible list are both
   // derived from this base so the segment counts reflect the current search.
-  const base = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return indexed.filter(({ haystack, teamKey }) => {
-      if (q !== "" && !haystack.includes(q)) return false;
-      if (effectiveTeam !== "" && teamKey !== effectiveTeam) return false;
-      return true;
-    });
-  }, [indexed, query, effectiveTeam]);
+  const base = useMemo(
+    () =>
+      indexed.filter(({ haystack, teamKey }) =>
+        matchesSearchAndTeam(query, effectiveTeam, haystack, teamKey),
+      ),
+    [indexed, query, effectiveTeam],
+  );
 
   const acceptedCount = base.filter(({ s }) => s.accepted).length;
   const declinedCount = base.length - acceptedCount;
 
-  const visible = base.filter(({ s }) => {
-    if (status === "accepted") return s.accepted;
-    if (status === "declined") return !s.accepted;
-    return true;
-  });
+  const visible = base.filter(({ s }) => matchesStatus(s.accepted, status));
 
   const total = submissions.length;
   const filtersActive = query.trim() !== "" || status !== "all" || effectiveTeam !== "";
@@ -184,6 +138,17 @@ export default function SubmissionsList({
     // letting it fall to <body>.
     searchRef.current?.focus();
   }
+
+  // The export downloads what's on screen: the same search, status, and team
+  // ride along as query params, and the route re-applies them with the shared
+  // predicates above.
+  const exportHref = (format: "csv" | "xlsx") => {
+    const params = new URLSearchParams({ format });
+    if (query.trim() !== "") params.set("q", query.trim());
+    if (status !== "all") params.set("status", status);
+    if (effectiveTeam !== "") params.set("team", effectiveTeam);
+    return `/roster-submissions/export?${params.toString()}`;
+  };
 
   // Division heading for the currently-grouped team option, to render optgroups.
   const grouped = useMemo(() => {
@@ -293,6 +258,26 @@ export default function SubmissionsList({
               </select>
             </label>
           ) : null}
+
+          {/* Downloads the filtered set, not the whole table — the summary line
+              below says how many rows that is. Plain links so the browser
+              handles the file. */}
+          <div className="subs-export">
+            <a
+              className="btn-secondary subs-export-btn"
+              href={exportHref("csv")}
+              download
+            >
+              ⬇ CSV
+            </a>
+            <a
+              className="btn-secondary subs-export-btn"
+              href={exportHref("xlsx")}
+              download
+            >
+              ⬇ Excel
+            </a>
+          </div>
         </div>
       </div>
 
