@@ -84,8 +84,9 @@ function yesNo(formData: FormData, key: string): boolean | null {
 }
 
 // Handle a public roster-acceptance submission. No session — anyone with the
-// link (from the Roster Spot card on the sign-in screen) can respond. A decline
-// records just the response; an accept also pushes the player onto the roster.
+// link (from the Roster Spot card on the sign-in screen) can respond. Both
+// answers record the player's name and the team the offer was for; an accept
+// also carries the full player detail and pushes the player onto that roster.
 export async function submitRosterAcceptanceAction(
   _prev: RosterFormState,
   formData: FormData,
@@ -118,27 +119,28 @@ export async function submitRosterAcceptanceAction(
       return fail("This form isn't set up yet. Please check back soon.");
     }
 
-    // Resolve + validate the chosen team only when accepting.
-    let teamId: number | null = null;
-    let teamName: string | null = null;
-    let division: string | null = null;
-
-    if (accepted) {
-      const rawTeam = String(formData.get("teamId") ?? "").trim();
-      const parsed = Number.parseInt(rawTeam, 10);
-      if (!Number.isFinite(parsed)) {
-        return fail("Choose the team you're accepting a spot on.");
-      }
-      const team = await getOwnedTeam(companyId, parsed);
-      if (!team) {
-        return fail(
-          "That team is no longer available. Please refresh the page and try again.",
-        );
-      }
-      teamId = team.id;
-      teamName = team.name;
-      division = team.division;
+    // Resolve + validate the chosen team. Required either way: an accept needs it
+    // to create the roster row, and a decline needs it so the office can see
+    // which team's spot was turned down. The team record is authoritative for the
+    // stored division (the form's `division` select only filters the team list).
+    const rawTeam = String(formData.get("teamId") ?? "").trim();
+    const parsed = Number.parseInt(rawTeam, 10);
+    if (!Number.isFinite(parsed)) {
+      return fail(
+        accepted
+          ? "Choose the team you're accepting a spot on."
+          : "Choose the division and team whose spot you're declining.",
+      );
     }
+    const team = await getOwnedTeam(companyId, parsed);
+    if (!team) {
+      return fail(
+        "That team is no longer available. Please refresh the page and try again.",
+      );
+    }
+    const teamId = team.id;
+    const teamName = team.name;
+    const division = team.division;
 
     // Parse the player + parent detail fields.
     const email = text(formData, "email", 160);
@@ -162,7 +164,7 @@ export async function submitRosterAcceptanceAction(
 
     // On accept every field is required (the form enforces it client-side; this
     // backs it up server-side). Report the first gap so the parent knows what to
-    // fix. A decline only needs the player name, already checked above.
+    // fix. A decline only needs the player name and team, both checked above.
     if (accepted) {
       // [is-missing, what-to-say] in form order; the first gap is reported.
       const checks: [boolean, string][] = [

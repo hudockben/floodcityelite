@@ -341,9 +341,11 @@ export default function SubmissionsList({
             const details = detailFields(s);
             // Carry the team's season year so the #team anchor lands on the
             // season the team actually belongs to (which may be an archived
-            // season), not whichever season is currently active.
+            // season), not whichever season is currently active. Linked for
+            // declines too — the form asks which team's spot was turned down, so
+            // the anchor points at the roster that just reopened.
             const teamLink =
-              s.accepted && s.team_id != null && s.current_division
+              s.team_id != null && s.current_division
                 ? `/teams?division=${s.current_division}${
                     s.current_season_year != null
                       ? `&year=${s.current_season_year}`
@@ -378,9 +380,12 @@ export default function SubmissionsList({
                   </div>
                 </div>
 
-                {s.accepted ? (
+                {/* The team line shows on declines too (the form requires it),
+                    so the office can see which spot was turned down. Declines
+                    predating that change carry no team — skip the line then. */}
+                {s.accepted || teamName ? (
                   <p className="sub-team">
-                    Roster spot on{" "}
+                    {s.accepted ? "Roster spot on" : "Declined a spot on"}{" "}
                     {teamLink ? (
                       <Link href={teamLink} className="sub-team-link">
                         {teamName}

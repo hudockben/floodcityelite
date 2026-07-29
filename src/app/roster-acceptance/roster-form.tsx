@@ -91,9 +91,10 @@ function PositionField({ name, label }: { name: string; label: string }) {
 }
 
 // The public roster-acceptance form. The parent first chooses Yes (accepting) or
-// No (declining). Declining just records the response with a thank-you; accepting
-// reveals the full player + parent detail and, on submit, pushes the player onto
-// the chosen team's roster.
+// No (declining). Either way they pick the division and team the offer was for,
+// so the office can see who declined which spot; accepting also reveals the full
+// player + parent detail and, on submit, pushes the player onto that team's
+// roster.
 export default function RosterAcceptanceForm({
   teams,
 }: {
@@ -110,7 +111,10 @@ export default function RosterAcceptanceForm({
   // player) shows a single returning number; "no" (new player) shows three
   // ranked options. "" = not answered yet, so neither is shown.
   const [played, setPlayed] = useState<"" | "yes" | "no">("");
-  // The chosen division narrows the team dropdown to that division's teams.
+  // The chosen division narrows the team dropdown to that division's teams. Both
+  // selects are asked on accept AND decline (and stay mounted across a yes/no
+  // toggle), so this is deliberately NOT reset when the choice changes — that
+  // would leave the state out of step with the still-rendered <select>.
   const [division, setDivision] = useState<string>("");
 
   // On a successful submit, reset the form and clear the choice / played /
@@ -169,7 +173,6 @@ export default function RosterAcceptanceForm({
               onChange={() => {
                 setChoice("yes");
                 setPlayed("");
-                setDivision("");
               }}
               required
             />
@@ -190,7 +193,6 @@ export default function RosterAcceptanceForm({
               onChange={() => {
                 setChoice("no");
                 setPlayed("");
-                setDivision("");
               }}
             />
             <span className="accept-option-title">No — decline the spot</span>
@@ -222,62 +224,69 @@ export default function RosterAcceptanceForm({
           {choice === "no" ? (
             <p className="decline-note">
               Sorry to hear the player won&apos;t be joining us this season.
-              Thank you for trying out with Flood City Elite — we wish you the
-              best of luck! Just submit below and you&apos;re done.
+              Please tell us which team&apos;s spot you&apos;re turning down so
+              the coaching staff knows which roster to reopen. Thank you for
+              trying out with Flood City Elite — we wish you the best of luck!
             </p>
-          ) : (
+          ) : null}
+
+          {/* Division + team — required on accept AND decline, so a declined
+              offer still records which spot was turned down. Division first: it
+              narrows the team list below to that division. */}
+          <div className="field">
+            <label htmlFor="ra-division">Division *</label>
+            <select
+              id="ra-division"
+              name="division"
+              defaultValue={state.values?.division ?? ""}
+              onChange={(e) => setDivision(e.target.value)}
+              required
+            >
+              <option value="" disabled>
+                Choose a division…
+              </option>
+              {teamsByDivision.map(([div]) => (
+                <option key={div} value={div}>
+                  {divisionLabel(div)}
+                </option>
+              ))}
+            </select>
+            {teams.length === 0 ? (
+              <p className="field-hint">
+                No teams are set up yet — please check back soon.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="field">
+            <label htmlFor="ra-teamId">
+              {choice === "no" ? "Team you're declining" : "Team"} *
+            </label>
+            {/* key={division} remounts the select when the division changes,
+                so the team selection resets to the placeholder. */}
+            <select
+              key={division}
+              id="ra-teamId"
+              name="teamId"
+              defaultValue={state.values?.teamId ?? ""}
+              required
+              disabled={!division}
+            >
+              <option value="">
+                {division ? "Choose the team…" : "Pick a division first"}
+              </option>
+              {(teamsByDivision.find(([d]) => d === division)?.[1] ?? []).map(
+                (t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} · {sportLabel(t.sport)}
+                  </option>
+                ),
+              )}
+            </select>
+          </div>
+
+          {choice === "yes" ? (
             <>
-              {/* Division first — narrows the team list below to that division. */}
-              <div className="field">
-                <label htmlFor="ra-division">Division *</label>
-                <select
-                  id="ra-division"
-                  name="division"
-                  defaultValue={state.values?.division ?? ""}
-                  onChange={(e) => setDivision(e.target.value)}
-                  required
-                >
-                  <option value="" disabled>
-                    Choose a division…
-                  </option>
-                  {teamsByDivision.map(([div]) => (
-                    <option key={div} value={div}>
-                      {divisionLabel(div)}
-                    </option>
-                  ))}
-                </select>
-                {teams.length === 0 ? (
-                  <p className="field-hint">
-                    No teams are set up yet — please check back soon.
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="field">
-                <label htmlFor="ra-teamId">Team *</label>
-                {/* key={division} remounts the select when the division changes,
-                    so the team selection resets to the placeholder. */}
-                <select
-                  key={division}
-                  id="ra-teamId"
-                  name="teamId"
-                  defaultValue={state.values?.teamId ?? ""}
-                  required
-                  disabled={!division}
-                >
-                  <option value="">
-                    {division ? "Choose the team…" : "Pick a division first"}
-                  </option>
-                  {(teamsByDivision.find(([d]) => d === division)?.[1] ?? []).map(
-                    (t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name} · {sportLabel(t.sport)}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </div>
-
               <div className="player-grid">
                 <TextField
                   name="email"
@@ -416,7 +425,7 @@ export default function RosterAcceptanceForm({
                 </>
               ) : null}
             </>
-          )}
+          ) : null}
 
           {state?.error ? (
             <p className="error" role="alert">

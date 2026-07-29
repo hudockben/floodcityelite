@@ -13,9 +13,10 @@ with a **company code**, **username**, and **password**.
   hours they worked (name, role, division, date, hours, notes). Submissions feed
   the admin **Payroll** tab.
 - Roster acceptance form (`/roster-acceptance`) — a public, login-free page
-  where a parent accepts or declines their player's roster spot. Accepting also
-  adds the player to the chosen team's roster. Responses feed the admin **Roster
-  Submissions** tab.
+  where a parent accepts or declines their player's roster spot. The division and
+  team are required on both answers, so a decline still shows which spot was
+  turned down. Accepting also adds the player to the chosen team's roster.
+  Responses feed the admin **Roster Submissions** tab.
 - Member area — a protected tabbed shell (Homeplate, Teams, Roster Submissions,
   Payment Tracker, Budgets, Fundraiser Tracker, Program/Camps, Payroll, Contact
   Info, Yard Tournaments, Hotels, Inventory) shown after a successful login and
@@ -95,8 +96,10 @@ ones are:
 - **`roster_submissions`** — the **Roster Submissions** tab. Each row is one
   parent's response to a roster offer, submitted through the public
   `/roster-acceptance` form (no login). `accepted` is the accept/decline
-  decision; a decline records just the `player_name`, while an accept also
-  carries the player's details and the parent's contact info. When a parent
+  decision; the division + team the offer was for are required either way (so a
+  decline shows which team's spot was turned down), and a decline records just
+  that plus the `player_name`, while an accept also carries the player's details
+  and the parent's contact info. When a parent
   accepts, the player is pushed onto the chosen team's roster in the same write
   — `player_id` links to that `players` row, and `team_name`/`division` snapshot
   the choice so it survives the team being deleted (which nulls `team_id`). The

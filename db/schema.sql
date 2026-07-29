@@ -377,8 +377,9 @@ CREATE INDEX IF NOT EXISTS idx_payroll_submissions_company_id ON payroll_submiss
 --
 -- One parent's response to a roster offer, sent through the public
 -- roster-acceptance form on the sign-in screen (no login). `accepted` is the
--- decision: a decline records just the player's name, while an accept carries
--- the full player + parent detail. On an accept the player is also pushed onto
+-- decision: a decline records the player's name and the team whose spot was
+-- turned down, while an accept carries the full player + parent detail (the
+-- team is required either way). On an accept the player is also pushed onto
 -- the chosen team's roster in the same write; `player_id` links to that
 -- `players` row so the admin "Roster Submissions" tab can point back to it, and
 -- `team_name`/`division` snapshot the choice so it survives the team being

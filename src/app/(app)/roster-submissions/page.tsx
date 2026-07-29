@@ -57,10 +57,11 @@ export default async function RosterSubmissionsPage() {
       <div className="panel-head">
         <h1>Roster Submissions</h1>
         <p>
-          Accept/decline responses from the public roster form. When a parent
-          accepts, the player is added to the chosen team&apos;s roster
-          automatically — the team name below links to it. Delete a response once
-          it&apos;s been processed.
+          Accept/decline responses from the public roster form. Every response
+          records the team the spot was for, so a decline shows which roster just
+          opened back up. When a parent accepts, the player is added to that
+          team&apos;s roster automatically — the team name below links to it.
+          Delete a response once it&apos;s been processed.
         </p>
       </div>
 

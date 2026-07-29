@@ -8,7 +8,9 @@
 //     submissions back.
 //
 // A *roster submission* is one parent's response to a roster offer: the
-// accept/decline decision, the player's details, and the parent's contact info.
+// accept/decline decision, the team the offer was for (recorded either way, so a
+// decline shows which spot opened back up), the player's details, and the
+// parent's contact info.
 // When a parent ACCEPTS, the player is pushed straight onto the chosen team's
 // roster (a `players` row) in the same write, and the submission records which
 // player row it created so the admin tab can link back to it.
@@ -78,7 +80,8 @@ export type RosterSubmissionRow = {
 export type RosterSubmissionInput = {
   companyId: number;
   accepted: boolean;
-  // Present only when accepting. teamId is validated + owned by the action.
+  // The team the offer was for — collected on accept AND decline. teamId is
+  // validated + owned by the action; teamName/division snapshot it.
   teamId: number | null;
   teamName: string | null;
   division: string | null;
@@ -127,8 +130,9 @@ async function provision(): Promise<void> {
   const db = sql();
 
   // A roster submission is one parent's accept/decline response. `accepted`
-  // gates everything: a decline records just the player's name, while an accept
-  // carries the full player + parent detail and creates a roster row. `team_id`
+  // gates the detail: a decline records the player's name and the team whose
+  // spot was turned down, while an accept carries the full player + parent
+  // detail and creates a roster row. `team_id`
   // is nulled if the team is later deleted (the snapshot `team_name`/`division`
   // preserve the choice); `player_id` links to the roster row an accept created.
   await db`
@@ -387,8 +391,9 @@ export async function createRosterSubmission(
     return;
   }
 
-  // Decline (or an accept with no team, which the action rejects): just record
-  // the submission. No roster row is created.
+  // Decline (or an accept with no team, which the action rejects): record the
+  // submission, including the team/division whose spot was declined. No roster
+  // row is created.
   await sql()`
     INSERT INTO roster_submissions (
       company_id, accepted, team_id, team_name, division, player_id,
