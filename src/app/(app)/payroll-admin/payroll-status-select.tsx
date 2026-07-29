@@ -2,7 +2,9 @@
 
 import { useOptimistic, useTransition } from "react";
 import { updatePayrollStatusAction } from "./actions";
-import { PAYROLL_STATUSES, type PayrollStatus } from "@/lib/payroll";
+// From lib/payroll-status, not lib/payroll: the latter imports the database
+// client, which a client component would then ship to the browser.
+import { PAYROLL_STATUSES, type PayrollStatus } from "@/lib/payroll-status";
 
 // The inline approval dropdown shown in each Submissions row — this is the
 // admin approving/denying the logged time.

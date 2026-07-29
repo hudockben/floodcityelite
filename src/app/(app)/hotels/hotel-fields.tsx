@@ -3,6 +3,7 @@
 import { DIVISIONS, divisionLabel } from "../teams/divisions";
 import {
   HOTEL_FIELDS,
+  KEEP_EVENT,
   hotelValue,
   tournamentOptionLabel,
   type HotelFieldType,
@@ -91,10 +92,17 @@ export default function HotelFields({
     events: tournaments.filter((t) => t.division === d.slug),
   })).filter((g) => g.events.length > 0);
 
-  // A tournament that has since been deleted leaves the hotel's event_id null,
-  // so there's nothing to preselect — the editor falls back to "none", and the
-  // row keeps showing the snapshot name until it's re-tied.
-  const selectedEvent = hotel?.event_id != null ? String(hotel.event_id) : "";
+  // A tournament deleted from the Schedules tab leaves the hotel's event_id
+  // null but keeps the name it was booked under, and a name with no id can't be
+  // one of the live options. Offer it as its own (selected) option so saving
+  // the row doesn't quietly drop it — see KEEP_EVENT.
+  const removedEvent = hotel?.event_id == null ? hotel?.event_name : null;
+  const selectedEvent =
+    hotel?.event_id != null
+      ? String(hotel.event_id)
+      : removedEvent
+        ? KEEP_EVENT
+        : "";
 
   return (
     <div className="player-grid">
@@ -121,6 +129,9 @@ export default function HotelFields({
               ? "No tournaments scheduled yet"
               : "Not tied to a tournament"}
           </option>
+          {removedEvent ? (
+            <option value={KEEP_EVENT}>{removedEvent} (removed)</option>
+          ) : null}
           {byDivision.map((group) => (
             <optgroup key={group.label} label={group.label}>
               {group.events.map((t) => (

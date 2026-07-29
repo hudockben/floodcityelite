@@ -22,25 +22,19 @@ import { sql } from "@/lib/db";
 // by this code.
 export const PAYROLL_COMPANY_CODE = "fce";
 
-// Approval status of a submission. Employees submit as "pending"; an admin
-// approves or denies the time on the Submissions subtab.
-export type PayrollStatus = "pending" | "approved" | "denied";
+// The approval status lives in lib/payroll-status.ts — plain data with no
+// database import, so a client component can have the options without pulling
+// the Neon driver into the browser bundle. Re-exported here so server callers
+// can keep importing everything payroll from one place.
+export {
+  DEFAULT_PAYROLL_STATUS,
+  PAYROLL_STATUSES,
+  isPayrollStatus,
+  payrollStatusLabel,
+} from "./payroll-status";
+export type { PayrollStatus } from "./payroll-status";
 
-export const PAYROLL_STATUSES: { value: PayrollStatus; label: string }[] = [
-  { value: "pending", label: "Pending" },
-  { value: "approved", label: "Approved" },
-  { value: "denied", label: "Denied" },
-];
-
-export const DEFAULT_PAYROLL_STATUS: PayrollStatus = "pending";
-
-export function isPayrollStatus(value: string): value is PayrollStatus {
-  return PAYROLL_STATUSES.some((s) => s.value === value);
-}
-
-export function payrollStatusLabel(value: string): string {
-  return PAYROLL_STATUSES.find((s) => s.value === value)?.label ?? value;
-}
+import type { PayrollStatus } from "./payroll-status";
 
 // A saved payroll submission. `hours` arrives from Postgres NUMERIC as a string
 // (e.g. "4.50"); `work_date` is a "YYYY-MM-DD" string.

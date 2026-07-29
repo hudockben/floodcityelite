@@ -81,14 +81,20 @@ export const HOTEL_FIELDS: HotelField[] = [
   },
 ];
 
-// Table headers, in order. The two dropdown columns sit right after the hotel
-// name — which tournament a stay is for is the first thing you look for.
-export const HOTEL_HEADERS = [
-  HOTEL_FIELDS[0].label,
-  "Tournament",
-  "Division",
-  ...HOTEL_FIELDS.slice(1).map((f) => f.label),
-];
+/**
+ * Sentinel value for the tournament dropdown meaning "leave the stay tied to
+ * the tournament it already names".
+ *
+ * A tournament deleted from the Schedules tab nulls `event_id` but leaves
+ * `event_name` behind, and a name with no id can't be an option in a dropdown
+ * built from live tournaments. Without this the editor would show "not tied to
+ * a tournament" for such a stay, and saving an unrelated field — a new phone
+ * number — would quietly wipe the name it was booked under. The editor selects
+ * this instead, and the update leaves both columns untouched; picking any real
+ * option (including "none") still applies normally, so it can still be cleared
+ * on purpose.
+ */
+export const KEEP_EVENT = "keep";
 
 // A Schedules-tab tournament offered in the "which tournament" dropdown, with
 // the team and season it belongs to so the option reads unambiguously and the

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { isDivisionSlug } from "../teams/divisions";
-import { HOTEL_FIELDS } from "./hotels";
+import { HOTEL_FIELDS, KEEP_EVENT } from "./hotels";
 import { ensureHotelsSchema } from "./schema";
 
 export type FormState = { ok?: boolean; error?: string };
@@ -39,23 +39,34 @@ function division(formData: FormData): string | null {
 }
 
 /**
- * Resolve the chosen tournament to (event_id, event_name).
+ * Resolve the chosen tournament to (event_id, event_name), or to `keep` — the
+ * editor's "still tied to the tournament it names" option for a stay whose
+ * tournament has been deleted from the Schedules tab (see KEEP_EVENT).
  *
  * The name is read from the database rather than the form so a tampered or
  * stale submission can't label a stay with a tournament it isn't, and the
  * lookup is scoped through teams to this company so one company can't attach a
  * hotel to another's tournament. A blank choice — or an event that has since
- * been deleted — comes back as (null, null).
+ * been deleted — comes back as (null, null), which clears the tie.
  */
+type ResolvedEvent = {
+  keep: boolean;
+  eventId: number | null;
+  eventName: string | null;
+};
+
+const CLEARED: ResolvedEvent = { keep: false, eventId: null, eventName: null };
+
 async function resolveEvent(
   formData: FormData,
   companyId: number,
-): Promise<{ eventId: number | null; eventName: string | null }> {
+): Promise<ResolvedEvent> {
   const raw = String(formData.get("eventId") ?? "").trim();
-  if (raw === "") return { eventId: null, eventName: null };
+  if (raw === "") return CLEARED;
+  if (raw === KEEP_EVENT) return { keep: true, eventId: null, eventName: null };
 
   const eventId = Number.parseInt(raw, 10);
-  if (!Number.isFinite(eventId)) return { eventId: null, eventName: null };
+  if (!Number.isFinite(eventId)) return CLEARED;
 
   const rows = await sql()`
     SELECT ev.event_name
@@ -63,9 +74,13 @@ async function resolveEvent(
     JOIN teams t ON t.id = ev.team_id
     WHERE ev.id = ${eventId} AND t.company_id = ${companyId}
   `;
-  if (rows.length === 0) return { eventId: null, eventName: null };
+  if (rows.length === 0) return CLEARED;
 
-  return { eventId, eventName: String(rows[0].event_name).slice(0, 200) };
+  return {
+    keep: false,
+    eventId,
+    eventName: String(rows[0].event_name).slice(0, 200),
+  };
 }
 
 // --- add a hotel -----------------------------------------------------------
@@ -92,6 +107,8 @@ export async function addHotelAction(
     // predates this feature. Idempotent and memoized.
     await ensureHotelsSchema();
 
+    // A brand-new hotel has no earlier tie to keep, so `keep` can't apply here
+    // — resolveEvent's null/null covers it either way.
     const { eventId, eventName } = await resolveEvent(formData, session.companyId);
 
     await sql()`
@@ -146,9 +163,14 @@ export async function updateHotelAction(
   try {
     await ensureHotelsSchema();
 
-    const { eventId, eventName } = await resolveEvent(formData, session.companyId);
+    const { keep, eventId, eventName } = await resolveEvent(
+      formData,
+      session.companyId,
+    );
 
-    // Scope the update to a hotel owned by this company.
+    // Scope the update to a hotel owned by this company. When the editor sent
+    // `keep`, the tournament columns are written back to themselves so a stay
+    // whose tournament was deleted holds on to the name it was booked under.
     const updated = await sql()`
       UPDATE hotels SET
         name               = ${name},
@@ -156,8 +178,8 @@ export async function updateHotelAction(
         city               = ${field(formData, "city")},
         state              = ${field(formData, "state")},
         division           = ${division(formData)},
-        event_id           = ${eventId},
-        event_name         = ${eventName},
+        event_id           = CASE WHEN ${keep} THEN event_id ELSE ${eventId} END,
+        event_name         = CASE WHEN ${keep} THEN event_name ELSE ${eventName} END,
         avg_cost_per_night = ${cost},
         phone              = ${field(formData, "phone")},
         website            = ${field(formData, "website")},
