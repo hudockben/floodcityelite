@@ -4,6 +4,7 @@ import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { SPORTS, sportLabel } from "../teams/divisions";
 import AddCoachForm from "./add-coach-form";
+import BulkUploadForm from "./bulk-upload-form";
 import CoachDirectory from "./coach-directory";
 import { ensureCoachesSchema } from "./schema";
 import { resolveSport, type CoachRow, type Sport } from "./coaches";
@@ -121,6 +122,10 @@ export default async function ContactInfoPage({
                 and without a fresh key a half-typed baseball contact would
                 stay in the boxes and post to the softball list. */}
             <AddCoachForm key={sport} sport={sport} />
+
+            {/* Keyed for the same reason — a result summary belongs to the list
+                it was imported into. */}
+            <BulkUploadForm key={`bulk-${sport}`} sport={sport} />
           </section>
 
           {/* Step 2 — the sport's contact list */}

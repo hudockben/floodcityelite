@@ -6102,6 +6102,14 @@ body {
   color: var(--text-muted);
 }
 
+/* The CSV / Excel download pair rides at the end of the filter bar. The count
+   before it already carries the margin-left:auto that pushes the pair right, so
+   drop the one the buttons bring with them — two auto margins would split the
+   free space and strand the count in the middle. */
+.dir-filters .subs-export {
+  margin-left: 0;
+}
+
 /* Inline "Clear filters" reset, shown in the count line and the empty row. */
 .dir-clear-all {
   padding: 0;

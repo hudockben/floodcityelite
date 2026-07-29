@@ -13,7 +13,7 @@
 // program likes can be logged before it's tied to a weekend.
 // ---------------------------------------------------------------------------
 
-import type { DivisionSlug } from "../teams/divisions";
+import { divisionLabel, type DivisionSlug } from "../teams/divisions";
 
 export type HotelFieldType = "text" | "tel" | "link" | "money" | "notes";
 
@@ -150,6 +150,32 @@ export function hotelSearchText(row: HotelRow, divisionName: string): string {
   ]
     .join(" ")
     .toLowerCase();
+}
+
+/**
+ * The travel list's search box, division filter and tournament filter, as one
+ * predicate.
+ *
+ * Shared with the export route so a downloaded file holds exactly the rows the
+ * screen was showing — the two can't drift, because there's only one rule.
+ * `searchText` lets the on-screen list pass its memoized haystack instead of
+ * rebuilding it per keystroke; the route just lets it be computed.
+ */
+export function matchesHotelFilters(
+  row: HotelRow,
+  query: string,
+  division: string,
+  tournament: string,
+  searchText?: string,
+): boolean {
+  if (division !== "" && row.division !== division) return false;
+  if (tournament !== "" && String(row.event_id) !== tournament) return false;
+  const q = query.trim().toLowerCase();
+  if (q === "") return true;
+  const haystack =
+    searchText ??
+    hotelSearchText(row, row.division ? divisionLabel(row.division) : "");
+  return haystack.includes(q);
 }
 
 /** "Summer Slam · 12U Elite · Jul 21, 2026" — one tournament dropdown option. */

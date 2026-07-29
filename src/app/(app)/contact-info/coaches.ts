@@ -176,3 +176,23 @@ export function coachSearchText(row: CoachRow): string {
     .toLowerCase();
 }
 
+/**
+ * The directory's search box and division-level filter, as one predicate.
+ *
+ * Shared with the export route so a downloaded file holds exactly the rows the
+ * screen was showing — the two can't drift, because there's only one rule.
+ * `searchText` lets the on-screen list pass its memoized haystack instead of
+ * rebuilding it per keystroke; the route just lets it be computed.
+ */
+export function matchesCoachFilters(
+  row: CoachRow,
+  query: string,
+  level: string,
+  searchText?: string,
+): boolean {
+  if (level !== "" && coachValue(row, "division_level") !== level) return false;
+  const q = query.trim().toLowerCase();
+  if (q === "") return true;
+  return (searchText ?? coachSearchText(row)).includes(q);
+}
+

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import AddHotelForm from "./add-hotel-form";
+import BulkUploadForm from "./bulk-upload-form";
 import HotelDirectory from "./hotel-directory";
 import { ensureHotelsSchema } from "./schema";
 import type { HotelRow, TournamentOption } from "./hotels";
@@ -122,6 +123,8 @@ export default async function HotelsPage() {
             </div>
 
             <AddHotelForm tournaments={tournaments} />
+
+            <BulkUploadForm />
           </section>
 
           {/* Step 2 — the travel list */}

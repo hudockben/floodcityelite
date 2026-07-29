@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import ExportButtons from "../export-buttons";
 import { sportLabel } from "../teams/divisions";
 import CoachRowItem from "./coach-row";
 import {
   COACH_FIELDS,
   coachSearchText,
   coachValue,
+  matchesCoachFilters,
   type CoachRow,
   type Sport,
 } from "./coaches";
@@ -48,18 +50,24 @@ export default function CoachDirectory({
   // filter the dropdown no longer shows.
   const activeLevel = levels.includes(level) ? level : "";
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return coaches.filter((coach) => {
-      if (activeLevel !== "" && coachValue(coach, "division_level") !== activeLevel) {
-        return false;
-      }
-      if (q === "") return true;
-      return (searchText.get(coach.id) ?? "").includes(q);
-    });
-  }, [coaches, query, activeLevel, searchText]);
+  const filtered = useMemo(
+    () =>
+      coaches.filter((coach) =>
+        matchesCoachFilters(coach, query, activeLevel, searchText.get(coach.id)),
+      ),
+    [coaches, query, activeLevel, searchText],
+  );
 
   const filtering = query.trim() !== "" || activeLevel !== "";
+
+  // The download carries the filters that are on screen, so the file holds the
+  // rows the list is showing rather than the whole sport.
+  const exportHref = (format: "csv" | "xlsx") => {
+    const params = new URLSearchParams({ format, sport });
+    if (query.trim() !== "") params.set("q", query.trim());
+    if (activeLevel !== "") params.set("level", activeLevel);
+    return `/contact-info/export?${params.toString()}`;
+  };
 
   function clearFilters() {
     setQuery("");
@@ -157,6 +165,12 @@ export default function CoachDirectory({
             </>
           ) : null}
         </span>
+
+        <ExportButtons
+          href={exportHref}
+          count={filtered.length}
+          nounPlural="schools"
+        />
       </div>
 
       <div className="dir-scroll">

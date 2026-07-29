@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import ExportButtons from "../export-buttons";
 import { DIVISIONS, divisionLabel } from "../teams/divisions";
 import { formatMoney } from "../schedules/events";
 import HotelRowItem from "./hotel-row";
 import {
   HOTEL_FIELDS,
   hotelSearchText,
+  matchesHotelFilters,
   type HotelRow,
   type TournamentOption,
 } from "./hotels";
@@ -66,17 +68,29 @@ export default function HotelDirectory({
     [hotels],
   );
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return hotels.filter((h) => {
-      if (activeDivision !== "" && h.division !== activeDivision) return false;
-      if (activeTournament !== "" && String(h.event_id) !== activeTournament) {
-        return false;
-      }
-      if (q === "") return true;
-      return (searchText.get(h.id) ?? "").includes(q);
-    });
-  }, [hotels, query, activeDivision, activeTournament, searchText]);
+  const filtered = useMemo(
+    () =>
+      hotels.filter((h) =>
+        matchesHotelFilters(
+          h,
+          query,
+          activeDivision,
+          activeTournament,
+          searchText.get(h.id),
+        ),
+      ),
+    [hotels, query, activeDivision, activeTournament, searchText],
+  );
+
+  // The download carries the filters that are on screen, so the file holds the
+  // rows the list is showing rather than the whole travel list.
+  const exportHref = (format: "csv" | "xlsx") => {
+    const params = new URLSearchParams({ format });
+    if (query.trim() !== "") params.set("q", query.trim());
+    if (activeDivision !== "") params.set("division", activeDivision);
+    if (activeTournament !== "") params.set("tournament", activeTournament);
+    return `/hotels/export?${params.toString()}`;
+  };
 
   const filtering =
     query.trim() !== "" || activeDivision !== "" || activeTournament !== "";
@@ -208,6 +222,12 @@ export default function HotelDirectory({
             </>
           ) : null}
         </span>
+
+        <ExportButtons
+          href={exportHref}
+          count={filtered.length}
+          nounPlural="hotels"
+        />
       </div>
 
       <div className="dir-scroll">
