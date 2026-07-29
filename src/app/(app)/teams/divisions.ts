@@ -115,9 +115,31 @@ export const PLAYER_FIELDS: PlayerField[] = [
 // Roster table headers, in order: a "Team" column followed by every player field.
 export const ROSTER_HEADERS = ["Team", ...PLAYER_FIELDS.map((f) => f.label)];
 
+/**
+ * Whether a player is new to the program or coming back, taken from the
+ * acceptance form's "Did you play in 2026?" answer (`Yes — returning player` /
+ * `No — new player`, stored on the roster submission).
+ *
+ * `null` means we don't know: the player was added by hand on the Teams tab or
+ * came in through a bulk roster upload, so no parent ever answered the
+ * question. That reads as an em dash rather than a guess.
+ */
+export type RosterStatus = "returning" | "new" | null;
+
+/** Resolve the stored answer (true/false/null) to a roster status. */
+export function rosterStatus(playedLastSeason: boolean | null): RosterStatus {
+  if (playedLastSeason == null) return null;
+  return playedLastSeason ? "returning" : "new";
+}
+
+/** Header for the New/Returning column. Shared by the roster and its printout. */
+export const ROSTER_STATUS_HEADER = "New / Returning";
+
 // Shape returned by the roster query (snake_case columns from Postgres) plus
 // the joined team name. `is_paying` is a status flag (not one of PLAYER_FIELDS)
-// rendered as its own "Paying" column with an inline toggle.
+// rendered as its own "Paying" column with an inline toggle, and
+// `played_last_season` is the acceptance form's returning-player answer,
+// rendered as the "New / Returning" column.
 export type PlayerRow = {
   id: number;
   team_id: number;
@@ -137,6 +159,8 @@ export type PlayerRow = {
   parent_name: string | null;
   closest_facility: string | null;
   is_paying: boolean;
+  /** The acceptance form's answer; null when the player never came through it. */
+  played_last_season: boolean | null;
 };
 
 export type TeamRow = {

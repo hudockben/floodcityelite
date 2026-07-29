@@ -6576,3 +6576,37 @@ body {
 .bs-note-link:hover {
   text-decoration: underline;
 }
+
+/* ---- Roster "New / Returning" column ---------------------------------------
+   Taken from the acceptance form's "Did you play in 2026?" answer, so a player
+   added by hand or bulk-uploaded has no answer and shows an em dash instead. */
+.roster .col-roster-status,
+.print-roster .col-roster-status {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.rs-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+/* Returning reads as the settled, known quantity; new stands out as the one to
+   get eyes on (sizes, paperwork, introductions). */
+.rs-returning {
+  color: #b8f5d4;
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.rs-new {
+  color: #cfe9ff;
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.45);
+}

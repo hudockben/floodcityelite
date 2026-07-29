@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { ensureTeamsSchema } from "./schema";
+import { ensureRosterSubmissionsSchema } from "@/lib/roster-submissions";
 import AddPlayerForm from "./add-player-form";
 import BulkUploadForm from "./bulk-upload-form";
 import CreateTeamForm from "./create-team-form";
@@ -17,6 +18,7 @@ import { resolveSeason, seasonLabel, type Season } from "./seasons";
 import {
   DIVISIONS,
   PLAYER_FIELDS,
+  ROSTER_STATUS_HEADER,
   resolveDivision,
   sportLabel,
   type PlayerRow,
@@ -53,6 +55,11 @@ export default async function TeamsPage({
     // Create the teams/players tables on first use so the tab works even if
     // the database predates this feature. Idempotent and memoized.
     await ensureTeamsSchema();
+
+    // The roster reads each player's returning-player answer out of
+    // roster_submissions, so make sure that table exists on a database that
+    // predates the acceptance form. Idempotent and memoized.
+    await ensureRosterSubmissionsSchema();
 
     // Pick the season to show (the ?year=, else the active/latest one) and load
     // the divisions's seasons for the year picker. Teams — and therefore their
@@ -98,7 +105,17 @@ export default async function TeamsPage({
           p.parent_email,
           p.parent_name,
           p.closest_facility,
-          p.is_paying
+          p.is_paying,
+          -- The acceptance form's "Did you play in 2026?" answer, if this
+          -- player came in through one: true = returning, false = new, and no
+          -- row at all (added by hand or bulk-uploaded) leaves it null. Read as
+          -- a scalar subquery rather than a join so a player who somehow has
+          -- two submissions can't duplicate their roster row.
+          (SELECT rs.played_fce_2026
+             FROM roster_submissions rs
+            WHERE rs.player_id = p.id AND rs.accepted
+            ORDER BY rs.created_at DESC, rs.id DESC
+            LIMIT 1) AS played_last_season
         FROM players p
         JOIN teams t ON t.id = p.team_id
         WHERE t.company_id = ${session.companyId}
@@ -363,7 +380,12 @@ export default async function TeamsPage({
                               <Fragment key={f.key}>
                                 <th>{f.label}</th>
                                 {f.key === "player_name" ? (
-                                  <th className="col-paying">Paying</th>
+                                  <>
+                                    <th className="col-paying">Paying</th>
+                                    <th className="col-roster-status">
+                                      {ROSTER_STATUS_HEADER}
+                                    </th>
+                                  </>
                                 ) : null}
                               </Fragment>
                             ))}

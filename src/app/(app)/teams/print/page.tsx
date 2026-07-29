@@ -4,12 +4,15 @@ import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import {
   PLAYER_FIELDS,
+  ROSTER_STATUS_HEADER,
+  rosterStatus,
   resolveDivision,
   sportLabel,
   type PlayerRow,
   type TeamRow,
 } from "../divisions";
 import { ensureTeamsSchema } from "../schema";
+import { ensureRosterSubmissionsSchema } from "@/lib/roster-submissions";
 import { resolveSeason, type Season } from "../seasons";
 import PrintControls from "./print-controls";
 
@@ -65,8 +68,18 @@ const COL_WIDTHS: Record<string, string> = {
   closest_facility: "8%",
 };
 
-// The "Paying" column isn't one of PLAYER_FIELDS; it sits just after the name.
+// On paper the pill becomes plain words — colour doesn't survive a mono print,
+// and a blank cell means nobody ever filled in an acceptance form for them.
+function rosterLabel(playedLastSeason: boolean | null): string {
+  const status = rosterStatus(playedLastSeason);
+  if (status == null) return "—";
+  return status === "returning" ? "Returning" : "New";
+}
+
+// Neither the "Paying" nor the "New / Returning" column is one of
+// PLAYER_FIELDS; both sit just after the name.
 const PAYING_COL_WIDTH = "5%";
+const ROSTER_STATUS_COL_WIDTH = "7%";
 
 /** Format a single roster cell, matching the on-screen roster values but with
  *  friendlier dates. Empty values collapse to an em dash. */
@@ -103,6 +116,11 @@ export default async function TeamsPrintPage({
 
   try {
     await ensureTeamsSchema();
+
+    // The roster reads each player's returning-player answer out of
+    // roster_submissions, so make sure that table exists on a database that
+    // predates the acceptance form. Idempotent and memoized.
+    await ensureRosterSubmissionsSchema();
 
     const resolved = await resolveSeason(
       session.companyId,
@@ -144,7 +162,17 @@ export default async function TeamsPrintPage({
           p.parent_email,
           p.parent_name,
           p.closest_facility,
-          p.is_paying
+          p.is_paying,
+          -- The acceptance form's "Did you play in 2026?" answer, if this
+          -- player came in through one: true = returning, false = new, and no
+          -- row at all (added by hand or bulk-uploaded) leaves it null. Read as
+          -- a scalar subquery rather than a join so a player who somehow has
+          -- two submissions can't duplicate their roster row.
+          (SELECT rs.played_fce_2026
+             FROM roster_submissions rs
+            WHERE rs.player_id = p.id AND rs.accepted
+            ORDER BY rs.created_at DESC, rs.id DESC
+            LIMIT 1) AS played_last_season
         FROM players p
         JOIN teams t ON t.id = p.team_id
         WHERE t.company_id = ${session.companyId}
@@ -235,7 +263,10 @@ export default async function TeamsPrintPage({
                         <Fragment key={f.key}>
                           <col style={{ width: COL_WIDTHS[f.key] }} />
                           {f.key === "player_name" ? (
-                            <col style={{ width: PAYING_COL_WIDTH }} />
+                            <>
+                              <col style={{ width: PAYING_COL_WIDTH }} />
+                              <col style={{ width: ROSTER_STATUS_COL_WIDTH }} />
+                            </>
                           ) : null}
                         </Fragment>
                       ))}
@@ -246,7 +277,12 @@ export default async function TeamsPrintPage({
                           <Fragment key={f.key}>
                             <th>{f.label}</th>
                             {f.key === "player_name" ? (
-                              <th className="col-paying">Paying</th>
+                              <>
+                                <th className="col-paying">Paying</th>
+                                <th className="col-roster-status">
+                                  {ROSTER_STATUS_HEADER}
+                                </th>
+                              </>
                             ) : null}
                           </Fragment>
                         ))}
@@ -265,9 +301,14 @@ export default async function TeamsPrintPage({
                                 {cellValue(f, p)}
                               </td>
                               {f.key === "player_name" ? (
-                                <td className="col-paying">
-                                  {p.is_paying ? "✓" : "—"}
-                                </td>
+                                <>
+                                  <td className="col-paying">
+                                    {p.is_paying ? "✓" : "—"}
+                                  </td>
+                                  <td className="col-roster-status">
+                                    {rosterLabel(p.played_last_season)}
+                                  </td>
+                                </>
                               ) : null}
                             </Fragment>
                           ))}

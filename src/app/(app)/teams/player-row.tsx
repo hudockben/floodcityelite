@@ -8,6 +8,7 @@ import {
 } from "./actions";
 import ConfirmButton from "./confirm-button";
 import PayingToggle from "./paying-toggle";
+import RosterStatusBadge from "./roster-status-badge";
 import {
   PLAYER_FIELDS,
   type DivisionSlug,
@@ -16,8 +17,9 @@ import {
 } from "./divisions";
 
 const initialState: FormState = {};
-// Columns: every player field, plus the "Paying" column and the actions column.
-const COL_SPAN = PLAYER_FIELDS.length + 2;
+// Columns: every player field, plus the "Paying" and "New / Returning" columns
+// and the actions column.
+const COL_SPAN = PLAYER_FIELDS.length + 3;
 
 function EditField({
   field,
@@ -144,13 +146,18 @@ export default function PlayerRow({
               {empty ? <span className="cell-empty">—</span> : String(value)}
             </td>
             {f.key === "player_name" ? (
-              <td className="col-paying">
-                <PayingToggle
-                  playerId={player.id}
-                  playerName={player.player_name}
-                  value={player.is_paying}
-                />
-              </td>
+              <>
+                <td className="col-paying">
+                  <PayingToggle
+                    playerId={player.id}
+                    playerName={player.player_name}
+                    value={player.is_paying}
+                  />
+                </td>
+                <td className="col-roster-status">
+                  <RosterStatusBadge playedLastSeason={player.played_last_season} />
+                </td>
+              </>
             ) : null}
           </Fragment>
         );

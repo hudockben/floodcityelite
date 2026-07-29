@@ -58,6 +58,16 @@ ones are:
   roster; the Budgets tab's paying-player count is the number of players marked
   paying (with an optional manual override on the budget for edge cases).
 
+  **New / Returning.** The roster's next column labels each player from the
+  acceptance form's *"Did you play in 2026?"* answer — a green **Returning**
+  pill for yes, a blue **New** pill for no. It isn't stored on the player: it's
+  read from their accepted `roster_submissions` row, so it always matches what
+  the parent actually said and never needs maintaining. A player added by hand
+  on the Teams tab or through a bulk upload has no submission behind them, so
+  nobody answered the question and the cell shows an em dash rather than
+  guessing. The column prints with the roster (as plain words, since colour
+  doesn't survive a mono printer).
+
   **View Field.** Each team on the Teams tab has a **View Field** button that
   opens a diamond with every player placed at their primary position (solid
   dot) and secondary position (hollow dot), so stacked and thin spots read at a
