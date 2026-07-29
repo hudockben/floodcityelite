@@ -61,6 +61,27 @@ function amountString(formData: FormData, key: string): string | null {
   return Number.isFinite(n) && n > 0 ? n.toFixed(2) : null;
 }
 
+/**
+ * Whether a failed write is the old `portion_to_team_budget NOT NULL`
+ * constraint rejecting a derived portion.
+ *
+ * The portion became nullable when the Fixed Cost tab landed — NULL means
+ * "derive it from tuition minus the fixed cost per player" — and
+ * ensureBudgetsSchema relaxes the column. If that migration hasn't reached a
+ * database, every save of a team whose portion is left blank fails, and all the
+ * coach sees is their tuition refusing to stick. Rather than depend on the
+ * migration having run, saveBudgetAction catches this, relaxes the column, and
+ * writes again.
+ */
+function isPortionNotNullViolation(err: unknown): boolean {
+  const e = err as { code?: string; message?: string } | null;
+  const message = String(e?.message ?? "");
+  return (
+    (e?.code === "23502" || /not-null constraint/i.test(message)) &&
+    message.includes("portion_to_team_budget")
+  );
+}
+
 // --- save a team's budget inputs -------------------------------------------
 
 export async function saveBudgetAction(
@@ -88,7 +109,7 @@ export async function saveBudgetAction(
     `;
     if (owned.length === 0) return { error: "That team no longer exists." };
 
-    await sql()`
+    const write = () => sql()`
       INSERT INTO team_budgets (
         team_id, tuition_per_player, portion_to_team_budget, paying_players, updated_at
       ) VALUES (
@@ -100,6 +121,21 @@ export async function saveBudgetAction(
         paying_players         = EXCLUDED.paying_players,
         updated_at             = now()
     `;
+
+    try {
+      await write();
+    } catch (err) {
+      // See isPortionNotNullViolation: a database that missed the migration
+      // rejects a derived (NULL) portion, which reads to the coach as their
+      // tuition not saving. Relax the column here and write again.
+      if (!isPortionNotNullViolation(err)) throw err;
+      console.warn(
+        "saveBudget: relaxing team_budgets.portion_to_team_budget (migration had not run)",
+      );
+      await sql()`ALTER TABLE team_budgets ALTER COLUMN portion_to_team_budget DROP NOT NULL`;
+      await sql()`ALTER TABLE team_budgets ALTER COLUMN portion_to_team_budget DROP DEFAULT`;
+      await write();
+    }
   } catch (err) {
     console.error("saveBudget error:", err);
     return { error: "Could not save the budget. Please try again." };
