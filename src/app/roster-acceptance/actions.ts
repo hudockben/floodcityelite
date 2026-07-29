@@ -26,7 +26,7 @@ export type RosterFormState = {
 const ECHO_FIELDS = [
   "accepted", "played_fce_2026", "division",
   "player_name", "teamId", "email", "grad_year", "high_school", "date_of_birth",
-  "parent_phone", "secondary_phone", "height", "weight", "bats", "throws",
+  "parent_name", "parent_phone", "secondary_phone", "height", "weight", "bats", "throws",
   "primary_position", "secondary_position", "hat_size", "returning_jersey",
   "jersey_option_1", "jersey_option_2", "jersey_option_3",
 ];
@@ -147,6 +147,7 @@ export async function submitRosterAcceptanceAction(
     const gradYear = nonNegInt(formData, "grad_year");
     const highSchool = text(formData, "high_school", 160);
     const dateOfBirth = isoDate(formData, "date_of_birth");
+    const parentName = text(formData, "parent_name", 160);
     const parentPhone = text(formData, "parent_phone", 40);
     const secondaryPhone = text(formData, "secondary_phone", 40);
     const height = text(formData, "height", 24);
@@ -172,6 +173,7 @@ export async function submitRosterAcceptanceAction(
         [gradYear == null, "the grad year"],
         [!highSchool, "the high school"],
         [!dateOfBirth, "the date of birth"],
+        [!parentName, "the parent's name"],
         [!parentPhone, "the parent's cell phone number"],
         [!secondaryPhone, "a secondary cell phone number"],
         [!height, "the height"],
@@ -217,6 +219,7 @@ export async function submitRosterAcceptanceAction(
       gradYear,
       highSchool,
       dateOfBirth,
+      parentName,
       parentPhone,
       secondaryPhone,
       height,

@@ -309,6 +309,11 @@ export default function RosterAcceptanceForm({
                 />
                 <TextField name="date_of_birth" label="Date of birth" type="date" />
                 <TextField
+                  name="parent_name"
+                  label="Parent's name"
+                  placeholder="Parent or guardian's full name"
+                />
+                <TextField
                   name="parent_phone"
                   label="Parent's cell phone number"
                   type="tel"

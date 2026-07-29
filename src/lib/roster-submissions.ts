@@ -58,6 +58,7 @@ export type RosterSubmissionRow = {
   returning_jersey: string | null;
   grad_year: number | null;
   date_of_birth: string | null; // YYYY-MM-DD
+  parent_name: string | null;
   parent_phone: string | null;
   secondary_phone: string | null;
   height: string | null;
@@ -90,6 +91,7 @@ export type RosterSubmissionInput = {
   returningJersey: string | null;
   gradYear: number | null;
   dateOfBirth: string | null; // YYYY-MM-DD
+  parentName: string | null;
   parentPhone: string | null;
   secondaryPhone: string | null;
   height: string | null;
@@ -149,6 +151,7 @@ async function provision(): Promise<void> {
       returning_jersey    VARCHAR(24),
       grad_year           SMALLINT,
       date_of_birth       DATE,
+      parent_name         VARCHAR(160),
       parent_phone        VARCHAR(40),
       secondary_phone     VARCHAR(40),
       height              VARCHAR(24),
@@ -188,9 +191,11 @@ async function provision(): Promise<void> {
     END $$;
   `;
 
-  // High school was added to the form after the table shipped; backfill it on
-  // existing databases. Mirrors players.high_school so an accept copies it over.
+  // High school and parent name were added to the form after the table shipped;
+  // backfill them on existing databases. Each mirrors the players column an
+  // accept copies it onto (players.high_school / players.parent_name).
   await db`ALTER TABLE roster_submissions ADD COLUMN IF NOT EXISTS high_school VARCHAR(160)`;
+  await db`ALTER TABLE roster_submissions ADD COLUMN IF NOT EXISTS parent_name VARCHAR(160)`;
 
   // The jersey-assignment automation. Reconciles the whole team's
   // submission-linked jersey numbers in one atomic function under a per-team
@@ -329,8 +334,8 @@ export async function getOwnedTeam(
 // carrying that new player's id, so the roster row and its submission link are
 // created atomically. The mapped roster columns are the ones the Teams tab
 // knows — name, grad year, DOB, height, weight, positions, hat size, and the
-// parent's phone/email. The player's jersey number is left blank here and then
-// assigned by recomputeTeamJerseys() (below), which reconciles the whole team's
+// parent's name/phone/email. The player's jersey number is left blank here and
+// then assigned by recomputeTeamJerseys() (below), which reconciles the team's
 // numbers from every accepted submission. The remaining tryout-only fields
 // (secondary phone, bats/throws, played-in-2026, and the jersey preferences the
 // recompute reads) live on the submission record. `is_paying` defaults to true.
@@ -343,7 +348,7 @@ export async function createRosterSubmission(
         INSERT INTO players (
           team_id, player_name, grad_year, date_of_birth, height, weight,
           primary_position, secondary_position, high_school, hat_size,
-          parent_phone, parent_email
+          parent_name, parent_phone, parent_email
         ) VALUES (
           ${input.teamId},
           ${input.playerName},
@@ -355,6 +360,7 @@ export async function createRosterSubmission(
           ${input.secondaryPosition},
           ${input.highSchool},
           ${input.hatSize},
+          ${input.parentName},
           ${input.parentPhone},
           ${input.email}
         )
@@ -363,14 +369,14 @@ export async function createRosterSubmission(
       INSERT INTO roster_submissions (
         company_id, accepted, team_id, team_name, division, player_id,
         player_name, email, returning_jersey, grad_year, date_of_birth,
-        parent_phone, secondary_phone, height, weight, bats, throws,
+        parent_name, parent_phone, secondary_phone, height, weight, bats, throws,
         primary_position, secondary_position, high_school, jersey_option_1, jersey_option_2,
         jersey_option_3, played_fce_2026, hat_size
       )
       SELECT
         ${input.companyId}, true, ${input.teamId}, ${input.teamName}, ${input.division}, new_player.id,
         ${input.playerName}, ${input.email}, ${input.returningJersey}, ${input.gradYear}, ${input.dateOfBirth},
-        ${input.parentPhone}, ${input.secondaryPhone}, ${input.height}, ${input.weight}, ${input.bats}, ${input.throws},
+        ${input.parentName}, ${input.parentPhone}, ${input.secondaryPhone}, ${input.height}, ${input.weight}, ${input.bats}, ${input.throws},
         ${input.primaryPosition}, ${input.secondaryPosition}, ${input.highSchool}, ${input.jerseyOption1}, ${input.jerseyOption2},
         ${input.jerseyOption3}, ${input.playedFce2026}, ${input.hatSize}
       FROM new_player
@@ -398,13 +404,13 @@ export async function createRosterSubmission(
     INSERT INTO roster_submissions (
       company_id, accepted, team_id, team_name, division, player_id,
       player_name, email, returning_jersey, grad_year, date_of_birth,
-      parent_phone, secondary_phone, height, weight, bats, throws,
+      parent_name, parent_phone, secondary_phone, height, weight, bats, throws,
       primary_position, secondary_position, high_school, jersey_option_1, jersey_option_2,
       jersey_option_3, played_fce_2026, hat_size
     ) VALUES (
       ${input.companyId}, ${input.accepted}, ${input.teamId}, ${input.teamName}, ${input.division}, NULL,
       ${input.playerName}, ${input.email}, ${input.returningJersey}, ${input.gradYear}, ${input.dateOfBirth},
-      ${input.parentPhone}, ${input.secondaryPhone}, ${input.height}, ${input.weight}, ${input.bats}, ${input.throws},
+      ${input.parentName}, ${input.parentPhone}, ${input.secondaryPhone}, ${input.height}, ${input.weight}, ${input.bats}, ${input.throws},
       ${input.primaryPosition}, ${input.secondaryPosition}, ${input.highSchool}, ${input.jerseyOption1}, ${input.jerseyOption2},
       ${input.jerseyOption3}, ${input.playedFce2026}, ${input.hatSize}
     )
@@ -453,6 +459,7 @@ export async function listRosterSubmissions(
       rs.returning_jersey,
       rs.grad_year,
       rs.date_of_birth::text AS date_of_birth,
+      rs.parent_name,
       rs.parent_phone,
       rs.secondary_phone,
       rs.height,

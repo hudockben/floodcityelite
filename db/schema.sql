@@ -400,6 +400,7 @@ CREATE TABLE IF NOT EXISTS roster_submissions (
     returning_jersey    VARCHAR(24),
     grad_year           SMALLINT,
     date_of_birth       DATE,
+    parent_name         VARCHAR(160),
     parent_phone        VARCHAR(40),
     secondary_phone     VARCHAR(40),
     height              VARCHAR(24),

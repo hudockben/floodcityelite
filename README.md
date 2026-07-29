@@ -103,7 +103,8 @@ ones are:
   accepts, the player is pushed onto the chosen team's roster in the same write
   — `player_id` links to that `players` row, and `team_name`/`division` snapshot
   the choice so it survives the team being deleted (which nulls `team_id`). The
-  accept also copies the player's high school and hat size onto the roster row.
+  accept also copies the player's high school and hat size, and the parent's
+  name, onto the roster row.
   Jersey numbers are then assigned automatically for the whole team (see below). The remaining
   fields — `played_fce_2026` (the "Did you play in 2026?" returning-player
   answer), the returning number, the three jersey option preferences, secondary

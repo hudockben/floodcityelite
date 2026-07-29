@@ -496,6 +496,7 @@ async function main() {
       returning_jersey    VARCHAR(24),
       grad_year           SMALLINT,
       date_of_birth       DATE,
+      parent_name         VARCHAR(160),
       parent_phone        VARCHAR(40),
       secondary_phone     VARCHAR(40),
       height              VARCHAR(24),
@@ -535,9 +536,11 @@ async function main() {
     END $$;
   `;
 
-  // High school was added to the acceptance form after the table shipped;
-  // backfill it on existing databases (mirrors players.high_school).
+  // High school and parent name were added to the acceptance form after the
+  // table shipped; backfill them on existing databases (each mirrors the
+  // players column an accept copies it onto).
   await sql`ALTER TABLE roster_submissions ADD COLUMN IF NOT EXISTS high_school VARCHAR(160)`;
+  await sql`ALTER TABLE roster_submissions ADD COLUMN IF NOT EXISTS parent_name VARCHAR(160)`;
 
   // Jersey-assignment automation (see db/schema.sql for the annotated version):
   // reconciles a team's submission-linked jersey numbers atomically under a
