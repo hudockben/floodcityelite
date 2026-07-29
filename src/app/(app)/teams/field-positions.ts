@@ -37,28 +37,41 @@ export type FieldSpot = {
   y: number;
 };
 
+// The drawing's box. The top 30 units are empty sky above the outfield fence;
+// cropping them is what keeps the printed sheet on one page.
+const FIELD_W = 400;
+const FIELD_H = 350;
+
+/** SVG viewBox for the diagram. */
+export const FIELD_VIEWBOX = `0 30 ${FIELD_W} ${FIELD_H}`;
+
 /**
- * Diagram box aspect ratio (width / height). The SVG is drawn in a 400×380
- * viewBox and the cards are positioned as percentages of the same box, so the
- * two line up at any size as long as the box keeps this ratio.
+ * Aspect ratio (width / height) of that same box, applied to the element the
+ * cards are positioned inside. Cards are placed as percentages of the box, so
+ * they land on the drawing at any size — as long as the box keeps this ratio,
+ * which is why both come from here rather than being restated in CSS.
  */
-export const FIELD_ASPECT = 400 / 380;
+export const FIELD_ASPECT = FIELD_W / FIELD_H;
 
 // Ordered so the rendered cards follow the tab order a coach reads in: outfield
 // across the top, then middle infield, corners, pitcher, catcher.
-// The middle infield sits a little deeper, and the corners a little wider, than
-// a literal plot would put them: the cards are ~124px wide, and this spacing is
-// what keeps a stacked spot from covering its neighbour.
+//
+// Spacing, not surveying. A card is a fixed share of the field's width but
+// grows as tall as its roster, so the layout has to hold at any card height:
+//   • the corners sit 15% out from the middle infield — wider than a card — so
+//     a stacked SS can never reach 3B however deep it gets;
+//   • the middle infield plays deep and the pitcher sits just off the mound,
+//     which is the vertical room those two cards need.
 export const FIELD_SPOTS: FieldSpot[] = [
-  { key: "LF", name: "Left field", x: 21.5, y: 37 },
-  { key: "CF", name: "Center field", x: 50, y: 25 },
-  { key: "RF", name: "Right field", x: 78.5, y: 37 },
-  { key: "SS", name: "Shortstop", x: 38.5, y: 49.5 },
-  { key: "2B", name: "Second base", x: 61.5, y: 49.5 },
-  { key: "3B", name: "Third base", x: 23.5, y: 66.3 },
-  { key: "1B", name: "First base", x: 76.5, y: 66.3 },
-  { key: "P", name: "Pitcher", x: 50, y: 66 },
-  { key: "C", name: "Catcher", x: 50, y: 91.6 },
+  { key: "LF", name: "Left field", x: 21.5, y: 31.6 },
+  { key: "CF", name: "Center field", x: 50, y: 18.6 },
+  { key: "RF", name: "Right field", x: 78.5, y: 31.6 },
+  { key: "SS", name: "Shortstop", x: 38.5, y: 42.5 },
+  { key: "2B", name: "Second base", x: 61.5, y: 42.5 },
+  { key: "3B", name: "Third base", x: 23.5, y: 63.4 },
+  { key: "1B", name: "First base", x: 76.5, y: 63.4 },
+  { key: "P", name: "Pitcher", x: 50, y: 64.2 },
+  { key: "C", name: "Catcher", x: 50, y: 90.9 },
 ];
 
 // Real positions that don't belong to one spot on the diagram. Listed beside

@@ -321,6 +321,7 @@ export default async function TeamsPage({
                       <FieldView
                         teamName={t.name}
                         sport={t.sport}
+                        printHref={`/teams/print/field?division=${division.slug}&team=${t.id}&year=${season.year}`}
                         players={teamPlayers.map((p) => ({
                           id: p.id,
                           player_name: p.player_name,

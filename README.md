@@ -67,7 +67,9 @@ ones are:
   `OF`, a typo, or a blank — is listed under the field as typed instead of being
   guessed onto a spot, since a wrong placement would quietly skew the counts the
   view exists to show. (Bare numbers are deliberately not mapped: `6` could be
-  scorer's notation for shortstop or a half-typed ordinal.)
+  scorer's notation for shortstop or a half-typed ordinal.) **Print / Save PDF**
+  in that view opens `/teams/print/field`, which renders the same diagram —
+  identical components, repainted for white paper — one team per portrait page.
 - **`payments`** — payments logged against a player via `player_id`
   (`ON DELETE CASCADE`). Each row records `paid_on`, a `payment_type` (`check`
   or `cash`), an optional `check_number` (for check payments), and an `amount`.
