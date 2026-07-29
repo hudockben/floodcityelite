@@ -41,7 +41,6 @@ export const config = {
     "/payroll-admin/:path*",
     "/schedules/:path*",
     "/contact-info/:path*",
-    "/yard-tournaments/:path*",
     "/hotels/:path*",
     "/inventory/:path*",
   ],

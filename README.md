@@ -18,8 +18,8 @@ with a **company code**, **username**, and **password**.
   turned down. Accepting also adds the player to the chosen team's roster.
   Responses feed the admin **Roster Submissions** tab.
 - Member area — a protected tabbed shell (Homeplate, Teams, Roster Submissions,
-  Payment Tracker, Budgets, Fundraiser Tracker, Program/Camps, Payroll, Contact
-  Info, Yard Tournaments, Hotels, Inventory) shown after a successful login and
+  Payment Tracker, Budgets, Schedules, Fundraiser Tracker, Program/Camps,
+  Payroll, Contact Info, Hotels, Inventory) shown after a successful login and
   guarded by middleware.
 - Auth — passwords are hashed with **bcrypt**; the session is a signed
   (JWT, HS256) **httpOnly** cookie.
