@@ -6162,6 +6162,33 @@ body {
   z-index: 3;
 }
 
+/* Pin Edit / Remove to the right edge. Without this the actions column slides
+   under the frozen school column at some scroll offsets — which not only hides
+   the buttons but swallows clicks aimed at them, and on a narrow screen with a
+   long school name there is no scroll offset that frees them. The higher
+   z-index settles the overlap in the buttons' favour, so they stay clickable
+   at every width; the school name is still readable by scrolling back left. */
+.coach-table thead th:last-child,
+.coach-table tbody tr:not(.player-edit-row) td:last-child {
+  position: sticky;
+  right: 0;
+  box-shadow: -1px 0 0 var(--card-border);
+}
+
+.coach-table tbody tr:not(.player-edit-row) td:last-child {
+  z-index: 2;
+  background: var(--roster-bg);
+}
+
+.coach-table tbody tr:not(.player-edit-row):hover td:last-child {
+  background: var(--roster-hover-bg);
+}
+
+.coach-table thead th:last-child {
+  z-index: 4;
+  background: var(--roster-head-bg);
+}
+
 .coach-table .col-name {
   font-weight: 600;
 }

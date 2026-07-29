@@ -41,7 +41,10 @@ export default async function ContactInfoPage({
         conference, cell_phone, email, website, city, state, notes
       FROM college_coaches
       WHERE company_id = ${session.companyId}
-      ORDER BY school_name, coach_name NULLS LAST, id
+      -- lower() so the order doesn't depend on the database's collation: under
+      -- a C collation a school typed in lower case sorts below every
+      -- capitalized one, which reads as a bug in an alphabetical list.
+      ORDER BY lower(school_name), lower(coach_name) NULLS LAST, id
     `) as CoachRow[];
   } catch (err) {
     console.error("Contact Info load error:", err);
