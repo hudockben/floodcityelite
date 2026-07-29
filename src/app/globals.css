@@ -6640,3 +6640,9 @@ body {
   font-size: 0.75rem;
   color: var(--text-muted);
 }
+
+/* Budget save failure — a banner above the sheet, so it can't be mistaken for
+   the figure simply not having saved. */
+.budget-save-error {
+  margin-bottom: 14px;
+}

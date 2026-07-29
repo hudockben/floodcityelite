@@ -138,11 +138,23 @@ export async function saveBudgetAction(
     }
   } catch (err) {
     console.error("saveBudget error:", err);
-    return { error: "Could not save the budget. Please try again." };
+    // Say what actually went wrong. This is a single-tenant admin tool, and a
+    // bare "please try again" on a save that keeps failing tells the coach
+    // nothing and leaves no thread to pull on — the database's own reason does.
+    return { error: `Could not save the budget — ${describe(err)}` };
   }
 
   revalidatePath("/budgets");
   return { ok: true };
+}
+
+/** A short, single-line cause for a failed write, for the message on screen. */
+function describe(err: unknown): string {
+  const e = err as { code?: string; message?: string } | null;
+  const message = String(e?.message ?? "").split("\n")[0].trim();
+  if (!message) return "the database rejected the change. Please try again.";
+  const code = e?.code ? ` (${e.code})` : "";
+  return `${message.slice(0, 200)}${code}`;
 }
 
 // --- log a new expense against a team --------------------------------------

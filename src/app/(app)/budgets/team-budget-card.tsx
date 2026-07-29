@@ -201,6 +201,15 @@ export default function TeamBudgetCard({
           <form action={formAction} className="budget-col-sheet">
             <input type="hidden" name="teamId" value={team.id} />
 
+            {/* Above the sheet on purpose: the Save button sits under a tall
+                table, so a failure reported down there is easy to scroll past
+                and read as "my figure just didn't stick". */}
+            {state?.error ? (
+              <p className="error budget-save-error" role="alert">
+                {state.error}
+              </p>
+            ) : null}
+
             <div className="budget-sheet-scroll">
               <table className="budget-sheet">
                 <tbody>
@@ -370,11 +379,6 @@ export default function TeamBudgetCard({
               >
                 🖨 Print / Save PDF
               </a>
-              {state?.error ? (
-                <p className="error budget-msg" role="alert">
-                  {state.error}
-                </p>
-              ) : null}
               <p className="budget-hint">
                 Portion to team budget = tuition per player minus the program&apos;s
                 fixed cost per player, unless you type a figure here to override
