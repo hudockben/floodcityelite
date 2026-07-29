@@ -30,12 +30,17 @@ function CoachCell({ field, value }: { field: CoachField; value: string | null }
   if (value == null) return <span className="cell-empty">—</span>;
 
   switch (field.key) {
-    case "cell_phone":
-      return (
-        <a className="coach-link" href={telHref(value)}>
+    case "cell_phone": {
+      const href = telHref(value);
+      // Free text: only linkify what can actually be dialed (see telHref).
+      return href ? (
+        <a className="coach-link" href={href}>
           {value}
         </a>
+      ) : (
+        <>{value}</>
       );
+    }
     case "email":
       return (
         <a className="coach-link" href={`mailto:${value}`}>

@@ -1066,9 +1066,6 @@ body {
 }
 
 .subtab {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
   padding: 9px 16px;
   border-radius: 999px;
   border: 1px solid var(--card-border);
@@ -1092,8 +1089,11 @@ body {
 }
 
 /* Optional count riding along in a sub-tab (e.g. how many contacts a sport
-   holds). Opaque on the active fill so it keeps its contrast. */
+   holds). Spaced with a margin rather than a flex gap so .subtab itself stays
+   a plain inline box for the tab bars that carry no count. Opaque on the
+   active fill so it keeps its contrast. */
 .subtab-count {
+  margin-left: 8px;
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--text-muted);

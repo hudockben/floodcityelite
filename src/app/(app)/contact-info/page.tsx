@@ -114,7 +114,10 @@ export default async function ContactInfoPage({
               </p>
             </div>
 
-            <AddCoachForm sport={sport} />
+            {/* Keyed by sport: switching tabs re-renders this same component,
+                and without a fresh key a half-typed baseball contact would
+                stay in the boxes and post to the softball list. */}
+            <AddCoachForm key={sport} sport={sport} />
           </section>
 
           {/* Step 2 — the sport's contact list */}
@@ -132,7 +135,9 @@ export default async function ContactInfoPage({
               </p>
             </div>
 
-            <CoachDirectory sport={sport} coaches={forSport} />
+            {/* Keyed for the same reason: the search text and level filter
+                belong to the sport they were typed on. */}
+            <CoachDirectory key={sport} sport={sport} coaches={forSport} />
           </section>
         </>
       )}

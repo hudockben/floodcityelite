@@ -176,9 +176,14 @@ export function coachSearchText(row: CoachRow): string {
     .toLowerCase();
 }
 
-/** A dialable href for a typed phone number (digits, +, and extensions out). */
-export function telHref(phone: string): string {
-  return `tel:${phone.replace(/[^\d+]/g, "")}`;
+/**
+ * A dialable href for a typed phone number (digits and + only), or null when
+ * there's nothing to dial — the field is free text, so "ask the office" has to
+ * render as plain text rather than a `tel:` link to nowhere.
+ */
+export function telHref(phone: string): string | null {
+  const digits = phone.replace(/[^\d+]/g, "");
+  return /\d/.test(digits) ? `tel:${digits}` : null;
 }
 
 /**
@@ -196,8 +201,9 @@ export function websiteHref(website: string): string | null {
 
 /** The website as shown in the table — no scheme, no trailing slash. */
 export function websiteLabel(website: string): string {
-  return website
-    .trim()
-    .replace(/^https?:\/\//i, "")
-    .replace(/\/+$/, "");
+  const trimmed = website.trim();
+  const stripped = trimmed.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+  // A value that is nothing but a scheme ("https://") strips to empty, which
+  // would render as a link with no text — show what was typed instead.
+  return stripped === "" ? trimmed : stripped;
 }

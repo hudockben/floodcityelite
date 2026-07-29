@@ -42,18 +42,24 @@ export default function CoachDirectory({
     [coaches],
   );
 
+  // Removing the last school at a level (or editing its level away) drops that
+  // option from the dropdown while it's still the selected one. Fall back to
+  // "all levels" in that case, so the list can't sit silently empty behind a
+  // filter the dropdown no longer shows.
+  const activeLevel = levels.includes(level) ? level : "";
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return coaches.filter((coach) => {
-      if (level !== "" && coachValue(coach, "division_level") !== level) {
+      if (activeLevel !== "" && coachValue(coach, "division_level") !== activeLevel) {
         return false;
       }
       if (q === "") return true;
       return (searchText.get(coach.id) ?? "").includes(q);
     });
-  }, [coaches, query, level, searchText]);
+  }, [coaches, query, activeLevel, searchText]);
 
-  const filtering = query.trim() !== "" || level !== "";
+  const filtering = query.trim() !== "" || activeLevel !== "";
 
   function clearFilters() {
     setQuery("");
@@ -125,7 +131,7 @@ export default function CoachDirectory({
             <select
               id="coach-level-filter"
               className="coach-select"
-              value={level}
+              value={activeLevel}
               onChange={(e) => setLevel(e.target.value)}
             >
               <option value="">All levels</option>
