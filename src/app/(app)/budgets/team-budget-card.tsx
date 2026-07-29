@@ -271,12 +271,15 @@ export default function TeamBudgetCard({
                             tab
                           </>
                         ) : (
+                          // Zero covers two cases — no costs logged, and costs
+                          // logged with nobody to split them across — so the
+                          // note says what's true of both rather than guessing.
                           <>
-                            nothing logged on the{" "}
+                            nothing to deduct — see the{" "}
                             <Link className="bs-note-link" href="/fixed-cost">
                               Fixed Cost
                             </Link>{" "}
-                            tab yet
+                            tab
                           </>
                         )}
                       </span>

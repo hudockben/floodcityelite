@@ -112,6 +112,8 @@ export default function SectionCard({
               >
                 Rename
               </button>
+              {/* "Remove section", not "Remove": each line item below carries
+                  its own Remove, and this one takes the whole group with it. */}
               <ConfirmButton
                 action={deleteSectionAction}
                 hidden={{ sectionId: section.id }}
@@ -120,7 +122,7 @@ export default function SectionCard({
                 }?`}
                 className="row-delete"
               >
-                Remove
+                Remove section
               </ConfirmButton>
             </div>
           </>
