@@ -448,6 +448,35 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_camp_payments_camp_player_id ON camp_payments (camp_player_id)`;
 
+  // A college coach contact owned by a company — the Contact Info tab. `sport`
+  // splits the tab into its Baseball and Softball lists and uses the same two
+  // values as teams.sport. Only the school is required; the coach, their title,
+  // cell, email, website, division level, conference, location, and notes fill
+  // in over time.
+  await sql`
+    CREATE TABLE IF NOT EXISTS college_coaches (
+      id              SERIAL        PRIMARY KEY,
+      company_id      INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      sport           VARCHAR(16)   NOT NULL DEFAULT 'baseball'
+                        CHECK (sport IN ('baseball', 'softball')),
+      school_name     VARCHAR(160)  NOT NULL,
+      coach_name      VARCHAR(160),
+      coach_title     VARCHAR(120),
+      division_level  VARCHAR(40),
+      conference      VARCHAR(120),
+      cell_phone      VARCHAR(40),
+      email           VARCHAR(160),
+      website         VARCHAR(300),
+      city            VARCHAR(120),
+      state           VARCHAR(40),
+      notes           TEXT,
+      created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_college_coaches_company_sport ON college_coaches (company_id, sport)`;
+
   // A payroll submission is one employee's logged hours for a day, sent through
   // the public payroll form on the sign-in screen (no login). The admin
   // "Payroll" tab lists these and totals the hours; its Reports subtab filters

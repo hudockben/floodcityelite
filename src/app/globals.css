@@ -1066,6 +1066,9 @@ body {
 }
 
 .subtab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 9px 16px;
   border-radius: 999px;
   border: 1px solid var(--card-border);
@@ -1086,6 +1089,19 @@ body {
   color: #04121f;
   background: linear-gradient(180deg, var(--accent), var(--accent-strong));
   border-color: transparent;
+}
+
+/* Optional count riding along in a sub-tab (e.g. how many contacts a sport
+   holds). Opaque on the active fill so it keeps its contrast. */
+.subtab-count {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.subtab.active .subtab-count {
+  color: #04121f;
 }
 
 /* Season (year) selector — sits just under the division tabs. Each division
@@ -5892,4 +5908,297 @@ body {
   font-size: 0.85rem;
   color: var(--text-muted);
   font-style: italic;
+}
+
+/* ---------------------------------------------------------------------------
+   Contact Info — college coaches
+   -------------------------------------------------------------------------*/
+/* The tab splits by sport (the shared .subtabs), then each sport shows a
+   filter bar above a wide contact table. The table mirrors the Teams roster:
+   content-sized columns, a sticky header, and a frozen first column (the
+   school) so the school stays put while scrolling out to the notes. */
+
+/* Notes get the full width of the add/edit field grid — a line of context
+   doesn't fit a 210px cell. */
+.coach-field-wide {
+  grid-column: 1 / -1;
+}
+
+/* Filter bar: search + division level + the result count. */
+.coach-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-top: 22px;
+}
+
+/* Search box — mirrors the Payment Tracker / Roster Submissions search field. */
+.coach-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 280px;
+  max-width: 420px;
+  padding: 0 12px;
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.coach-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.coach-search-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+}
+
+.coach-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 11px 0;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.coach-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* The type="search" input draws its own clear button in some browsers; ours
+   is the only one shown. */
+.coach-search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.coach-search-clear {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 1.15rem;
+  line-height: 1;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.coach-search-clear:hover {
+  color: var(--text);
+  background: rgba(148, 187, 233, 0.12);
+}
+
+/* Division-level dropdown. */
+.coach-level-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.coach-level-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.coach-select {
+  appearance: none;
+  padding: 8px 32px 8px 13px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text);
+  background-color: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  cursor: pointer;
+  outline: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 55%, calc(100% - 12px) 55%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.coach-select:hover {
+  border-color: var(--accent);
+}
+
+.coach-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.coach-select option {
+  color: var(--text);
+  background: var(--navy-800);
+}
+
+.coach-count {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Inline "Clear filters" reset, shown in the count line and the empty row. */
+.coach-clear-all {
+  padding: 0;
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.coach-clear-all:hover {
+  text-decoration: underline;
+}
+
+/* Contact table */
+.coach-scroll {
+  margin-top: 18px;
+  overflow-x: auto;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  scrollbar-width: thin;
+  background: var(--roster-bg);
+  /* Measured by the inline editor below, which needs the scroller's *visible*
+     width — not the (much wider) table it contains. */
+  container-type: inline-size;
+}
+
+/* The inline editor sits in a cell spanning a table that scrolls sideways, so
+   left alone it would start off-screen whenever the table is scrolled right.
+   Pinning it to the scroller's visible width keeps the whole form in view at
+   any scroll offset, and its field grid just wraps onto more rows. */
+.coach-table .player-edit-form {
+  position: sticky;
+  left: 0;
+  box-sizing: border-box;
+  width: 100cqw;
+}
+
+.coach-table {
+  border-collapse: collapse;
+  /* Content-sized (like the roster) so columns stay tight and the table
+     scrolls only when it genuinely overflows. */
+  width: max-content;
+  min-width: 100%;
+  font-size: 0.84rem;
+}
+
+.coach-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  text-align: left;
+  white-space: nowrap;
+  padding: 10px 12px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: var(--roster-head-bg);
+  border-bottom: 1px solid var(--card-border);
+}
+
+.coach-table tbody td {
+  padding: 9px 12px;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  vertical-align: middle;
+}
+
+.coach-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.coach-table tbody tr:not(.player-edit-row):hover td {
+  background: var(--roster-hover-bg);
+}
+
+/* Freeze the first column (School Name) while scrolling sideways. The
+   full-width edit row is excluded so it keeps spanning every column. */
+.coach-table thead th:first-child,
+.coach-table tbody tr:not(.player-edit-row) td:first-child {
+  position: sticky;
+  left: 0;
+  box-shadow: 1px 0 0 var(--card-border);
+}
+
+.coach-table tbody tr:not(.player-edit-row) td:first-child {
+  z-index: 1;
+  background: var(--roster-bg);
+}
+
+.coach-table tbody tr:not(.player-edit-row):hover td:first-child {
+  background: var(--roster-hover-bg);
+}
+
+.coach-table thead th:first-child {
+  z-index: 3;
+}
+
+.coach-table .col-name {
+  font-weight: 600;
+}
+
+/* Phone / email / website open from the table. */
+.coach-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.coach-link:hover {
+  text-decoration: underline;
+}
+
+/* Division level reads as a pill so D1/D2/JUCO scans down the column. */
+.coach-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: var(--text);
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+/* Notes can run long — cap the column and keep the full text in the tooltip. */
+.coach-notes {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.coach-empty-row {
+  padding: 30px 14px;
+  text-align: center;
+  color: var(--text-muted);
 }

@@ -83,6 +83,18 @@ ones are:
   is independent of the Teams roster. A `camp_payment` is logged against a camp
   player and mirrors `payments` (`paid_on`, `payment_type`, `check_number`,
   `amount`), driving the per-player and per-camp totals.
+- **`college_coaches`** — the **Contact Info** tab, a recruiting contact book
+  for college programs. The tab is split by `sport` (`baseball` or `softball`,
+  the same two values a team carries), so each sport keeps its own list and the
+  sub-tabs show a count. Only `school_name` is required; `coach_name`,
+  `coach_title`, `division_level` (D1/D2/D3/NAIA/JUCO — a datalist of the common
+  ones, but free text), `conference`, `cell_phone`, `email`, `website`, `city`,
+  `state`, and `notes` fill in as a program gets worked. In the table the phone,
+  email, and website are tap-to-open links (a website typed without a scheme
+  gets `https://`; anything that isn't an http(s) link stays plain text), and a
+  search box plus a division-level filter narrow the list. Rows are edited
+  inline — the editor also carries the Sport, so a contact filed under the wrong
+  list can be moved. Belongs to a company via `company_id`.
 - **`payroll_submissions`** — the **Payroll** tab, which has two subtabs:
   **Submissions** and **Reports**. Each row is one employee's logged hours for a
   day, submitted through the public `/payroll` form (no login): `employee_name`,
