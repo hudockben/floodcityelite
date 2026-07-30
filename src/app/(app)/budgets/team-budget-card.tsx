@@ -12,13 +12,16 @@ import {
   parseMoney,
   resolvePayingCount,
   startingBalance,
+  sumFundraisedCents,
   summarizeExpenses,
   totalTuition,
   type ExpenseRow,
+  type FundraiserCreditRow,
   type SavedBudget,
   type TournamentRow,
 } from "./budget";
 import TeamExpenses from "./team-expenses";
+import TeamFundraisers from "./team-fundraisers";
 import TeamTournaments from "./team-tournaments";
 import { sportLabel, type Sport } from "../teams/divisions";
 
@@ -44,6 +47,8 @@ export type BudgetTeam = {
   expenses: ExpenseRow[];
   /** This team's Schedules-tab tournaments (by date); read-only here. */
   tournaments: TournamentRow[];
+  /** This team's Fundraiser Tracker entries (newest first); read-only here. */
+  fundraisers: FundraiserCreditRow[];
 };
 
 /** Blank string ↔ null; otherwise a non-negative integer. */
@@ -186,10 +191,19 @@ export default function TeamBudgetCard({
   // but don't move the balance until marked paid.
   const expenseTotals = summarizeExpenses(team.expenses);
   const expenseNet = expenseTotals.netCents / 100;
+  // Money this team has raised on the Fundraiser Tracker tab. It's a credit, so
+  // logging an entry there lifts the balance the moment the page reloads.
+  const fundraisedCents = sumFundraisedCents(team.fundraisers);
+  const fundraised = fundraisedCents / 100;
   // Current balance nets this team's total scheduled cost (from the Schedules
-  // tab) and its net expenses out of the starting balance; fundraising then
-  // covers any shortfall.
-  const current = currentBalance(starting, team.scheduledCost, expenseNet);
+  // tab) and its net expenses out of the starting balance and credits back what
+  // it has raised; fundraising then covers whatever shortfall is left.
+  const current = currentBalance(
+    starting,
+    team.scheduledCost,
+    expenseNet,
+    fundraised,
+  );
   const fundraise = fundraisingPerPlayer(current, payingCount);
 
   // The figures as typed, kept in a ref so the save loop, the debounce timer and
@@ -551,6 +565,49 @@ export default function TeamBudgetCard({
                     )}
                   </tr>
 
+                  <tr>
+                    <th scope="row">
+                      Fundraising raised
+                      <span className="bs-note">
+                        {fundraisedCents > 0 ? (
+                          <>
+                            {team.fundraisers.length}{" "}
+                            {team.fundraisers.length === 1 ? "entry" : "entries"}{" "}
+                            on the{" "}
+                            <Link
+                              className="bs-note-link"
+                              href="/fundraiser-tracker"
+                            >
+                              Fundraiser Tracker
+                            </Link>{" "}
+                            tab — credited to the balance
+                          </>
+                        ) : (
+                          <>
+                            nothing raised yet — log it on the{" "}
+                            <Link
+                              className="bs-note-link"
+                              href="/fundraiser-tracker"
+                            >
+                              Fundraiser Tracker
+                            </Link>{" "}
+                            tab
+                          </>
+                        )}
+                      </span>
+                    </th>
+                    {/* Nothing raised isn't a credit worth colouring, so $0.00
+                        takes the muted deduction-row grey instead of green. */}
+                    <td
+                      className={`bs-value ${
+                        fundraisedCents > 0 ? "bs-credit" : "bs-deduct"
+                      }`}
+                    >
+                      {fundraisedCents > 0 ? "+" : ""}
+                      {formatMoney(fundraised)}
+                    </td>
+                  </tr>
+
                   <tr className="bs-current">
                     <th scope="row">
                       Current Balance
@@ -562,6 +619,9 @@ export default function TeamBudgetCard({
                             : expenseNet < 0
                               ? ` · ${formatMoney(-expenseNet)} net refund`
                               : ""}
+                          {fundraised > 0
+                            ? ` · plus ${formatMoney(fundraised)} raised`
+                            : ""}
                         </span>
                       ) : null}
                     </th>
@@ -577,7 +637,16 @@ export default function TeamBudgetCard({
                   </tr>
 
                   <tr className="bs-fundraise">
-                    <th scope="row">Fundraising amount needed per Player</th>
+                    <th scope="row">
+                      Fundraising amount needed per Player
+                      {configured && fundraisedCents > 0 ? (
+                        <span className="bs-note">
+                          what&apos;s still needed — the{" "}
+                          {formatMoney(fundraised)} already raised is off this
+                          figure
+                        </span>
+                      ) : null}
+                    </th>
                     {configured ? (
                       <td className="bs-value">{formatMoney(fundraise)}</td>
                     ) : (
@@ -617,13 +686,15 @@ export default function TeamBudgetCard({
                 the program&apos;s fixed cost per player, unless you type a
                 figure here to override it for this team. Current balance =
                 starting balance minus this team&apos;s total scheduled cost on
-                the Schedules tab and its paid expenses (less refunds).
-                Fundraising covers any shortfall, split across paying players.
+                the Schedules tab and its paid expenses (less refunds), plus
+                what it has raised on the Fundraiser Tracker tab. Fundraising
+                covers whatever shortfall is left, split across paying players.
               </p>
             </div>
           </form>
 
           <div className="budget-col-expenses">
+            <TeamFundraisers fundraisers={team.fundraisers} />
             <TeamTournaments
               tournaments={team.tournaments}
               division={division}

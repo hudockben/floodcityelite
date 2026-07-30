@@ -163,7 +163,8 @@ CREATE INDEX IF NOT EXISTS idx_payments_player_id ON payments (player_id);
 -- marked `is_paying` on the Teams tab; paying_players is an optional manual
 -- override for the rare case that count needs adjusting by hand. Money columns
 -- are stored as NUMERIC. Current balance / fundraising are derived downstream
--- from the Schedules tab, so they aren't stored here.
+-- from the Schedules tab and the fundraiser_entries credited to the team (see
+-- Fundraisers below), so they aren't stored here.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS team_budgets (
     team_id                 INTEGER       PRIMARY KEY
@@ -283,6 +284,12 @@ CREATE INDEX IF NOT EXISTS idx_event_groups_event_id ON event_groups (event_id);
 -- a specific player, while team-based fundraisers leave player_id NULL. The
 -- Fundraiser Tracker tab shows per-fundraiser and grand totals from these
 -- rows. Only the fundraiser name and an entry's amount are required.
+--
+-- Entries also feed the Budgets tab: a team's entries are summed and credited
+-- to its current balance, so logging one is an uptick in that team's budget
+-- (and shrinks the fundraising it still needs per player). team_id is what
+-- scopes that credit — a team belongs to one season, so a season's budget sheet
+-- only ever counts what was raised for it.
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS fundraisers (

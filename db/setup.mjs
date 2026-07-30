@@ -377,7 +377,8 @@ async function main() {
 
   // A fundraiser entry ties an amount raised to a fundraiser and a team;
   // player-based fundraisers also name a player, while team-based fundraisers
-  // leave player_id NULL. Powers the Fundraiser Tracker tab's totals.
+  // leave player_id NULL. Powers the Fundraiser Tracker tab's totals, and each
+  // team's entries are credited to its budget on the Budgets tab.
   await sql`
     CREATE TABLE IF NOT EXISTS fundraiser_entries (
       id             SERIAL        PRIMARY KEY,

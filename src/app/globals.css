@@ -2516,6 +2516,41 @@ body {
   color: var(--text-muted);
 }
 
+/* ---- Fundraising raised (Budgets tab, top of the right column) ---- */
+/* A read-only mirror of the team's Fundraiser Tracker entries, itemizing the
+   credit the sheet adds to the current balance. Sits above the tournaments so
+   the column reads money-in then money-out, and takes the same divider so all
+   three blocks in the column separate identically. */
+.team-fundraisers {
+  min-width: 0;
+  margin-bottom: 22px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.fundraisers-table .fund-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.fundraisers-table .fund-who {
+  color: var(--text-muted);
+}
+
+/* A whole-team entry names no player, so its cell is a label rather than a
+   name — set it apart from the player names above and below it. */
+.fund-who-team {
+  font-style: italic;
+}
+
+/* Footer total — green, since this is money into the budget, against the
+   tournaments' red deduction total directly beneath it. */
+.fund-total-value {
+  color: #86efac;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- Scheduled tournaments (Budgets tab, above Team Expenses) ---- */
 /* A read-only mirror of the team's Schedules-tab tournaments so the scheduled
    cost the sheet subtracts is itemized in the same column. Reuses the
@@ -3336,8 +3371,9 @@ body {
   border-top: 1.5px solid #cbd5e1;
 }
 
-/* Scheduled-tournaments block sits above the expense log in the print report's
-   right column; give the two a little breathing room when both are present. */
+/* The fundraising and scheduled-tournaments blocks stack above the expense log
+   in the print report's right column; give each a little breathing room. */
+.print-fundraisers,
 .print-schedule {
   margin-bottom: 20px;
 }
@@ -6612,6 +6648,14 @@ body {
 /* Budgets sheet: the fixed-cost deduction row and its link. */
 .budget-sheet .bs-deduct {
   color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* And the fundraising credit row — the one figure on the sheet that adds to
+   the balance, so it reads green against the deductions around it. Muted at
+   $0.00, since "nothing raised yet" isn't a credit worth colouring. */
+.budget-sheet .bs-credit {
+  color: #86efac;
   font-variant-numeric: tabular-nums;
 }
 

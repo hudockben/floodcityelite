@@ -102,6 +102,26 @@ export type TournamentRow = {
   status: EventStatus;
 };
 
+// ---- fundraising credits --------------------------------------------------
+//
+// Read-only view of a team's Fundraiser Tracker entries, surfaced under the
+// Budgets tab. Every dollar logged against a team is credited to that team's
+// balance, so adding a fundraiser entry shows up here as an uptick rather than
+// living in a tab of its own. Both kinds of entry count: a player-level one
+// (`player_name` set) and a whole-team one (`player_name` NULL) are the same
+// money to the team. These rows are display-only on the Budgets tab — they're
+// added and deleted on the Fundraiser Tracker tab. `amount` arrives as text
+// (NUMERIC cast to text) so it sums in integer cents like everything else here.
+export type FundraiserCreditRow = {
+  id: number;
+  team_id: number;
+  raised_on: string | null;
+  fundraiser_name: string;
+  /** NULL for a whole-team entry; the player's name for a player-level one. */
+  player_name: string | null;
+  amount: string | null;
+};
+
 // ---- formatting -----------------------------------------------------------
 
 const USD = new Intl.NumberFormat("en-US", {
@@ -256,22 +276,26 @@ export function startingBalance(
 
 /**
  * Current team-budget balance: the starting balance less every scheduled cost
- * from the Schedules tab (the same per-team total shown there) and less the net
- * of logged expenses (paid amounts minus refunds). `expenseNet` defaults to 0
- * so existing callers stay correct, and it may be negative (refunds exceeding
- * paid expenses), which lifts the balance back up. The arithmetic is done in
- * integer cents so it stays exact and never yields a stray negative zero from
- * float drift (e.g. an exactly-funded team showing "-$0.00").
+ * from the Schedules tab (the same per-team total shown there), less the net of
+ * logged expenses (paid amounts minus refunds), plus everything the team has
+ * raised on the Fundraiser Tracker tab. `expenseNet` and `fundraised` default
+ * to 0 so existing callers stay correct; `expenseNet` may be negative (refunds
+ * exceeding paid expenses), which lifts the balance back up the same way a
+ * fundraiser does. The arithmetic is done in integer cents so it stays exact
+ * and never yields a stray negative zero from float drift (e.g. an
+ * exactly-funded team showing "-$0.00").
  */
 export function currentBalance(
   starting: number,
   scheduledCost: number,
   expenseNet: number = 0,
+  fundraised: number = 0,
 ): number {
   const cents =
     Math.round(starting * 100) -
     Math.round(scheduledCost * 100) -
-    Math.round(expenseNet * 100);
+    Math.round(expenseNet * 100) +
+    Math.round(fundraised * 100);
   return cents / 100;
 }
 
@@ -325,14 +349,29 @@ export function summarizeExpenses(
 }
 
 /**
- * Fundraising needed per player. The current balance already nets out every
- * scheduled cost, so a negative balance means the team is short and each paying
- * player raises an equal share to get back to zero; a non-negative balance
- * needs no fundraising.
+ * What a team has raised, in integer cents — the credit its budget gets from
+ * the Fundraiser Tracker tab. Summed here rather than in SQL so the live
+ * preview in the browser and the server-rendered figures agree to the cent.
+ */
+export function sumFundraisedCents(
+  rows: { amount: string | number | null }[],
+): number {
+  let cents = 0;
+  for (const r of rows) cents += amountToCents(r.amount);
+  return cents;
+}
+
+/**
+ * Fundraising *still* needed per player. The current balance already nets out
+ * every scheduled cost and credits everything raised so far, so a negative
+ * balance means the team is short and each paying player raises an equal share
+ * to get back to zero; a non-negative balance needs no fundraising.
  *
  * The shortfall can come from either end now — scheduled costs and expenses
  * outrunning the balance, or a starting balance that was under water to begin
- * with because the fixed cost per player is above tuition.
+ * with because the fixed cost per player is above tuition. Either way, logging
+ * a fundraiser entry against the team shrinks this figure by that team's share
+ * of the money, which is the point of feeding fundraisers into the balance.
  */
 export function fundraisingPerPlayer(
   balance: number,

@@ -5,6 +5,7 @@ import { resolveDivision, sportLabel } from "../../teams/divisions";
 import { resolveSeason, type Season } from "../../teams/seasons";
 import { ensureTeamsSchema } from "../../teams/schema";
 import { ensureSchedulesSchema } from "../../schedules/schema";
+import { ensureFundraisersSchema } from "../../fundraiser-tracker/schema";
 import { eventCostCounts, statusLabel } from "../../schedules/events";
 import { ensureBudgetsSchema } from "../schema";
 import { loadFixedCostPerPlayer } from "../../fixed-cost/basis";
@@ -21,9 +22,11 @@ import {
   resolvePayingCount,
   resolvePortion,
   startingBalance,
+  sumFundraisedCents,
   summarizeExpenses,
   totalTuition,
   type ExpenseRow,
+  type FundraiserCreditRow,
   type TeamBudgetRow,
   type TournamentRow,
 } from "../budget";
@@ -67,6 +70,7 @@ export default async function BudgetPrintPage({
   let rows: TeamBudgetRow[] = [];
   let expenses: ExpenseRow[] = [];
   let tournaments: TournamentRow[] = [];
+  let fundraisers: FundraiserCreditRow[] = [];
   let season: Season | null = null;
   let loadError = false;
   // Same figure the on-screen sheet subtracts, so the printout matches it —
@@ -77,6 +81,7 @@ export default async function BudgetPrintPage({
     await ensureTeamsSchema();
     await ensureBudgetsSchema();
     await ensureSchedulesSchema();
+    await ensureFundraisersSchema();
 
     const resolved = await resolveSeason(
       session.companyId,
@@ -91,66 +96,86 @@ export default async function BudgetPrintPage({
       resolved.current.year,
     );
 
-    const [budgetRows, expenseRows, tournamentRows] = await Promise.all([
-      sql()`
-        SELECT
-          t.id,
-          t.name,
-          t.division,
-          t.sport,
-          (SELECT count(*) FROM players p WHERE p.team_id = t.id)::int AS player_count,
-          (SELECT count(*) FROM players p
-             WHERE p.team_id = t.id AND p.is_paying)::int AS paying_count,
-          b.tuition_per_player::float8     AS tuition_per_player,
-          b.portion_to_team_budget::float8 AS portion_to_team_budget,
-          b.paying_players                 AS paying_players,
-          (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e
-             WHERE e.team_id = t.id AND e.status <> 'refund')::float8
-                                           AS scheduled_cost
-        FROM teams t
-        LEFT JOIN team_budgets b ON b.team_id = t.id
-        WHERE t.company_id = ${session.companyId}
-          AND t.season_id = ${seasonId}
-        ORDER BY t.name
-      `,
-      sql()`
-        SELECT
-          x.id,
-          x.team_id,
-          x.expense_date::text AS expense_date,
-          x.vendor,
-          x.amount::text       AS amount,
-          x.status
-        FROM team_expenses x
-        JOIN teams t ON t.id = x.team_id
-        WHERE t.company_id = ${session.companyId}
-          AND t.season_id = ${seasonId}
-        ORDER BY x.expense_date DESC NULLS LAST, x.id DESC
-      `,
-      // Each team's scheduled tournaments, itemized so the printed report shows
-      // exactly what makes up the "less scheduled cost" line.
-      sql()`
-        SELECT
-          e.id,
-          e.team_id,
-          e.event_host,
-          e.event_date::text     AS event_date,
-          e.event_end_date::text AS event_end_date,
-          e.event_name,
-          e.location,
-          e.cost::text           AS cost,
-          e.status
-        FROM schedule_events e
-        JOIN teams t ON t.id = e.team_id
-        WHERE t.company_id = ${session.companyId}
-          AND t.season_id = ${seasonId}
-        ORDER BY e.event_date NULLS LAST, e.id
-      `,
-    ]);
+    const [budgetRows, expenseRows, tournamentRows, fundraiserRows] =
+      await Promise.all([
+        sql()`
+          SELECT
+            t.id,
+            t.name,
+            t.division,
+            t.sport,
+            (SELECT count(*) FROM players p WHERE p.team_id = t.id)::int AS player_count,
+            (SELECT count(*) FROM players p
+               WHERE p.team_id = t.id AND p.is_paying)::int AS paying_count,
+            b.tuition_per_player::float8     AS tuition_per_player,
+            b.portion_to_team_budget::float8 AS portion_to_team_budget,
+            b.paying_players                 AS paying_players,
+            (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e
+               WHERE e.team_id = t.id AND e.status <> 'refund')::float8
+                                             AS scheduled_cost
+          FROM teams t
+          LEFT JOIN team_budgets b ON b.team_id = t.id
+          WHERE t.company_id = ${session.companyId}
+            AND t.season_id = ${seasonId}
+          ORDER BY t.name
+        `,
+        sql()`
+          SELECT
+            x.id,
+            x.team_id,
+            x.expense_date::text AS expense_date,
+            x.vendor,
+            x.amount::text       AS amount,
+            x.status
+          FROM team_expenses x
+          JOIN teams t ON t.id = x.team_id
+          WHERE t.company_id = ${session.companyId}
+            AND t.season_id = ${seasonId}
+          ORDER BY x.expense_date DESC NULLS LAST, x.id DESC
+        `,
+        // Each team's scheduled tournaments, itemized so the printed report
+        // shows exactly what makes up the "less scheduled cost" line.
+        sql()`
+          SELECT
+            e.id,
+            e.team_id,
+            e.event_host,
+            e.event_date::text     AS event_date,
+            e.event_end_date::text AS event_end_date,
+            e.event_name,
+            e.location,
+            e.cost::text           AS cost,
+            e.status
+          FROM schedule_events e
+          JOIN teams t ON t.id = e.team_id
+          WHERE t.company_id = ${session.companyId}
+            AND t.season_id = ${seasonId}
+          ORDER BY e.event_date NULLS LAST, e.id
+        `,
+        // And each team's Fundraiser Tracker entries, itemized the same way so
+        // the "plus fundraising raised" line shows where the credit came from.
+        sql()`
+          SELECT
+            fe.id,
+            fe.team_id,
+            fe.raised_on::text AS raised_on,
+            fe.amount::text    AS amount,
+            f.name             AS fundraiser_name,
+            pl.player_name
+          FROM fundraiser_entries fe
+          JOIN fundraisers f   ON f.id = fe.fundraiser_id
+          JOIN teams t         ON t.id = fe.team_id
+          LEFT JOIN players pl ON pl.id = fe.player_id
+          WHERE t.company_id = ${session.companyId}
+            AND t.season_id = ${seasonId}
+          ORDER BY fe.raised_on DESC NULLS LAST, fe.id DESC
+        `,
+      ]);
 
     rows = budgetRows as TeamBudgetRow[];
     expenses = expenseRows as ExpenseRow[];
     tournaments = tournamentRows as TournamentRow[];
+    fundraisers = fundraiserRows as FundraiserCreditRow[];
   } catch (err) {
     console.error("Budget print load error:", err);
     loadError = true;
@@ -173,6 +198,13 @@ export default async function BudgetPrintPage({
     const list = tournamentsByTeam.get(t.team_id);
     if (list) list.push(t);
     else tournamentsByTeam.set(t.team_id, [t]);
+  }
+
+  const fundraisersByTeam = new Map<number, FundraiserCreditRow[]>();
+  for (const f of fundraisers) {
+    const list = fundraisersByTeam.get(f.team_id);
+    if (list) list.push(f);
+    else fundraisersByTeam.set(f.team_id, [f]);
   }
 
   const backHref = season
@@ -235,7 +267,17 @@ export default async function BudgetPrintPage({
             const teamExpenses = expensesByTeam.get(r.id) ?? [];
             const totals = summarizeExpenses(teamExpenses);
             const expenseNet = totals.netCents / 100;
-            const current = currentBalance(starting, scheduled, expenseNet);
+            // What this team has raised on the Fundraiser Tracker tab — a
+            // credit to the balance, exactly as the on-screen sheet counts it.
+            const teamFundraisers = fundraisersByTeam.get(r.id) ?? [];
+            const fundraisedCents = sumFundraisedCents(teamFundraisers);
+            const fundraised = fundraisedCents / 100;
+            const current = currentBalance(
+              starting,
+              scheduled,
+              expenseNet,
+              fundraised,
+            );
             const fundraise = fundraisingPerPlayer(current, payingCount);
             // Same rule as the on-screen sheet: real inputs, not a positive
             // balance — a team under water still reports its figures.
@@ -325,6 +367,13 @@ export default async function BudgetPrintPage({
                           {formatMoney(Math.abs(expenseNet))}
                         </td>
                       </tr>
+                      <tr>
+                        <th>Plus fundraising raised</th>
+                        <td>
+                          {fundraisedCents > 0 ? "+" : ""}
+                          {formatMoney(fundraised)}
+                        </td>
+                      </tr>
                       <tr className="pcur">
                         <th>Current balance</th>
                         <td className={current < 0 ? "neg" : undefined}>
@@ -338,8 +387,50 @@ export default async function BudgetPrintPage({
                     </tbody>
                   </table>
 
-                  {/* Right column: scheduled tournaments, then the expense log */}
+                  {/* Right column: what the team raised, then its scheduled
+                      tournaments, then the expense log */}
                   <div className="print-expenses">
+                    <div className="print-fundraisers">
+                      <h3 className="print-sub">Fundraising</h3>
+                      {teamFundraisers.length === 0 ? (
+                        <p className="print-note small">
+                          Nothing raised for this team.
+                        </p>
+                      ) : (
+                        <table className="print-exp-table">
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Fundraiser</th>
+                              <th>Raised by</th>
+                              <th className="amt">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {teamFundraisers.map((f) => (
+                              <tr key={f.id}>
+                                <td>{formatDate(f.raised_on)}</td>
+                                <td>{f.fundraiser_name}</td>
+                                <td>{f.player_name ?? "Whole team"}</td>
+                                <td className="amt">
+                                  {formatCents(amountToCents(f.amount))}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="net">
+                              <td colSpan={3}>Total raised (credited)</td>
+                              <td className="amt">
+                                {fundraisedCents > 0 ? "+" : ""}
+                                {formatCents(fundraisedCents)}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      )}
+                    </div>
+
                     <div className="print-schedule">
                       <h3 className="print-sub">Scheduled tournaments</h3>
                       {teamTournaments.length === 0 ? (

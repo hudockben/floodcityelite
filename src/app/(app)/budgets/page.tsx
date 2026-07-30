@@ -7,9 +7,15 @@ import { resolveSeason, type Season } from "../teams/seasons";
 import SeasonBar from "../teams/season-bar";
 import { ensureTeamsSchema } from "../teams/schema";
 import { ensureSchedulesSchema } from "../schedules/schema";
+import { ensureFundraisersSchema } from "../fundraiser-tracker/schema";
 import { ensureBudgetsSchema } from "./schema";
 import { loadFixedCostPerPlayer } from "../fixed-cost/basis";
-import { type ExpenseRow, type TeamBudgetRow, type TournamentRow } from "./budget";
+import {
+  type ExpenseRow,
+  type FundraiserCreditRow,
+  type TeamBudgetRow,
+  type TournamentRow,
+} from "./budget";
 import TeamBudgetCard, { type BudgetTeam } from "./team-budget-card";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +40,7 @@ export default async function BudgetsPage({
   let rows: TeamBudgetRow[] = [];
   let expenses: ExpenseRow[] = [];
   let tournaments: TournamentRow[] = [];
+  let fundraisers: FundraiserCreditRow[] = [];
   let seasons: Season[] = [];
   let season: Season | null = null;
   let loadError = false;
@@ -43,11 +50,13 @@ export default async function BudgetsPage({
   let fixedCostPerPlayer = 0;
 
   try {
-    // Ensure the roster tables exist first (the FK target), then the budgets
-    // and schedule tables. All idempotent and memoized.
+    // Ensure the roster tables exist first (the FK target), then the budgets,
+    // schedule, and fundraiser tables — the sheet reads all four. All
+    // idempotent and memoized.
     await ensureTeamsSchema();
     await ensureBudgetsSchema();
     await ensureSchedulesSchema();
+    await ensureFundraisersSchema();
 
     // Budgets are per team, so scoping the teams to the selected season scopes
     // the whole tab (expenses and tournaments hang off those teams).
@@ -66,67 +75,90 @@ export default async function BudgetsPage({
       resolved.current.year,
     );
 
-    const [budgetRows, expenseRows, tournamentRows] = await Promise.all([
-      sql()`
-        SELECT
-          t.id,
-          t.name,
-          t.division,
-          t.sport,
-          (SELECT count(*) FROM players p WHERE p.team_id = t.id)::int AS player_count,
-          (SELECT count(*) FROM players p
-             WHERE p.team_id = t.id AND p.is_paying)::int AS paying_count,
-          b.tuition_per_player::float8     AS tuition_per_player,
-          b.portion_to_team_budget::float8 AS portion_to_team_budget,
-          b.paying_players                 AS paying_players,
-          (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e
-             WHERE e.team_id = t.id AND e.status <> 'refund')::float8
-                                           AS scheduled_cost
-        FROM teams t
-        LEFT JOIN team_budgets b ON b.team_id = t.id
-        WHERE t.company_id = ${session.companyId}
-          AND t.season_id = ${seasonId}
-        ORDER BY t.name
-      `,
-      sql()`
-        SELECT
-          x.id,
-          x.team_id,
-          x.expense_date::text AS expense_date,
-          x.vendor,
-          x.amount::text       AS amount,
-          x.status
-        FROM team_expenses x
-        JOIN teams t ON t.id = x.team_id
-        WHERE t.company_id = ${session.companyId}
-          AND t.season_id = ${seasonId}
-        ORDER BY x.expense_date DESC NULLS LAST, x.id DESC
-      `,
-      // Each team's Schedules-tab tournaments, so the scheduled cost that comes
-      // off the balance is itemized right under the budget. Read-only here —
-      // ordered like the Schedules tab (by date) for a familiar, matching total.
-      sql()`
-        SELECT
-          e.id,
-          e.team_id,
-          e.event_host,
-          e.event_date::text     AS event_date,
-          e.event_end_date::text AS event_end_date,
-          e.event_name,
-          e.location,
-          e.cost::text           AS cost,
-          e.status
-        FROM schedule_events e
-        JOIN teams t ON t.id = e.team_id
-        WHERE t.company_id = ${session.companyId}
-          AND t.season_id = ${seasonId}
-        ORDER BY e.event_date NULLS LAST, e.id
-      `,
-    ]);
+    const [budgetRows, expenseRows, tournamentRows, fundraiserRows] =
+      await Promise.all([
+        sql()`
+          SELECT
+            t.id,
+            t.name,
+            t.division,
+            t.sport,
+            (SELECT count(*) FROM players p WHERE p.team_id = t.id)::int AS player_count,
+            (SELECT count(*) FROM players p
+               WHERE p.team_id = t.id AND p.is_paying)::int AS paying_count,
+            b.tuition_per_player::float8     AS tuition_per_player,
+            b.portion_to_team_budget::float8 AS portion_to_team_budget,
+            b.paying_players                 AS paying_players,
+            (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e
+               WHERE e.team_id = t.id AND e.status <> 'refund')::float8
+                                             AS scheduled_cost
+          FROM teams t
+          LEFT JOIN team_budgets b ON b.team_id = t.id
+          WHERE t.company_id = ${session.companyId}
+            AND t.season_id = ${seasonId}
+          ORDER BY t.name
+        `,
+        sql()`
+          SELECT
+            x.id,
+            x.team_id,
+            x.expense_date::text AS expense_date,
+            x.vendor,
+            x.amount::text       AS amount,
+            x.status
+          FROM team_expenses x
+          JOIN teams t ON t.id = x.team_id
+          WHERE t.company_id = ${session.companyId}
+            AND t.season_id = ${seasonId}
+          ORDER BY x.expense_date DESC NULLS LAST, x.id DESC
+        `,
+        // Each team's Schedules-tab tournaments, so the scheduled cost that
+        // comes off the balance is itemized right under the budget. Read-only
+        // here — ordered like the Schedules tab (by date) so the total matches.
+        sql()`
+          SELECT
+            e.id,
+            e.team_id,
+            e.event_host,
+            e.event_date::text     AS event_date,
+            e.event_end_date::text AS event_end_date,
+            e.event_name,
+            e.location,
+            e.cost::text           AS cost,
+            e.status
+          FROM schedule_events e
+          JOIN teams t ON t.id = e.team_id
+          WHERE t.company_id = ${session.companyId}
+            AND t.season_id = ${seasonId}
+          ORDER BY e.event_date NULLS LAST, e.id
+        `,
+        // Each team's Fundraiser Tracker entries — the money raised that gets
+        // credited to the balance. Scoped through the team (which carries the
+        // season), so a team only ever counts what was raised for it. Both
+        // player-level and whole-team entries come back; the LEFT JOIN leaves
+        // player_name NULL for the latter.
+        sql()`
+          SELECT
+            fe.id,
+            fe.team_id,
+            fe.raised_on::text AS raised_on,
+            fe.amount::text    AS amount,
+            f.name             AS fundraiser_name,
+            pl.player_name
+          FROM fundraiser_entries fe
+          JOIN fundraisers f   ON f.id = fe.fundraiser_id
+          JOIN teams t         ON t.id = fe.team_id
+          LEFT JOIN players pl ON pl.id = fe.player_id
+          WHERE t.company_id = ${session.companyId}
+            AND t.season_id = ${seasonId}
+          ORDER BY fe.raised_on DESC NULLS LAST, fe.id DESC
+        `,
+      ]);
 
     rows = budgetRows as TeamBudgetRow[];
     expenses = expenseRows as ExpenseRow[];
     tournaments = tournamentRows as TournamentRow[];
+    fundraisers = fundraiserRows as FundraiserCreditRow[];
   } catch (err) {
     console.error("Budgets page load error:", err);
     loadError = true;
@@ -149,6 +181,14 @@ export default async function BudgetsPage({
     else tournamentsByTeam.set(t.team_id, [t]);
   }
 
+  // And the fundraiser entries, so each card credits only its own team's money.
+  const fundraisersByTeam = new Map<number, FundraiserCreditRow[]>();
+  for (const f of fundraisers) {
+    const list = fundraisersByTeam.get(f.team_id);
+    if (list) list.push(f);
+    else fundraisersByTeam.set(f.team_id, [f]);
+  }
+
   const teams: BudgetTeam[] = rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -164,6 +204,7 @@ export default async function BudgetsPage({
     },
     expenses: expensesByTeam.get(r.id) ?? [],
     tournaments: tournamentsByTeam.get(r.id) ?? [],
+    fundraisers: fundraisersByTeam.get(r.id) ?? [],
   }));
 
   return (
@@ -238,7 +279,12 @@ export default async function BudgetsPage({
               <p>
                 {teams.length} {teams.length === 1 ? "team" : "teams"}. Current
                 balance is each team&apos;s starting balance minus its total
-                scheduled cost from the Schedules tab and its paid expenses.
+                scheduled cost from the Schedules tab and its paid expenses,
+                plus everything it has raised on the{" "}
+                <Link className="inline-link" href="/fundraiser-tracker">
+                  Fundraiser Tracker
+                </Link>{" "}
+                tab.
               </p>
             </div>
             {teams.length > 0 ? (

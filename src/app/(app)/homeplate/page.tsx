@@ -5,6 +5,7 @@ import { getSession } from "@/lib/session";
 import { DIVISIONS, sportLabel, type DivisionSlug, type Sport } from "../teams/divisions";
 import { ensurePaymentsSchema } from "../payment-tracker/schema";
 import { ensureSchedulesSchema } from "../schedules/schema";
+import { ensureFundraisersSchema } from "../fundraiser-tracker/schema";
 import { ensureBudgetsSchema } from "../budgets/schema";
 import { statusLabel, type EventStatus } from "../schedules/events";
 import {
@@ -74,6 +75,8 @@ type BudgetRow = {
   paying_players: number | null;
   scheduled_cost: number;
   expense_net: number;
+  /** Everything the team has raised on the Fundraiser Tracker tab. */
+  fundraised_total: number;
 };
 
 // A team whose budget is at/over its limit, with the numbers already computed.
@@ -149,6 +152,7 @@ export default async function HomeplatePage() {
       ensureSchedulesSchema(),
       ensurePaymentsSchema(),
       ensureBudgetsSchema(),
+      ensureFundraisersSchema(),
     ]);
 
     const [eventRows, paymentRows, budgetResult] = await Promise.all([
@@ -209,7 +213,10 @@ export default async function HomeplatePage() {
                WHEN 'refund' THEN -x.amount
                ELSE 0
              END), 0) FROM team_expenses x WHERE x.team_id = t.id)::float8
-                                           AS expense_net
+                                           AS expense_net,
+          (SELECT COALESCE(SUM(fe.amount), 0) FROM fundraiser_entries fe
+             WHERE fe.team_id = t.id)::float8
+                                           AS fundraised_total
         FROM teams t
         LEFT JOIN team_budgets b ON b.team_id = t.id
         LEFT JOIN seasons se     ON se.id = t.season_id
@@ -254,12 +261,27 @@ export default async function HomeplatePage() {
         (r.season_year != null ? fixedCostByYear.get(r.season_year) : 0) ?? 0,
       );
       const starting = startingBalance(payingCount, portion);
-      const balance = currentBalance(starting, r.scheduled_cost ?? 0, r.expense_net ?? 0);
+      // Fundraising is credited here the same way the Budgets tab credits it,
+      // so a team that has raised its way back out of the red drops off this
+      // list instead of being flagged on money it no longer owes.
+      const balance = currentBalance(
+        starting,
+        r.scheduled_cost ?? 0,
+        r.expense_net ?? 0,
+        r.fundraised_total ?? 0,
+      );
       // A team whose fixed cost per player runs above its tuition opens the
       // season in the red: there's no positive budget to measure a percentage
       // against, and it's already fully spent, so it counts as 100% used. The
       // old `starting > 0` guard dropped exactly those teams off this list.
-      const usedPct = starting > 0 ? (starting - balance) / starting : 1;
+      // Unless it has fundraised its way back to level — there's nothing to
+      // watch on a team that no longer owes anything, however it opened.
+      const usedPct =
+        starting > 0
+          ? (starting - balance) / starting
+          : balance >= 0
+            ? 0
+            : 1;
       return {
         id: r.id,
         name: r.name,

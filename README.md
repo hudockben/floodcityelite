@@ -134,6 +134,31 @@ ones are:
   written before this tab existed carry a number, so they keep behaving exactly
   as they did until that field is cleared. Homeplate's at-risk balances and the
   Budgets print view resolve the portion the same way.
+- **`fundraisers`**, **`fundraiser_entries`** — the **Fundraiser Tracker** tab.
+  A *fundraiser* is a campaign a company runs (e.g. "Spring Car Wash"), with an
+  optional goal and date; an *entry* is money raised toward it, logged against a
+  team (`team_id`) and, for a player-based fundraiser, a player (`player_id`;
+  NULL means the whole team raised it).
+
+  The tie to Budgets: **every entry is credited to that team's budget.** A
+  team's raised total is the sum of its entries, and:
+
+  ```
+  current balance = starting balance − scheduled cost − expenses + fundraising raised
+  ```
+
+  so logging a fundraiser entry is an immediate uptick in the team's balance —
+  the sheet shows it as a **Fundraising raised** credit row with the entries
+  itemized beside it, and the *Fundraising amount needed per player* row is what
+  is **still** needed, net of what's already in. Both kinds of entry count the
+  same: a player-level one is that player's share of their team's money.
+
+  Entries are scoped to the budget through their team, and a team belongs to one
+  season, so a season's sheet only ever credits what was raised for it. Logging
+  or deleting an entry (or deleting a fundraiser, which cascades to its entries)
+  refreshes the Budgets tab and Homeplate alongside the tracker, and Homeplate's
+  at-risk list and the Budgets print view credit the same total — a team that
+  fundraises its way back out of the red drops off the watch list.
 - **`college_coaches`** — the **Contact Info** tab, a recruiting contact book
   for college programs. The tab is split by `sport` (`baseball` or `softball`,
   the same two values a team carries), so each sport keeps its own list and the

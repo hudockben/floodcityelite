@@ -7,6 +7,18 @@ import { ensureFundraisersSchema } from "./schema";
 
 export type FormState = { ok?: boolean; error?: string };
 
+/**
+ * Refresh every view a fundraiser figure feeds. An entry is credited to its
+ * team's budget, so logging or removing one has to move the Budgets sheet — and
+ * the at-risk balances on Homeplate, which run the same math — rather than only
+ * this tab's own totals.
+ */
+function revalidateFundraiserViews(): void {
+  revalidatePath("/fundraiser-tracker");
+  revalidatePath("/budgets");
+  revalidatePath("/homeplate");
+}
+
 // --- form-value helpers ----------------------------------------------------
 
 // A money value: strips "$" and thousands separators, keeps two decimals, and
@@ -80,7 +92,9 @@ export async function deleteFundraiserAction(formData: FormData): Promise<void> 
     WHERE id = ${fundraiserId} AND company_id = ${session.companyId}
   `;
 
-  revalidatePath("/fundraiser-tracker");
+  // The cascade takes this fundraiser's entries with it, so the teams that
+  // raised through it lose that credit — refresh the budgets too.
+  revalidateFundraiserViews();
 }
 
 // --- log a fundraiser entry against a player + fundraiser ------------------
@@ -163,7 +177,7 @@ export async function addFundraiserEntryAction(
     return { error: "Could not save the entry. Please try again." };
   }
 
-  revalidatePath("/fundraiser-tracker");
+  revalidateFundraiserViews();
   return { ok: true };
 }
 
@@ -184,5 +198,5 @@ export async function deleteFundraiserEntryAction(formData: FormData): Promise<v
       AND team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})
   `;
 
-  revalidatePath("/fundraiser-tracker");
+  revalidateFundraiserViews();
 }
