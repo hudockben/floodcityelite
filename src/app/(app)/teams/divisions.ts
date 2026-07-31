@@ -197,7 +197,82 @@ export type PlayerRow = {
   played_last_season: boolean | null;
   /** The coach's own New/Returning setting; null defers to the form answer. */
   is_returning: boolean | null;
+  /**
+   * The jersey numbers this player's acceptance form asked for, in preference
+   * order — the returner's old number, or a new player's three ranked options.
+   *
+   * Three distinct states, and the difference is the whole point (see
+   * jerseyGapNote): null = no acceptance form on file at all (added by hand or
+   * bulk-uploaded), [] = a form on file that named no number (submitted before
+   * the field was required), [..] = numbers were asked for.
+   */
+  jersey_requested: string[] | null;
+  /** Whether a coach typed this number by hand (the automation won't touch it). */
+  jersey_locked: boolean;
 };
+
+/** Who holds a number on a team, and whether a coach pinned it there. */
+export type JerseyHolder = { name: string; locked: boolean };
+
+/**
+ * Explain an empty jersey cell.
+ *
+ * A blank number is never an accident, but the roster used to render all three
+ * causes as the same em dash, so "did they not fill it out, or did something go
+ * wrong?" wasn't answerable from the roster. This turns the dash into the
+ * actual reason: nobody asked for a number, the form predates the question, or
+ * — the usual one — every number they asked for was already spoken for, and by
+ * whom.
+ *
+ * `heldBy` maps a number to the player holding it, built from the same team's
+ * roster. A requested number that's free means the assignment simply hasn't
+ * been re-run since it opened up, which "Assign numbers" fixes.
+ */
+export function jerseyGapNote(
+  requested: string[] | null,
+  heldBy: Map<string, JerseyHolder>,
+): { short: string; detail: string } | null {
+  // No acceptance form on file — the number was never asked for, so there's
+  // nothing to explain beyond the empty cell itself.
+  if (requested == null) return null;
+
+  if (requested.length === 0) {
+    return {
+      short: "none asked for",
+      detail:
+        "The acceptance form on file didn't name a jersey number — it was submitted before that field was required. Type one here to assign it.",
+    };
+  }
+
+  const free = requested.filter((n) => !heldBy.has(n));
+  const asked = requested.map((n) => `#${n}`).join(", ");
+
+  if (free.length > 0) {
+    return {
+      short: `#${free[0]} is free`,
+      detail: `Asked for ${asked} — ${free.map((n) => `#${n}`).join(", ")} ${free.length === 1 ? "is" : "are"} free now. Use "Assign numbers" to pick ${free.length === 1 ? "it" : "one"} up, or type one here.`,
+    };
+  }
+
+  const holders = requested.map((n) => {
+    const holder = heldBy.get(n) as JerseyHolder;
+    // A pinned number is the one case the coach can undo: the automation is
+    // holding off on it deliberately, so say how to hand it back.
+    return holder.locked
+      ? `#${n} is pinned to ${holder.name}`
+      : `#${n} is ${holder.name}'s`;
+  });
+  const anyPinned = requested.some((n) => heldBy.get(n)?.locked);
+
+  return {
+    short: `${asked} taken`,
+    detail: `Asked for ${asked}, and ${requested.length === 1 ? "it's" : "they're"} taken: ${holders.join(", ")}.${
+      anyPinned
+        ? " A pinned number was typed in by hand — clearing it on that player hands it back, and this player gets it."
+        : ""
+    } Or type a free number here to assign one.`,
+  };
+}
 
 export type TeamRow = {
   id: number;

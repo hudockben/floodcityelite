@@ -1812,6 +1812,15 @@ body {
   opacity: 0.55;
 }
 
+/* Why a jersey cell is empty ("#12 taken", "#4 is free"), sat next to the dash.
+   Small and muted so it reads as an annotation on the blank rather than as a
+   value; the cell's title attribute carries the full explanation. */
+.jersey-note {
+  font-size: 0.72rem;
+  white-space: nowrap;
+  font-style: italic;
+}
+
 /* A refunded event's cost is credited back, so it's struck through and muted
    wherever the amount is shown — it no longer counts toward any total. */
 .cost-refunded {
@@ -2688,11 +2697,33 @@ body {
 }
 
 /* Row that holds a team group's "Print / Save PDF" link, right-aligned just
-   inside the expanded group above its table. */
+   inside the expanded group above its table — plus "Assign numbers" when the
+   roster has a jersey gap to fill. */
 .tg-print-row {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 14px;
   padding: 8px 4px 0;
+}
+
+/* "Assign numbers" — a link-styled submit button, so it sits beside the print
+   link as a peer rather than competing with it as a filled button. */
+.team-jersey-link {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  padding: 8px 4px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.team-jersey-link:hover {
+  text-decoration: underline;
 }
 
 /* ---- Teams — "View Field" depth chart ---- */

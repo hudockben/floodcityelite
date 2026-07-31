@@ -443,7 +443,7 @@ export async function createRosterSubmission(
 // Rules (implemented in the SQL function):
 //   • Numbers held by MANUAL players (added on the Teams tab, no submission) and
 //     by coach-LOCKED players (players.jersey_locked = true, set when a coach
-//     saves a jersey on the Teams tab) are fixed — seeded as taken, never
+//     types a jersey on the Teams tab) are fixed — seeded as taken, never
 //     reassigned by the automation.
 //   • Returning players (played_fce_2026 = true) get their returning number with
 //     priority; a tie or an already-taken number falls through to unassigned.
@@ -451,7 +451,13 @@ export async function createRosterSubmission(
 //     their three options that's still free; none free -> unassigned (null),
 //     which the coach can set by hand on the Teams tab (and it stays, being
 //     locked).
-async function recomputeTeamJerseys(teamId: number): Promise<void> {
+//
+// Exported because an acceptance is NOT the only thing that changes the answer:
+// removing a player, or a coach clearing a number by hand, frees a number that
+// somebody's submission asked for. Both of those live on the Teams tab and call
+// this so a player who lost that number isn't left blank until the next parent
+// happens to accept a spot.
+export async function recomputeTeamJerseys(teamId: number): Promise<void> {
   await sql()`SELECT fce_recompute_team_jerseys(${teamId})`;
 }
 

@@ -20,8 +20,36 @@ import {
   type ParsedPlayer,
 } from "./roster-import";
 import { ensureTeamsSchema } from "./schema";
+import {
+  ensureRosterSubmissionsSchema,
+  recomputeTeamJerseys,
+} from "@/lib/roster-submissions";
 
 export type FormState = { ok?: boolean; error?: string };
+
+// --- jersey reconcile -------------------------------------------------------
+
+// Re-run the acceptance form's jersey assignment for a team.
+//
+// An acceptance isn't the only thing that changes the answer: removing a player
+// or clearing a number by hand frees a number that someone's submission asked
+// for, and the automation deliberately leaves a player blank when the number
+// they wanted is taken. Without this, that player stayed blank until the next
+// parent happened to accept a spot on the team — a returner could sit numberless
+// for weeks with their old number sitting free.
+//
+// Best-effort on purpose: whatever the coach asked for is already saved, so a
+// reconcile hiccup must not surface as a failed edit. The schema helper is
+// memoized and also creates the SQL function itself, so this works on a database
+// that predates the automation.
+async function reconcileJerseys(teamId: number): Promise<void> {
+  try {
+    await ensureRosterSubmissionsSchema();
+    await recomputeTeamJerseys(teamId);
+  } catch (err) {
+    console.error("reconcileJerseys failed for team", teamId, err);
+  }
+}
 
 // --- form-value helpers ----------------------------------------------------
 
@@ -272,18 +300,42 @@ export async function updatePlayerAction(
   if (!Number.isFinite(playerId)) return { error: "Missing player." };
   if (!playerName) return { error: "Enter the player's name." };
 
-  // A coach saving a jersey number here pins it: `jersey_locked` guards it from
+  // A coach TYPING a jersey number here pins it: `jersey_locked` guards it from
   // the acceptance-form automation, which won't overwrite a locked number on a
   // later accept. Clearing the field unlocks it, handing the slot back to the
   // automation.
+  //
+  // "Typing" is the operative word, and the reason the lock is set by the CASE
+  // below rather than from `jersey != null`. This form is prefilled with the
+  // player's current number, so every save posts one back — including the saves
+  // that only meant to fix a height or a phone number. Locking on those turned
+  // an automation-assigned number into a coach-pinned one behind the coach's
+  // back, and a pinned number is seeded as taken BEFORE the returning-player
+  // pass: the next returner who wore it lost their own number to an edit nobody
+  // made. So only a number the coach actually changed flips the lock; an
+  // untouched one leaves it exactly as it was.
   const jersey = text(formData, "jersey_number");
 
+  // Set only when this save actually changed the number, which is both when the
+  // lock flips and when the team is worth reconciling (see below).
+  let jerseyChangedOnTeam: number | null = null;
   try {
     await ensureTeamsSchema();
 
-    // Scope the update to a player whose team belongs to this company.
+    // Scope the update to a player whose team belongs to this company. The
+    // `before` CTE snapshots the row first — under the same snapshot as the
+    // UPDATE, so it holds the pre-edit values — which is what lets the jersey
+    // lock and the reconcile below key off "did this save change the number?"
+    // rather than "did this save post a number?".
     const updated = await sql()`
-      UPDATE players SET
+      WITH before AS (
+        SELECT id, jersey_number
+        FROM players
+        WHERE id = ${playerId}
+          AND team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})
+        FOR UPDATE
+      )
+      UPDATE players p SET
         player_name        = ${playerName},
         grad_year          = ${nonNegInt(formData, "grad_year")},
         date_of_birth      = ${isoDate(formData, "date_of_birth")},
@@ -291,8 +343,12 @@ export async function updatePlayerAction(
         weight             = ${nonNegInt(formData, "weight")},
         primary_position   = ${text(formData, "primary_position")},
         secondary_position = ${text(formData, "secondary_position")},
+        jersey_locked      = CASE
+                               WHEN ${jersey}::text IS DISTINCT FROM b.jersey_number
+                                 THEN ${jersey}::text IS NOT NULL
+                               ELSE p.jersey_locked
+                             END,
         jersey_number      = ${jersey},
-        jersey_locked      = ${jersey != null},
         hat_size           = ${text(formData, "hat_size")},
         high_school        = ${text(formData, "high_school")},
         parent_phone       = ${text(formData, "parent_phone")},
@@ -301,15 +357,28 @@ export async function updatePlayerAction(
         closest_facility   = ${text(formData, "closest_facility")},
         is_returning       = ${rosterStatus(formData)},
         updated_at         = now()
-      WHERE id = ${playerId}
-        AND team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})
-      RETURNING id
+      FROM before b
+      WHERE p.id = b.id
+      RETURNING
+        p.id,
+        p.team_id,
+        (${jersey}::text IS DISTINCT FROM b.jersey_number) AS jersey_changed
     `;
     if (updated.length === 0) return { error: "That player no longer exists." };
+    const row = updated[0] as { team_id: number; jersey_changed: boolean };
+    if (row.jersey_changed) jerseyChangedOnTeam = Number(row.team_id);
   } catch (err) {
     console.error("updatePlayer error:", err);
     return { error: "Could not save changes. Please try again." };
   }
+
+  // Clearing a number — or moving a player onto a different one — hands the old
+  // one back, so reconcile the team: whoever asked for it on their acceptance
+  // form can now be given it. The number this save set is locked, so the
+  // reconcile can't walk over the edit that was just made. Skipped entirely when
+  // the number didn't change, so saving an unrelated field (a height, a phone
+  // number) never reshuffles anyone.
+  if (jerseyChangedOnTeam != null) await reconcileJerseys(jerseyChangedOnTeam);
 
   // Note: the paying flag isn't edited here (the inline roster toggle owns it),
   // so this edit can't change the Budgets tab's paying-player count.
@@ -353,15 +422,54 @@ export async function deletePlayerAction(formData: FormData): Promise<void> {
   if (!Number.isFinite(playerId)) return;
 
   // Scope the delete to a player whose team belongs to this company.
-  await sql()`
+  const removed = await sql()`
     DELETE FROM players
     WHERE id = ${playerId}
       AND team_id IN (SELECT id FROM teams WHERE company_id = ${session.companyId})
+    RETURNING team_id
   `;
+
+  // The removed player's number is free now, so reconcile the team: a player
+  // the automation had left blank because they'd asked for it gets it. This
+  // matters most for a duplicate submission — remove the extra roster row and
+  // the real one is handed the number the duplicate was holding.
+  if (removed.length > 0) {
+    await reconcileJerseys(Number((removed[0] as { team_id: number }).team_id));
+  }
 
   // Removing a player changes the roster's paying-player count on the Budgets tab.
   revalidatePath("/teams");
   revalidatePath("/budgets");
+}
+
+// --- re-run a team's jersey assignment -------------------------------------
+
+// The roster's "Assign numbers" button. Runs the same reconcile an acceptance
+// does, on demand, so a coach can fill the gaps the automation left without
+// waiting for the next parent to accept a spot — after freeing up a number, or
+// on a roster whose numbers were assigned before the automation shipped.
+//
+// Void action (no return): the roster revalidates and the new numbers appear.
+// Locked and manual numbers are fixed, so this can never take a number a coach
+// set by hand.
+export async function reassignTeamJerseysAction(
+  formData: FormData,
+): Promise<void> {
+  const session = await getSession();
+  if (!session) return;
+
+  const teamId = Number.parseInt(String(formData.get("teamId") ?? ""), 10);
+  if (!Number.isFinite(teamId)) return;
+
+  // Confirm the team belongs to this company before touching its roster.
+  const owned = await sql()`
+    SELECT id FROM teams WHERE id = ${teamId} AND company_id = ${session.companyId}
+  `;
+  if (owned.length === 0) return;
+
+  await reconcileJerseys(teamId);
+
+  revalidatePath("/teams");
 }
 
 // --- bulk-upload a roster from a CSV / Excel file --------------------------

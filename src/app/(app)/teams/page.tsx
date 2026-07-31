@@ -17,13 +17,16 @@ import TeamChip from "./team-chip";
 import { resolveSeason, seasonLabel, type Season } from "./seasons";
 import {
   DIVISIONS,
+  jerseyGapNote,
   PLAYER_FIELDS,
   ROSTER_STATUS_HEADER,
   resolveDivision,
   sportLabel,
+  type JerseyHolder,
   type PlayerRow,
   type TeamRow,
 } from "./divisions";
+import { reassignTeamJerseysAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -99,6 +102,10 @@ export default async function TeamsPage({
           p.primary_position,
           p.secondary_position,
           p.jersey_number,
+          -- Whether a coach typed that number in by hand. Read so a player left
+          -- without a number can say the one they wanted is pinned to someone
+          -- else (which the automation can't undo, but the coach can).
+          p.jersey_locked,
           p.hat_size,
           p.high_school,
           p.parent_phone,
@@ -116,7 +123,27 @@ export default async function TeamsPage({
              FROM roster_submissions rs
             WHERE rs.player_id = p.id AND rs.accepted
             ORDER BY rs.created_at DESC, rs.id DESC
-            LIMIT 1) AS played_last_season
+            LIMIT 1) AS played_last_season,
+          -- The numbers that form asked for, in preference order, so a blank
+          -- jersey cell can say why it's blank (see jerseyGapNote). A returner
+          -- names one; a new player ranks three. NULL (no submission) and an
+          -- empty array (a submission that named none) mean different things to
+          -- the caller, so the empties are stripped rather than the whole thing
+          -- collapsing to null.
+          (SELECT CASE
+                    WHEN rs.played_fce_2026 IS TRUE THEN
+                      array_remove(ARRAY[nullif(btrim(rs.returning_jersey), '')], NULL)
+                    ELSE
+                      array_remove(ARRAY[
+                        nullif(btrim(rs.jersey_option_1), ''),
+                        nullif(btrim(rs.jersey_option_2), ''),
+                        nullif(btrim(rs.jersey_option_3), '')
+                      ], NULL)
+                  END
+             FROM roster_submissions rs
+            WHERE rs.player_id = p.id AND rs.accepted
+            ORDER BY rs.created_at DESC, rs.id DESC
+            LIMIT 1) AS jersey_requested
         FROM players p
         JOIN teams t ON t.id = p.team_id
         WHERE t.company_id = ${session.companyId}
@@ -325,6 +352,28 @@ export default async function TeamsPage({
           <div className="team-groups">
             {teams.map((t) => {
               const teamPlayers = playersByTeam.get(t.id) ?? [];
+
+              // Who currently wears each number on this team, so a blank cell
+              // can name the player holding the number that player asked for.
+              const heldBy = new Map<string, JerseyHolder>();
+              for (const p of teamPlayers) {
+                const num = p.jersey_number?.trim();
+                if (num) {
+                  heldBy.set(num, {
+                    name: p.player_name,
+                    locked: p.jersey_locked,
+                  });
+                }
+              }
+
+              // Any blank number worth explaining? Drives the "Assign numbers"
+              // button, which is only useful when there's a gap to fill.
+              const hasJerseyGap = teamPlayers.some(
+                (p) =>
+                  !p.jersey_number?.trim() &&
+                  (p.jersey_requested?.length ?? 0) > 0,
+              );
+
               return (
                 <details key={t.id} id={`team-${t.id}`} className="team-group">
                   <summary className="team-group-summary">
@@ -365,6 +414,20 @@ export default async function TeamsPage({
                       >
                         🖨 Print / Save PDF
                       </a>
+                      {/* Only offered when someone is actually missing a number
+                          they asked for — otherwise there's nothing to run. */}
+                      {hasJerseyGap ? (
+                        <form action={reassignTeamJerseysAction}>
+                          <input type="hidden" name="teamId" value={t.id} />
+                          <button
+                            type="submit"
+                            className="team-jersey-link"
+                            title="Fill blank jersey numbers from the acceptance forms. Numbers you set by hand stay put."
+                          >
+                            Assign numbers
+                          </button>
+                        </form>
+                      ) : null}
                     </div>
                   ) : null}
 
@@ -401,6 +464,11 @@ export default async function TeamsPage({
                               key={row.id}
                               player={row}
                               division={division.slug}
+                              jerseyNote={
+                                row.jersey_number?.trim()
+                                  ? null
+                                  : jerseyGapNote(row.jersey_requested, heldBy)
+                              }
                             />
                           ))}
                         </tbody>

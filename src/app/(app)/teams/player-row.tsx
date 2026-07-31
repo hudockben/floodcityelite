@@ -27,13 +27,17 @@ function EditField({
   field,
   value,
   playerId,
+  hint,
 }: {
   field: PlayerField;
-  // Widened to the full PlayerRow value union (which now includes the boolean
-  // is_paying). is_paying isn't a PLAYER_FIELD, so it never actually renders
-  // here — this just keeps the indexed-access type happy.
-  value: string | number | boolean | null;
+  // Widened to the full PlayerRow value union (which includes the boolean
+  // is_paying and the string[] jersey_requested). Neither is a PLAYER_FIELD, so
+  // neither actually renders here — this just keeps the indexed-access type
+  // happy.
+  value: string | number | boolean | string[] | null;
   playerId: number;
+  /** Optional note under the input (the jersey field explains an empty one). */
+  hint?: string | null;
 }) {
   const id = `edit-${playerId}-${field.key}`;
   const defaultValue = value == null ? "" : String(value);
@@ -64,16 +68,22 @@ function EditField({
           {...(field.type === "number" ? { min: 0 } : {})}
         />
       )}
+      {hint ? <span className="field-hint">{hint}</span> : null}
     </div>
   );
 }
 
+/** Why this player's jersey cell is blank; null when it isn't (see jerseyGapNote). */
+export type JerseyNote = { short: string; detail: string };
+
 export default function PlayerRow({
   player,
   division,
+  jerseyNote = null,
 }: {
   player: PlayerRowData;
   division: DivisionSlug;
+  jerseyNote?: JerseyNote | null;
 }) {
   const [editing, setEditing] = useState(false);
   const [state, formAction, pending] = useActionState(
@@ -109,6 +119,12 @@ export default function PlayerRow({
                     field={f}
                     playerId={player.id}
                     value={player[f.key as keyof PlayerRowData]}
+                    // The jersey field explains itself when it's empty: this is
+                    // where a coach comes to fix a missing number, so it's where
+                    // the reason belongs. Typing one here pins it.
+                    hint={
+                      f.key === "jersey_number" ? jerseyNote?.detail : undefined
+                    }
                   />
                   {f.key === "player_name" ? (
                     <div className="field">
@@ -169,7 +185,20 @@ export default function PlayerRow({
         return (
           <Fragment key={f.key}>
             <td className={f.key === "player_name" ? "col-name" : undefined}>
-              {empty ? <span className="cell-empty">—</span> : String(value)}
+              {empty ? (
+                // A blank jersey is the one empty cell that has a reason worth
+                // reading — the automation left it blank rather than nobody
+                // filling it in. Say which, inline, with the full story on hover.
+                f.key === "jersey_number" && jerseyNote ? (
+                  <span className="cell-empty" title={jerseyNote.detail}>
+                    — <span className="jersey-note">{jerseyNote.short}</span>
+                  </span>
+                ) : (
+                  <span className="cell-empty">—</span>
+                )
+              ) : (
+                String(value)
+              )}
             </td>
             {f.key === "player_name" ? (
               <>

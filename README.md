@@ -224,18 +224,39 @@ ones are:
   phone, and bats/throws — live on the submission. Belongs to a company via
   `company_id`.
 
-  **Jersey automation.** When a team's roster changes through an acceptance,
-  every submission-linked player's `jersey_number` is reconciled from all of the
-  team's accepted submissions: returning players (`played_fce_2026 = true`) get
-  their returning number with priority, then new players are assigned
-  first-come-first-served, each taking the first of their three ranked options
-  that isn't already taken. The reconcile runs inside one Postgres function
-  (`fce_recompute_team_jerseys`) under a per-team advisory lock, so simultaneous
-  acceptances can't race into a duplicate number. Numbers that are fixed —
-  players added by hand on the Teams tab (no submission), and any number a coach
-  sets on the Teams-tab edit (which flips `players.jersey_locked`) — are treated
-  as taken and never reassigned; a player whose options are all taken is left
-  blank, and once the coach fills it in it stays put.
+  **Jersey automation.** When a team's roster changes, every submission-linked
+  player's `jersey_number` is reconciled from all of the team's accepted
+  submissions: returning players (`played_fce_2026 = true`) get their returning
+  number with priority, then new players are assigned first-come-first-served,
+  each taking the first of their three ranked options that isn't already taken.
+  The reconcile runs inside one Postgres function (`fce_recompute_team_jerseys`)
+  under a per-team advisory lock, so simultaneous acceptances can't race into a
+  duplicate number. Numbers that are fixed — players added by hand on the Teams
+  tab (no submission), and any number a coach types on the Teams-tab edit (which
+  flips `players.jersey_locked`) — are treated as taken and never reassigned; a
+  player whose options are all taken is left blank, and once the coach fills it
+  in it stays put.
+
+  *An acceptance isn't the only trigger.* Removing a player and clearing a
+  number by hand both free a number somebody's submission may have asked for, so
+  both reconcile the team too — otherwise the player who lost that number stayed
+  blank until the next parent happened to accept a spot. The roster also offers
+  an **Assign numbers** button per team (shown only when someone is missing a
+  number they asked for) to run the same reconcile on demand.
+
+  *Only a number a coach actually changed flips `jersey_locked`.* The edit form
+  is prefilled with the player's current number, so every save posts one back,
+  including saves that only meant to fix a height. Locking on those quietly
+  turned an automation-assigned number into a coach-pinned one — and since
+  pinned numbers are seeded as taken *before* the returning-player pass, the
+  next returner who wore it lost their own number to an edit nobody made.
+
+  *A blank cell says why it's blank.* The roster annotates an empty jersey with
+  the numbers that player's form asked for and who holds them now (see
+  `jerseyGapNote`), which distinguishes the three cases that used to render as
+  the same em dash: no acceptance form on file, a form that named no number
+  (submitted before the field was required), and — the usual one — every number
+  they asked for already being spoken for.
 
 ## Getting started
 
