@@ -84,9 +84,11 @@ export default async function PaymentTrackerPrintPage({
   });
 
   const scope = describePaymentFilters(filters) || "All payments";
-  // Carry the filters back to the tab so "Back" returns to the same view.
-  const query = params.toString();
-  const backHref = query === "" ? "/payment-tracker" : `/payment-tracker?${query}`;
+  // Plain, with no filters appended: the tab holds them in client state and
+  // doesn't read them off the URL, so a link carrying them would land on an
+  // unfiltered ledger under an address claiming otherwise. The report opens in
+  // its own tab anyway — the filtered ledger is still sitting behind it.
+  const backHref = "/payment-tracker";
 
   return (
     <div className="print-view">
