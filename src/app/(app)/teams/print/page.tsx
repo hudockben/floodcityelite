@@ -261,65 +261,70 @@ export default async function TeamsPrintPage({
                     No players on this team yet.
                   </p>
                 ) : (
-                  <table className="print-roster">
-                    <colgroup>
-                      {PLAYER_FIELDS.map((f) => (
-                        <Fragment key={f.key}>
-                          <col style={{ width: COL_WIDTHS[f.key] }} />
-                          {f.key === "player_name" ? (
-                            <>
-                              <col style={{ width: PAYING_COL_WIDTH }} />
-                              <col style={{ width: ROSTER_STATUS_COL_WIDTH }} />
-                            </>
-                          ) : null}
-                        </Fragment>
-                      ))}
-                    </colgroup>
-                    <thead>
-                      <tr>
+                  <div className="print-scroll">
+                    {/* A table wider than the paper scrolls inside the
+                        report on a phone rather than bursting out of it.
+                        Inert when printing — see @media screen. */}
+                    <table className="print-roster">
+                      <colgroup>
                         {PLAYER_FIELDS.map((f) => (
                           <Fragment key={f.key}>
-                            <th>{f.label}</th>
+                            <col style={{ width: COL_WIDTHS[f.key] }} />
                             {f.key === "player_name" ? (
                               <>
-                                <th className="col-paying">Paying</th>
-                                <th className="col-roster-status">
-                                  {ROSTER_STATUS_HEADER}
-                                </th>
+                                <col style={{ width: PAYING_COL_WIDTH }} />
+                                <col style={{ width: ROSTER_STATUS_COL_WIDTH }} />
                               </>
                             ) : null}
                           </Fragment>
                         ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {teamPlayers.map((p) => (
-                        <tr key={p.id}>
+                      </colgroup>
+                      <thead>
+                        <tr>
                           {PLAYER_FIELDS.map((f) => (
                             <Fragment key={f.key}>
-                              <td
-                                className={
-                                  f.key === "player_name" ? "col-name" : undefined
-                                }
-                              >
-                                {cellValue(f, p)}
-                              </td>
+                              <th>{f.label}</th>
                               {f.key === "player_name" ? (
                                 <>
-                                  <td className="col-paying">
-                                    {p.is_paying ? "✓" : "—"}
-                                  </td>
-                                  <td className="col-roster-status">
-                                    {rosterLabel(p.played_last_season, p.is_returning)}
-                                  </td>
+                                  <th className="col-paying">Paying</th>
+                                  <th className="col-roster-status">
+                                    {ROSTER_STATUS_HEADER}
+                                  </th>
                                 </>
                               ) : null}
                             </Fragment>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {teamPlayers.map((p) => (
+                          <tr key={p.id}>
+                            {PLAYER_FIELDS.map((f) => (
+                              <Fragment key={f.key}>
+                                <td
+                                  className={
+                                    f.key === "player_name" ? "col-name" : undefined
+                                  }
+                                >
+                                  {cellValue(f, p)}
+                                </td>
+                                {f.key === "player_name" ? (
+                                  <>
+                                    <td className="col-paying">
+                                      {p.is_paying ? "✓" : "—"}
+                                    </td>
+                                    <td className="col-roster-status">
+                                      {rosterLabel(p.played_last_season, p.is_returning)}
+                                    </td>
+                                  </>
+                                ) : null}
+                              </Fragment>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </section>
             );

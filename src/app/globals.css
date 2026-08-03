@@ -3592,20 +3592,68 @@ body {
   color: #0f2742;
 }
 
-/* On screen the paper can be narrower than the ledger needs — a phone is half
-   the width eight columns want — so the table scrolls inside the report rather
-   than bursting out of it onto the page background. Screen only: the printed
-   sheet lays the table out against the page box, not the viewport, and a scroll
-   container there would cut the last columns off the paper entirely. */
+/* ---- Reports on a small screen ---- */
+/* Every report is laid out for paper, so on a phone its tables are wider than
+   the paper they sit on and would otherwise burst out of the white document
+   onto the page background, unreadable. Wrapping a wide table in
+   .print-scroll lets it scroll inside the report instead, the way the tabs'
+   own tables do.
+ *
+ * All of it is scoped to @media screen. A printed sheet lays its tables out
+ * against the page box rather than the viewport, so it never needed any of
+ * this — and a scroll container on paper would cut the last columns off the
+ * sheet rather than let the reader reach them. */
 @media screen {
-  .print-pay-scroll {
+  .print-scroll {
     overflow-x: auto;
     scrollbar-width: thin;
     -webkit-overflow-scrolling: touch;
   }
 
+  /* What each table needs to stay legible. Below this it scrolls rather than
+     cramming sixteen roster columns into a phone's width. */
   .print-pay-table {
     min-width: 560px;
+  }
+
+  .print-roster {
+    min-width: 900px;
+  }
+
+  .print-sched {
+    min-width: 520px;
+  }
+
+  .print-exp-table {
+    min-width: 360px;
+  }
+
+  .print-budget {
+    min-width: 300px;
+  }
+
+  /* The rotation grid brought its own scroll container long before this;
+     give it the same touch behaviour and thin scrollbar. */
+  .print-grid-scroll {
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* A grid item's default minimum is the width of its content, so a table with
+     a min-width above would drag its column wider than the paper — the very
+     thing the scroll containers are there to prevent. Let each column's own
+     declared minimum govern, and the table scroll inside it. */
+  .print-cols > * {
+    min-width: 0;
+  }
+}
+
+/* The budget report's two paper columns stack rather than squeeze: their
+   declared minimums alone add up to more than a phone's width twice over. */
+@media screen and (max-width: 720px) {
+  .print-cols {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
   }
 }
 

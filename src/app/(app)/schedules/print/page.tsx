@@ -285,31 +285,36 @@ export default async function SchedulesPrintPage({
                       No tournaments scheduled.
                     </p>
                   ) : (
-                    <table className="print-sched">
-                      <thead>
-                        <tr>
-                          {PRINT_EVENT_FIELDS.map((f) => (
-                            <th key={f.key}>{f.label}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {teamEvents.map((e) => (
-                          <tr key={e.id}>
+                    <div className="print-scroll">
+                      {/* A table wider than the paper scrolls inside the
+                          report on a phone rather than bursting out of it.
+                          Inert when printing — see @media screen. */}
+                      <table className="print-sched">
+                        <thead>
+                          <tr>
                             {PRINT_EVENT_FIELDS.map((f) => (
-                              <td
-                                key={f.key}
-                                className={
-                                  f.key === "event_name" ? "col-name" : undefined
-                                }
-                              >
-                                {cellValue(f, e)}
-                              </td>
+                              <th key={f.key}>{f.label}</th>
                             ))}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {teamEvents.map((e) => (
+                            <tr key={e.id}>
+                              {PRINT_EVENT_FIELDS.map((f) => (
+                                <td
+                                  key={f.key}
+                                  className={
+                                    f.key === "event_name" ? "col-name" : undefined
+                                  }
+                                >
+                                  {cellValue(f, e)}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
 
                   {/* Rotation grid: every roster player against every

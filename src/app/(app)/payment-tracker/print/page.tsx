@@ -149,7 +149,7 @@ export default async function PaymentTrackerPrintPage({
             {/* On a phone the paper is narrower than eight columns need, so
                 the table scrolls inside the report instead of bursting out of
                 it. The wrapper is inert when printing — see @media screen. */}
-            <div className="print-pay-scroll">
+            <div className="print-scroll">
               <table className="print-pay-table">
                 <thead>
                   <tr>

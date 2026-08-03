@@ -310,82 +310,87 @@ export default async function BudgetPrintPage({
 
                 <div className="print-cols">
                   {/* Budget breakdown */}
-                  <table className="print-budget">
-                    <tbody>
-                      <tr className="ph">
-                        <th colSpan={2}>Team Budget</th>
-                      </tr>
-                      <tr>
-                        <th># of paying players</th>
-                        <td>{payingCount}</td>
-                      </tr>
-                      <tr>
-                        <th>Tuition per player</th>
-                        <td>{formatMoney(tuitionPer)}</td>
-                      </tr>
-                      <tr className="pt">
-                        <th>Total team tuition</th>
-                        <td>{formatMoney(tuitionTotal)}</td>
-                      </tr>
-
-                      <tr className="ph">
-                        <th colSpan={2}>Player Expense</th>
-                      </tr>
-                      {fixedCostPerPlayer > 0 ? (
-                        <tr>
-                          <th>Fixed cost per player</th>
-                          <td>−{formatMoney(fixedCostPerPlayer)}</td>
+                  <div className="print-scroll">
+                    {/* A table wider than the paper scrolls inside the
+                        report on a phone rather than bursting out of it.
+                        Inert when printing — see @media screen. */}
+                    <table className="print-budget">
+                      <tbody>
+                        <tr className="ph">
+                          <th colSpan={2}>Team Budget</th>
                         </tr>
-                      ) : null}
-                      {/* Both are gated like the balance rows below: with no
-                          tuition entered there's only the fixed cost to
-                          subtract, and printing that as the team's opening
-                          deficit reports a figure nobody entered. */}
-                      <tr>
-                        <th>Portion to team budget</th>
-                        <td className={portion < 0 ? "neg" : undefined}>
-                          {configured ? formatMoney(portion) : "—"}
-                        </td>
-                      </tr>
-                      <tr className="pt">
-                        <th>Starting balance — team budget</th>
-                        <td className={starting < 0 ? "neg" : undefined}>
-                          {configured ? formatMoney(starting) : "—"}
-                        </td>
-                      </tr>
-                      <tr>
-                        <th>Less scheduled cost</th>
-                        <td>
-                          {scheduled > 0 ? "−" : ""}
-                          {formatMoney(scheduled)}
-                        </td>
-                      </tr>
-                      <tr>
-                        <th>Less expenses (net of refunds)</th>
-                        <td>
-                          {expenseNet > 0 ? "−" : expenseNet < 0 ? "+" : ""}
-                          {formatMoney(Math.abs(expenseNet))}
-                        </td>
-                      </tr>
-                      <tr>
-                        <th>Plus fundraising raised</th>
-                        <td>
-                          {fundraisedCents > 0 ? "+" : ""}
-                          {formatMoney(fundraised)}
-                        </td>
-                      </tr>
-                      <tr className="pcur">
-                        <th>Current balance</th>
-                        <td className={current < 0 ? "neg" : undefined}>
-                          {configured ? formatMoney(current) : "—"}
-                        </td>
-                      </tr>
-                      <tr className="pfund">
-                        <th>Fundraising needed per player</th>
-                        <td>{configured ? formatMoney(fundraise) : "—"}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                        <tr>
+                          <th># of paying players</th>
+                          <td>{payingCount}</td>
+                        </tr>
+                        <tr>
+                          <th>Tuition per player</th>
+                          <td>{formatMoney(tuitionPer)}</td>
+                        </tr>
+                        <tr className="pt">
+                          <th>Total team tuition</th>
+                          <td>{formatMoney(tuitionTotal)}</td>
+                        </tr>
+
+                        <tr className="ph">
+                          <th colSpan={2}>Player Expense</th>
+                        </tr>
+                        {fixedCostPerPlayer > 0 ? (
+                          <tr>
+                            <th>Fixed cost per player</th>
+                            <td>−{formatMoney(fixedCostPerPlayer)}</td>
+                          </tr>
+                        ) : null}
+                        {/* Both are gated like the balance rows below: with no
+                            tuition entered there's only the fixed cost to
+                            subtract, and printing that as the team's opening
+                            deficit reports a figure nobody entered. */}
+                        <tr>
+                          <th>Portion to team budget</th>
+                          <td className={portion < 0 ? "neg" : undefined}>
+                            {configured ? formatMoney(portion) : "—"}
+                          </td>
+                        </tr>
+                        <tr className="pt">
+                          <th>Starting balance — team budget</th>
+                          <td className={starting < 0 ? "neg" : undefined}>
+                            {configured ? formatMoney(starting) : "—"}
+                          </td>
+                        </tr>
+                        <tr>
+                          <th>Less scheduled cost</th>
+                          <td>
+                            {scheduled > 0 ? "−" : ""}
+                            {formatMoney(scheduled)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <th>Less expenses (net of refunds)</th>
+                          <td>
+                            {expenseNet > 0 ? "−" : expenseNet < 0 ? "+" : ""}
+                            {formatMoney(Math.abs(expenseNet))}
+                          </td>
+                        </tr>
+                        <tr>
+                          <th>Plus fundraising raised</th>
+                          <td>
+                            {fundraisedCents > 0 ? "+" : ""}
+                            {formatMoney(fundraised)}
+                          </td>
+                        </tr>
+                        <tr className="pcur">
+                          <th>Current balance</th>
+                          <td className={current < 0 ? "neg" : undefined}>
+                            {configured ? formatMoney(current) : "—"}
+                          </td>
+                        </tr>
+                        <tr className="pfund">
+                          <th>Fundraising needed per player</th>
+                          <td>{configured ? formatMoney(fundraise) : "—"}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
 
                   {/* Right column: what the team raised, then its scheduled
                       tournaments, then the expense log */}
@@ -397,37 +402,42 @@ export default async function BudgetPrintPage({
                           Nothing raised for this team.
                         </p>
                       ) : (
-                        <table className="print-exp-table">
-                          <thead>
-                            <tr>
-                              <th>Date</th>
-                              <th>Fundraiser</th>
-                              <th>Raised by</th>
-                              <th className="amt">Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {teamFundraisers.map((f) => (
-                              <tr key={f.id}>
-                                <td>{formatDate(f.raised_on)}</td>
-                                <td>{f.fundraiser_name}</td>
-                                <td>{f.player_name ?? "Whole team"}</td>
+                        <div className="print-scroll">
+                          {/* A table wider than the paper scrolls inside the
+                              report on a phone rather than bursting out of it.
+                              Inert when printing — see @media screen. */}
+                          <table className="print-exp-table">
+                            <thead>
+                              <tr>
+                                <th>Date</th>
+                                <th>Fundraiser</th>
+                                <th>Raised by</th>
+                                <th className="amt">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {teamFundraisers.map((f) => (
+                                <tr key={f.id}>
+                                  <td>{formatDate(f.raised_on)}</td>
+                                  <td>{f.fundraiser_name}</td>
+                                  <td>{f.player_name ?? "Whole team"}</td>
+                                  <td className="amt">
+                                    {formatCents(amountToCents(f.amount))}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot>
+                              <tr className="net">
+                                <td colSpan={3}>Total raised (credited)</td>
                                 <td className="amt">
-                                  {formatCents(amountToCents(f.amount))}
+                                  {fundraisedCents > 0 ? "+" : ""}
+                                  {formatCents(fundraisedCents)}
                                 </td>
                               </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr className="net">
-                              <td colSpan={3}>Total raised (credited)</td>
-                              <td className="amt">
-                                {fundraisedCents > 0 ? "+" : ""}
-                                {formatCents(fundraisedCents)}
-                              </td>
-                            </tr>
-                          </tfoot>
-                        </table>
+                            </tfoot>
+                          </table>
+                        </div>
                       )}
                     </div>
 
@@ -438,63 +448,68 @@ export default async function BudgetPrintPage({
                           No tournaments scheduled.
                         </p>
                       ) : (
-                        <table className="print-exp-table">
-                          <thead>
-                            <tr>
-                              <th>Date</th>
-                              <th>Tournament</th>
-                              <th className="amt">Cost</th>
-                              <th>Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {teamTournaments.map((t) => {
-                              const meta = [t.event_host, t.location]
-                                .filter(Boolean)
-                                .join(" · ");
-                              return (
-                                <tr key={t.id}>
-                                  <td>
-                                    {formatDateRange(
-                                      t.event_date,
-                                      t.event_end_date,
-                                    )}
-                                  </td>
-                                  <td>
-                                    {t.event_name}
-                                    {meta ? (
-                                      <span className="print-tour-meta">
-                                        {meta}
-                                      </span>
-                                    ) : null}
-                                  </td>
-                                  <td className="amt">
-                                    {t.cost == null || t.cost === "" ? (
-                                      "—"
-                                    ) : eventCostCounts(t.status) ? (
-                                      formatCents(amountToCents(t.cost))
-                                    ) : (
-                                      <span className="cost-refunded">
-                                        {formatCents(amountToCents(t.cost))}
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td>{statusLabel(t.status)}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                          <tfoot>
-                            <tr className="net">
-                              <td colSpan={2}>Total scheduled cost</td>
-                              <td className="amt">
-                                {scheduledCents > 0 ? "−" : ""}
-                                {formatCents(scheduledCents)}
-                              </td>
-                              <td />
-                            </tr>
-                          </tfoot>
-                        </table>
+                        <div className="print-scroll">
+                          {/* A table wider than the paper scrolls inside the
+                              report on a phone rather than bursting out of it.
+                              Inert when printing — see @media screen. */}
+                          <table className="print-exp-table">
+                            <thead>
+                              <tr>
+                                <th>Date</th>
+                                <th>Tournament</th>
+                                <th className="amt">Cost</th>
+                                <th>Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {teamTournaments.map((t) => {
+                                const meta = [t.event_host, t.location]
+                                  .filter(Boolean)
+                                  .join(" · ");
+                                return (
+                                  <tr key={t.id}>
+                                    <td>
+                                      {formatDateRange(
+                                        t.event_date,
+                                        t.event_end_date,
+                                      )}
+                                    </td>
+                                    <td>
+                                      {t.event_name}
+                                      {meta ? (
+                                        <span className="print-tour-meta">
+                                          {meta}
+                                        </span>
+                                      ) : null}
+                                    </td>
+                                    <td className="amt">
+                                      {t.cost == null || t.cost === "" ? (
+                                        "—"
+                                      ) : eventCostCounts(t.status) ? (
+                                        formatCents(amountToCents(t.cost))
+                                      ) : (
+                                        <span className="cost-refunded">
+                                          {formatCents(amountToCents(t.cost))}
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td>{statusLabel(t.status)}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot>
+                              <tr className="net">
+                                <td colSpan={2}>Total scheduled cost</td>
+                                <td className="amt">
+                                  {scheduledCents > 0 ? "−" : ""}
+                                  {formatCents(scheduledCents)}
+                                </td>
+                                <td />
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
                       )}
                     </div>
 
@@ -502,67 +517,72 @@ export default async function BudgetPrintPage({
                     {teamExpenses.length === 0 ? (
                       <p className="print-note small">No expenses logged.</p>
                     ) : (
-                      <table className="print-exp-table">
-                        <thead>
-                          <tr>
-                            <th>Date</th>
-                            <th>Vendor</th>
-                            <th className="amt">Total Cost</th>
-                            <th>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {teamExpenses.map((e) => (
-                            <tr key={e.id}>
-                              <td>{formatDate(e.expense_date)}</td>
-                              <td>{e.vendor ?? "—"}</td>
-                              <td className="amt">
-                                {formatCents(amountToCents(e.amount))}
-                              </td>
-                              <td>{expenseStatusLabel(e.status)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr>
-                            <td colSpan={2}>Paid (deducted)</td>
-                            <td className="amt">
-                              {totals.paidCents > 0 ? "−" : ""}
-                              {formatCents(totals.paidCents)}
-                            </td>
-                            <td />
-                          </tr>
-                          <tr>
-                            <td colSpan={2}>Refunds (credited)</td>
-                            <td className="amt">
-                              {totals.refundCents > 0 ? "+" : ""}
-                              {formatCents(totals.refundCents)}
-                            </td>
-                            <td />
-                          </tr>
-                          {totals.notPaidCents > 0 ? (
+                      <div className="print-scroll">
+                        {/* A table wider than the paper scrolls inside the
+                            report on a phone rather than bursting out of it.
+                            Inert when printing — see @media screen. */}
+                        <table className="print-exp-table">
+                          <thead>
                             <tr>
-                              <td colSpan={2}>Not paid (tracked only)</td>
+                              <th>Date</th>
+                              <th>Vendor</th>
+                              <th className="amt">Total Cost</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {teamExpenses.map((e) => (
+                              <tr key={e.id}>
+                                <td>{formatDate(e.expense_date)}</td>
+                                <td>{e.vendor ?? "—"}</td>
+                                <td className="amt">
+                                  {formatCents(amountToCents(e.amount))}
+                                </td>
+                                <td>{expenseStatusLabel(e.status)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr>
+                              <td colSpan={2}>Paid (deducted)</td>
                               <td className="amt">
-                                {formatCents(totals.notPaidCents)}
+                                {totals.paidCents > 0 ? "−" : ""}
+                                {formatCents(totals.paidCents)}
                               </td>
                               <td />
                             </tr>
-                          ) : null}
-                          <tr className="net">
-                            <td colSpan={2}>Net off budget</td>
-                            <td className="amt">
-                              {totals.netCents > 0
-                                ? "−"
-                                : totals.netCents < 0
-                                  ? "+"
-                                  : ""}
-                              {formatCents(Math.abs(totals.netCents))}
-                            </td>
-                            <td />
-                          </tr>
-                        </tfoot>
-                      </table>
+                            <tr>
+                              <td colSpan={2}>Refunds (credited)</td>
+                              <td className="amt">
+                                {totals.refundCents > 0 ? "+" : ""}
+                                {formatCents(totals.refundCents)}
+                              </td>
+                              <td />
+                            </tr>
+                            {totals.notPaidCents > 0 ? (
+                              <tr>
+                                <td colSpan={2}>Not paid (tracked only)</td>
+                                <td className="amt">
+                                  {formatCents(totals.notPaidCents)}
+                                </td>
+                                <td />
+                              </tr>
+                            ) : null}
+                            <tr className="net">
+                              <td colSpan={2}>Net off budget</td>
+                              <td className="amt">
+                                {totals.netCents > 0
+                                  ? "−"
+                                  : totals.netCents < 0
+                                    ? "+"
+                                    : ""}
+                                {formatCents(Math.abs(totals.netCents))}
+                              </td>
+                              <td />
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
                     )}
                   </div>
                 </div>
