@@ -3592,6 +3592,35 @@ body {
   color: #0f2742;
 }
 
+/* On screen the paper can be narrower than the ledger needs — a phone is half
+   the width eight columns want — so the table scrolls inside the report rather
+   than bursting out of it onto the page background. Screen only: the printed
+   sheet lays the table out against the page box, not the viewport, and a scroll
+   container there would cut the last columns off the paper entirely. */
+@media screen {
+  .print-pay-scroll {
+    overflow-x: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .print-pay-table {
+    min-width: 560px;
+  }
+}
+
+/* Phone: hand the paper back the width its generous side padding was taking,
+   and let the header stack instead of squeezing the title against the date. */
+@media screen and (max-width: 640px) {
+  .print-doc {
+    padding: 22px 18px;
+  }
+
+  .print-doc-meta {
+    text-align: left;
+  }
+}
+
 /* Rotation grid — every roster player against every tournament, with a ✓ where
    they're playing. Light theme to match the rest of the printed document. */
 .print-groups {
@@ -6199,6 +6228,10 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 9px;
+  /* A group is a label plus its control(s) — the date range is a label plus
+     two. Let it wrap so a phone stacks the second bound under the first
+     instead of the group pushing the panel off the side of the screen. */
+  flex-wrap: wrap;
 }
 
 .dir-filter-label {
@@ -6274,10 +6307,14 @@ body {
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
 }
 
-/* A date bound. Fixed width so the two sit level whether or not either has a
-   value, and the picker icon is tinted to match the muted chrome around it. */
+/* A date bound. The two share a width so they sit level whether or not either
+   has a value, but they shrink on a narrow screen rather than overflow — the
+   cap keeps them from stretching once there's room. The picker icon is tinted
+   to match the muted chrome around it. */
 .dir-date {
-  width: 152px;
+  flex: 1 1 132px;
+  min-width: 0;
+  max-width: 152px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -6881,6 +6918,14 @@ body {
 .subs-export-btn:hover {
   color: var(--text);
   border-color: var(--accent);
+}
+
+/* On a phone these are the row you actually tap, so give them a finger-sized
+   target instead of the compact one a mouse is happy with. */
+@media (max-width: 640px) {
+  .subs-export-btn {
+    padding: 12px 18px;
+  }
 }
 
 /* Small hint under a field in the player editor (e.g. what the acceptance form

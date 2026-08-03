@@ -146,36 +146,41 @@ export default async function PaymentTrackerPrintPage({
               </div>
             </div>
 
-            <table className="print-pay-table">
-              <thead>
-                <tr>
-                  <th className="col-date">Date</th>
-                  <th>Division</th>
-                  <th>Team Name</th>
-                  <th>Player Name</th>
-                  <th>Type</th>
-                  <th className="amt">Check #</th>
-                  <th className="amt">Amount</th>
-                  <th className="amt">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(({ payment, runningTotal }) => (
-                  <tr key={payment.id}>
-                    <td className="col-date">{formatDate(payment.paid_on)}</td>
-                    <td>{divisionLabel(payment.division)}</td>
-                    <td>{payment.team_name}</td>
-                    <td className="col-name">{payment.player_name}</td>
-                    <td>{paymentTypeLabel(payment.payment_type)}</td>
-                    <td className="amt">{payment.check_number ?? "—"}</td>
-                    <td className="amt">{formatMoney(payment.amount)}</td>
-                    <td className="amt col-total">
-                      {formatMoney(runningTotal / 100)}
-                    </td>
+            {/* On a phone the paper is narrower than eight columns need, so
+                the table scrolls inside the report instead of bursting out of
+                it. The wrapper is inert when printing — see @media screen. */}
+            <div className="print-pay-scroll">
+              <table className="print-pay-table">
+                <thead>
+                  <tr>
+                    <th className="col-date">Date</th>
+                    <th>Division</th>
+                    <th>Team Name</th>
+                    <th>Player Name</th>
+                    <th>Type</th>
+                    <th className="amt">Check #</th>
+                    <th className="amt">Amount</th>
+                    <th className="amt">Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {rows.map(({ payment, runningTotal }) => (
+                    <tr key={payment.id}>
+                      <td className="col-date">{formatDate(payment.paid_on)}</td>
+                      <td>{divisionLabel(payment.division)}</td>
+                      <td>{payment.team_name}</td>
+                      <td className="col-name">{payment.player_name}</td>
+                      <td>{paymentTypeLabel(payment.payment_type)}</td>
+                      <td className="amt">{payment.check_number ?? "—"}</td>
+                      <td className="amt">{formatMoney(payment.amount)}</td>
+                      <td className="amt col-total">
+                        {formatMoney(runningTotal / 100)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             <div className="print-grand">
               <span className="print-grand-label">
