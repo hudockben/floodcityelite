@@ -1,16 +1,25 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import ConfirmButton from "../teams/confirm-button";
-import { DIVISIONS } from "../teams/divisions";
+import { divisionLabel } from "../teams/divisions";
 import { deletePaymentAction } from "./actions";
 import PaymentDraftRow, { type DraftInitial } from "./payment-draft-row";
+import PaymentFilters from "./payment-filters";
 import PaymentSearch, { type PlayerMatch } from "./payment-search";
 import {
+  NO_PAYMENT_FILTERS,
+  amountToCents,
   formatDate,
   formatMoney,
+  isFiltering,
+  matchesPaymentFilters,
+  normalizePaymentFilters,
+  paymentSearchText,
   paymentTypeLabel,
+  sumPaymentCents,
+  type PaymentFilters as Filters,
   type PaymentRow,
   type PlayerOption,
   type TeamOption,
@@ -22,10 +31,6 @@ type Draft = { id: number; initial?: DraftInitial };
 
 // Date, Division, Team, Player, Type, Check #, Amount, Total, Actions.
 const COL_COUNT = 9;
-
-function divisionLabel(slug: string): string {
-  return DIVISIONS.find((d) => d.slug === slug)?.label ?? slug;
-}
 
 export default function PaymentTracker({
   teams,
@@ -41,12 +46,29 @@ export default function PaymentTracker({
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const nextDraftId = useRef(1);
 
+  // The filter bar's state. Normalized against the ledger so a filter whose
+  // last matching payment was removed doesn't stay silently applied.
+  const [rawFilters, setFilters] = useState<Filters>(NO_PAYMENT_FILTERS);
+  const filters = useMemo(
+    () => normalizePaymentFilters(rawFilters, payments),
+    [rawFilters, payments],
+  );
+
   function addDraft(initial?: DraftInitial) {
     setDrafts((cur) => [...cur, { id: nextDraftId.current++, initial }]);
   }
 
   function removeDraft(id: number) {
     setDrafts((cur) => cur.filter((d) => d.id !== id));
+  }
+
+  // A payment saved while the ledger is filtered often falls outside what's
+  // being shown — today's date against a range set up for a download, a check
+  // while the Type filter says Cash — and a row that vanishes the instant it
+  // saves reads as a failure. Dropping the filters puts it back on screen.
+  function handleSaved(id: number) {
+    removeDraft(id);
+    setFilters(NO_PAYMENT_FILTERS);
   }
 
   // Picking a player from the search bar seeds a pre-filled draft row so only
@@ -59,14 +81,35 @@ export default function PaymentTracker({
     });
   }
 
-  // The Total column accumulates across saved payments in display order, so the
-  // last row's running total equals the grand total received.
-  let running = 0;
-  const savedRows = payments.map((payment) => {
-    running += Number(payment.amount) || 0;
-    return { payment, runningTotal: running };
+  // Everything on a payment, lowercased, memoized so the search box doesn't
+  // rebuild every haystack on each keystroke.
+  const searchText = useMemo(
+    () => new Map(payments.map((p) => [p.id, paymentSearchText(p)])),
+    [payments],
+  );
+
+  const filtered = useMemo(
+    () =>
+      payments.filter((p) =>
+        matchesPaymentFilters(p, filters, searchText.get(p.id)),
+      ),
+    [payments, filters, searchText],
+  );
+
+  // The Total column accumulates across the payments on screen in display
+  // order, so the last row's running total equals the total below the table —
+  // under a filter that's the total for the slice being shown, which is the
+  // figure the download and the printed report carry too. Kept in cents so a
+  // long ledger can't drift a penny.
+  let runningCents = 0;
+  const savedRows = filtered.map((payment) => {
+    runningCents += amountToCents(payment.amount);
+    return { payment, runningTotal: runningCents / 100 };
   });
-  const grandTotal = running;
+  const shownTotal = runningCents / 100;
+  // The whole ledger's total, so a filtered view can say what it's a slice of.
+  const allTotal = sumPaymentCents(payments) / 100;
+  const filtering = isFiltering(filters);
 
   const hasTeams = teams.length > 0;
 
@@ -77,7 +120,8 @@ export default function PaymentTracker({
         <p>
           Log each payment against a player: pick the division, team, and player,
           choose Check or Cash, and enter the amount. The Total column
-          accumulates every payment received.
+          accumulates every payment received. Narrow the ledger with the filters
+          below — a CSV, Excel or PDF download carries exactly what they show.
         </p>
       </div>
 
@@ -103,6 +147,15 @@ export default function PaymentTracker({
             players={players}
             onPick={handlePick}
           />
+
+          {payments.length > 0 ? (
+            <PaymentFilters
+              payments={payments}
+              filters={filters}
+              onChange={setFilters}
+              shownCount={filtered.length}
+            />
+          ) : null}
 
           <div className="pay-scroll">
             <table className="pay-table">
@@ -136,7 +189,20 @@ export default function PaymentTracker({
                 {savedRows.length === 0 && drafts.length === 0 ? (
                   <tr>
                     <td colSpan={COL_COUNT} className="pay-empty">
-                      No payments recorded yet — click “Add Payment” to log one.
+                      {filtering ? (
+                        <>
+                          No payments match these filters.{" "}
+                          <button
+                            type="button"
+                            className="dir-clear-all"
+                            onClick={() => setFilters(NO_PAYMENT_FILTERS)}
+                          >
+                            Clear filters
+                          </button>
+                        </>
+                      ) : (
+                        "No payments recorded yet — click “Add Payment” to log one."
+                      )}
                     </td>
                   </tr>
                 ) : null}
@@ -196,16 +262,18 @@ export default function PaymentTracker({
                     players={players}
                     initial={draft.initial}
                     onRemove={removeDraft}
-                    onSaved={removeDraft}
+                    onSaved={handleSaved}
                   />
                 ))}
               </tbody>
               <tfoot>
                 <tr className="pay-total-row">
                   <td colSpan={7} className="pay-total-label">
-                    Total payments received
+                    {filtering
+                      ? "Total for these filters"
+                      : "Total payments received"}
                   </td>
-                  <td className="pay-num pay-grand">{formatMoney(grandTotal)}</td>
+                  <td className="pay-num pay-grand">{formatMoney(shownTotal)}</td>
                   <td />
                 </tr>
               </tfoot>
@@ -221,9 +289,18 @@ export default function PaymentTracker({
               <span aria-hidden="true">+</span> Add Payment
             </button>
             <span className="pay-count">
-              {payments.length}{" "}
-              {payments.length === 1 ? "payment" : "payments"} ·{" "}
-              {formatMoney(grandTotal)} received
+              {filtering ? (
+                <>
+                  {filtered.length} of {payments.length} payments ·{" "}
+                  {formatMoney(shownTotal)} of {formatMoney(allTotal)} received
+                </>
+              ) : (
+                <>
+                  {payments.length}{" "}
+                  {payments.length === 1 ? "payment" : "payments"} ·{" "}
+                  {formatMoney(allTotal)} received
+                </>
+              )}
             </span>
           </div>
         </>

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { listPayments } from "./load-payments";
 import PaymentTracker from "./payment-tracker";
 import { ensurePaymentsSchema } from "./schema";
 import type { PaymentRow, PlayerOption, TeamOption } from "./payments";
@@ -35,29 +36,14 @@ export default async function PaymentTrackerPage() {
         WHERE t.company_id = ${session.companyId}
         ORDER BY pl.player_name
       `,
-      sql()`
-        SELECT
-          pay.id,
-          pay.paid_on::text AS paid_on,
-          pay.payment_type,
-          pay.check_number,
-          pay.amount::text  AS amount,
-          pl.id             AS player_id,
-          pl.player_name,
-          t.id              AS team_id,
-          t.name            AS team_name,
-          t.division
-        FROM payments pay
-        JOIN players pl ON pl.id = pay.player_id
-        JOIN teams t    ON t.id = pl.team_id
-        WHERE t.company_id = ${session.companyId}
-        ORDER BY pay.paid_on, pay.id
-      `,
+      // The same rows, in the same order, that the download and the printed
+      // report are built from.
+      listPayments(session.companyId),
     ]);
 
     teams = teamRows as TeamOption[];
     players = playerRows as PlayerOption[];
-    payments = paymentRows as PaymentRow[];
+    payments = paymentRows;
   } catch (err) {
     console.error("Payment Tracker load error:", err);
     loadError = true;

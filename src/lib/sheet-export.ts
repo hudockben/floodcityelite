@@ -16,7 +16,26 @@ export type ExportColumn<T> = {
   /** Column width in characters, for the Excel sheet. */
   width: number;
   value: (row: T) => string;
+  /**
+   * Write this column as numbers in the Excel sheet rather than text, so a
+   * column of money can be summed in the spreadsheet instead of sitting there
+   * as a list of strings SUM skips over.
+   *
+   * `value` still returns plain digits ("975.00", no currency symbol or
+   * thousands separator) — that's what the CSV carries and what's parsed here.
+   * Anything that isn't a finite number, an empty cell included, is left as the
+   * text it came in as.
+   */
+  numeric?: boolean;
 };
+
+/** One cell's value for the Excel sheet: a number where a column asks for one. */
+function cellValue<T>(column: ExportColumn<T>, row: T): string | number {
+  const text = column.value(row);
+  if (!column.numeric || text.trim() === "") return text;
+  const n = Number(text);
+  return Number.isFinite(n) ? n : text;
+}
 
 /** The two formats the download links offer. */
 export type ExportFormat = "csv" | "xlsx";
@@ -65,16 +84,22 @@ export async function toXlsx<T>(
     header: c.header,
     key: c.header,
     width: c.width,
+    // Two decimals and thousands separators on the numeric columns, so an
+    // amount reads as money rather than as a bare 975.
+    style: c.numeric ? { numFmt: "#,##0.00" } : {},
   }));
 
   for (const row of rows) {
-    // Written as plain strings: nothing here is ever a formula, whatever
-    // someone typed into a notes box.
-    sheet.addRow(columns.map((c) => c.value(row)));
+    // Written as plain strings unless a column asked for numbers: nothing here
+    // is ever a formula, whatever someone typed into a notes box.
+    sheet.addRow(columns.map((c) => cellValue(c, row)));
   }
 
   const header = sheet.getRow(1);
   header.font = { bold: true };
+  // The headings are text even above a numeric column; the column style would
+  // otherwise try to format them.
+  header.numFmt = "General";
   // Freeze the header and turn on filter arrows — the two things anyone does
   // first with an export this wide.
   sheet.views = [{ state: "frozen", ySplit: 1 }];

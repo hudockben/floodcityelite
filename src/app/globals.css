@@ -3504,6 +3504,94 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Payment report — the printed / saved-as-PDF payment ledger. */
+
+/* Summary strip above the table: the payment count and the check/cash split a
+   bank deposit gets reconciled against. Outlined rather than filled so it
+   survives a print with background graphics turned off. */
+.print-pay-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+  break-inside: avoid;
+}
+
+.print-stat {
+  flex: 1 1 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.print-stat.is-total {
+  border: 1.5px solid #0f2742;
+}
+
+.print-stat-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.print-stat-value {
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: #0f2742;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The ledger itself: the payments the tab was showing, in the same order and
+   with the same running Total column. Auto layout — team names are long and
+   the money columns are narrow, so equal column widths would waste the sheet. */
+.print-pay-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.print-pay-table th {
+  text-align: left;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  padding: 6px 6px;
+  border-bottom: 1.5px solid #cbd5e1;
+}
+
+.print-pay-table td {
+  padding: 5px 6px;
+  border-bottom: 1px solid #eef1f4;
+  color: #111827;
+  vertical-align: top;
+  /* break-word, not anywhere: a long team name wraps between its words, but no
+     column may be squeezed narrower than its own longest word — which is what
+     hyphenates "Check" down the Type column on a full sheet. */
+  overflow-wrap: break-word;
+}
+
+.print-pay-table .amt {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.print-pay-table .col-date {
+  white-space: nowrap;
+}
+
+.print-pay-table .col-name,
+.print-pay-table .col-total {
+  font-weight: 700;
+  color: #0f2742;
+}
+
 /* Rotation grid — every roster player against every tournament, with a ✓ where
    they're playing. Light theme to match the rest of the printed document. */
 .print-groups {
@@ -3840,6 +3928,16 @@ body {
 
   .print-team + .print-team {
     break-before: page;
+  }
+
+  /* A long payment ledger runs over several sheets: repeat its header on each
+     one and never split a row across the fold. */
+  .print-pay-table thead {
+    display: table-header-group;
+  }
+
+  .print-pay-table tr {
+    break-inside: avoid;
   }
 }
 
@@ -4991,6 +5089,19 @@ body {
   color: var(--text-muted);
 }
 
+/* The ledger's filter bar. It reuses the directory bar (.dir-*) so the controls
+   match Contact Info and Hotels; only its own two typed fields are sized here.
+   It sits between the add-a-payment search field and the table, so it gets a
+   little less top margin than a bar that opens a tab. */
+.pay-filters {
+  margin-top: 18px;
+}
+
+.pay-check-input {
+  width: 104px;
+  font-variant-numeric: tabular-nums;
+}
+
 .pay-scroll {
   margin-top: 22px;
   overflow-x: auto;
@@ -6130,6 +6241,53 @@ body {
 .dir-select option {
   color: var(--text);
   background: var(--navy-800);
+}
+
+/* Typed filter values that sit beside the pill dropdowns — the Payment
+   Tracker's Check # box and its two date bounds. Shaped like .dir-select so a
+   row of mixed controls reads as one bar. */
+.dir-input {
+  padding: 8px 13px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.dir-input::placeholder {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.dir-input:hover {
+  border-color: var(--accent);
+}
+
+.dir-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+/* A date bound. Fixed width so the two sit level whether or not either has a
+   value, and the picker icon is tinted to match the muted chrome around it. */
+.dir-date {
+  width: 152px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dir-date::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(72%) sepia(16%) saturate(560%) hue-rotate(175deg);
+}
+
+.dir-range-sep {
+  color: var(--text-muted);
 }
 
 .dir-count {
