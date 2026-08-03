@@ -20,8 +20,13 @@ import {
 // The two dropdowns are driven by what's actually in the ledger — a division or
 // payment type only shows up once some payment uses it, and only when there's
 // more than one to choose between (a program that takes nothing but checks
-// doesn't need a Type filter). `filters` arrives already normalized against the
-// ledger, so a value that has disappeared is never left silently applied.
+// doesn't need a Type filter) *or* when it's the one currently narrowing the
+// list. That second case is what keeps the bar honest: deleting the last
+// Softball payment while filtered to Fall Baseball leaves a filter that's still
+// applied, and hiding its dropdown would leave no way to see or undo it.
+//
+// `filters` arrives already normalized against the ledger, so a value no
+// payment can satisfy at all is never left silently applied either.
 //
 // The download links carry the same filters as query params, so a CSV, Excel
 // file or PDF holds exactly the rows on screen.
@@ -49,6 +54,13 @@ export default function PaymentFilters({
   }, [payments]);
 
   const hasChecks = payments.some((p) => (p.check_number ?? "") !== "");
+
+  // Offer a control when it has a choice to make, and keep it on screen while
+  // it's the one doing the narrowing. Normalization guarantees a set value is
+  // one some payment still carries, so it's always among the options below.
+  const showDivisions = divisions.length > 1 || filters.division !== "";
+  const showTypes = types.length > 1 || filters.paymentType !== "";
+  const showChecks = hasChecks || filters.checkNumber.trim() !== "";
 
   function set<K extends keyof Filters>(key: K, value: Filters[K]) {
     onChange({ ...filters, [key]: value });
@@ -109,7 +121,7 @@ export default function PaymentFilters({
         ) : null}
       </div>
 
-      {divisions.length > 1 ? (
+      {showDivisions ? (
         <div className="dir-filter">
           <label className="dir-filter-label" htmlFor="pay-division-filter">
             Division
@@ -130,7 +142,7 @@ export default function PaymentFilters({
         </div>
       ) : null}
 
-      {types.length > 1 ? (
+      {showTypes ? (
         <div className="dir-filter">
           <label className="dir-filter-label" htmlFor="pay-type-filter">
             Type
@@ -151,7 +163,7 @@ export default function PaymentFilters({
         </div>
       ) : null}
 
-      {hasChecks ? (
+      {showChecks ? (
         <div className="dir-filter">
           <label className="dir-filter-label" htmlFor="pay-check-filter">
             Check #
