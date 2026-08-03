@@ -4,7 +4,6 @@ import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import {
   PLAYER_FIELDS,
-  ROSTER_STATUS_HEADER,
   rosterStatus,
   resolveDivision,
   sportLabel,
@@ -83,6 +82,34 @@ function rosterLabel(
 // PLAYER_FIELDS; both sit just after the name.
 const PAYING_COL_WIDTH = "5%";
 const ROSTER_STATUS_COL_WIDTH = "7%";
+
+/**
+ * Shorter headings for the printed sheet, keyed by roster field.
+ *
+ * The narrow columns are narrow because their values are ("SS", "165", "12") —
+ * but their tab headings are long, and in a fixed-layout table a heading wider
+ * than its column doesn't wrap, it paints over its neighbour: "PAYING" and
+ * "RETURNING" ran together into one unreadable smear. No type size fixes that
+ * ("SECONDARY" alone wants 62px of a 47px column), and widening these columns
+ * would take the room from Player Name and Parent Email, which hold the values
+ * that actually need it. So the headings shorten instead, to the abbreviations
+ * a roster uses anyway. Only the printed sheet is affected — the Teams tab
+ * still spells every field out.
+ */
+const PRINT_HEADERS: Record<string, string> = {
+  date_of_birth: "DOB",
+  height: "Ht",
+  weight: "Wt",
+  primary_position: "Pos 1",
+  secondary_position: "Pos 2",
+  // Even "Jersey" is wider than its 5% column; "#" is what a roster calls this
+  // one anyway, and there's nothing else it could mean in that position.
+  jersey_number: "#",
+};
+
+/** The Paying and New/Returning columns aren't roster fields, so name them here. */
+const PAYING_PRINT_HEADER = "Pays";
+const ROSTER_STATUS_PRINT_HEADER = "New/Ret";
 
 /** Format a single roster cell, matching the on-screen roster values but with
  *  friendlier dates. Empty values collapse to an em dash. */
@@ -283,12 +310,14 @@ export default async function TeamsPrintPage({
                         <tr>
                           {PLAYER_FIELDS.map((f) => (
                             <Fragment key={f.key}>
-                              <th>{f.label}</th>
+                              <th>{PRINT_HEADERS[f.key] ?? f.label}</th>
                               {f.key === "player_name" ? (
                                 <>
-                                  <th className="col-paying">Paying</th>
+                                  <th className="col-paying">
+                                    {PAYING_PRINT_HEADER}
+                                  </th>
                                   <th className="col-roster-status">
-                                    {ROSTER_STATUS_HEADER}
+                                    {ROSTER_STATUS_PRINT_HEADER}
                                   </th>
                                 </>
                               ) : null}
