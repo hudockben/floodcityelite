@@ -45,33 +45,85 @@ string matches another's, and `npm run db:setup` refuses to seed one, so a
 copy-paste in `.env.local` fails loudly instead of quietly merging two
 organizations into one set of tables.
 
-**Which organization a request belongs to** is resolved most-trustworthy-source
-first, in [`src/middleware.ts`](src/middleware.ts):
+**Which organization a request belongs to** is resolved in
+[`src/middleware.ts`](src/middleware.ts). Two of the sources are *boundaries* —
+they decide the answer outright, because they are properties of the address
+rather than of the visitor:
 
-1. the **signed session cookie** — for anyone logged in this settles it, since
-   their company code was checked against a password;
-2. the **hostname**, so each organization can have its own domain. Configure it
-   with `TENANT_HOSTS`, a comma-separated list of `code=hostname` pairs
+1. **`PORTAL_TENANT`** — this deployment serves one organization and no other.
+2. The **hostname**, configured with `TENANT_HOSTS`: a comma-separated list of
+   `code=hostname` pairs
    (`fennell=portal.fennellbros.com,fce=portal.floodcityelite.com`). Left unset,
    a hostname still matches an organization whose code appears as one of its
-   labels (`fennell.example.com`), which covers preview deployments;
-3. **`?c=<code>`** in the URL — how a public link names its organization;
-4. the **tenant cookie**, which remembers 2 or 3 across a form's POST;
-5. failing all of that, the default: `fce`.
+   labels (`fennell.example.com`), which covers preview deployments.
+
+A boundary outranks the session. Somebody arriving at Fennell's address carrying
+a Flood City Elite cookie is shown Fennell's sign-in screen and their session is
+cleared — it is not another organization's login, so it is not followed to
+another organization's portal.
+
+Failing a boundary — a shared deployment on a shared address — the organization
+is whatever the visitor is already associated with:
+
+3. the **signed session cookie**, since their company code was checked against a
+   password;
+4. **`?c=<code>`** in the URL — how a public link names its organization;
+5. the **tenant cookie**, which remembers 4 across a form's POST;
+6. failing all of that, the default: `fce`.
 
 Nothing in that chain reads a request body, so a visitor cannot post their way
 onto another organization's database.
 
-**Public form links.** The two login-free forms carry the organization in the
-query string:
+**Public form links.** On a shared address the two login-free forms carry the
+organization in the query string:
 
 | Organization     | Payroll              | Roster spot                    |
 | ---------------- | -------------------- | ------------------------------ |
 | Flood City Elite | `/payroll`           | `/roster-acceptance`           |
 | Fennell Bros.    | `/payroll?c=fennell` | `/roster-acceptance?c=fennell` |
 
-Once an organization has its own hostname the parameter becomes unnecessary —
-`portal.fennellbros.com/roster-acceptance` resolves on the host alone.
+Once an organization has an address of its own the parameter is unnecessary and
+is dropped from the links — `portal.fennellbros.com/roster-acceptance` resolves
+on the host alone.
+
+### Giving each organization its own URL
+
+Families should see their own club's portal, not a shared platform with a
+company-code box on the front. Behind an address of its own — a `PORTAL_TENANT`
+deployment or a `TENANT_HOSTS` hostname — the portal drops the company-code
+field from the sign-in form, fills the code in server-side, and ignores whatever
+was posted, so another organization's code does not work at that address. There
+is then nothing on the site to suggest anybody else uses the software.
+
+There are two ways to arrange it:
+
+**One Vercel project, two domains.** Add both domains to the project (Vercel →
+**Settings** → **Domains**), set `TENANT_HOSTS`, and leave `PORTAL_TENANT`
+blank. One build, one deploy, one set of environment variables; a fix ships to
+both organizations at once. The deployment does hold every organization's
+connection string, and the two share a Vercel project — invisible to families,
+but true.
+
+**One Vercel project per organization.** Import the same repository twice. Each
+project gets its own domain, its own `PORTAL_TENANT`, and **only its own**
+database URL:
+
+| | Flood City Elite project | Fennell Bros. project |
+| --- | --- | --- |
+| `PORTAL_TENANT` | `fce` | `fennell` |
+| `DATABASE_URL` | Flood City's | *unset* |
+| `FENNELL_DATABASE_URL` | *unset* | Fennell's |
+| `SESSION_SECRET` | its own | its own (a different one) |
+
+Nothing about the other organization is present in either deployment: not the
+connection string, not the session secret, not the build. A session minted by
+one is not even valid at the other. The cost is deploying twice and keeping two
+sets of environment variables in step.
+
+Either way each organization needs its own `SESSION_SECRET` if you want their
+logins to be genuinely unrelated; sharing one means a cookie forged from one
+deployment's secret would verify at the other's address (where the boundary
+check would still refuse it, but there is no reason to lean on that).
 
 ### Setting up Fennell Bros.
 

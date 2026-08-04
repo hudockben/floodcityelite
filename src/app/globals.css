@@ -1,19 +1,458 @@
+/* ---------------------------------------------------------------------------
+   Theme tokens
+   ---------------------------------------------------------------------------
+   The portal serves more than one organization from the same code, so every
+   colour in this stylesheet is a token rather than a literal. :root carries
+   Flood City Elite's navy/cyan values — the ones the app has always drawn —
+   and a tenant block further down (see [data-tenant="fennell"]) swaps the
+   chrome for its own brand. Nothing below this block hardcodes a colour.
+
+   Tokens are named for the job they do, not the hue they happen to be, and a
+   literal that served several unrelated jobs was split into one token per job:
+   that is what lets a second theme move the tabs without dragging the status
+   pills along with them.
+
+   Three groups, in order:
+     1. palette   — the raw brand colours the role tokens point at.
+     2. roles     — surfaces, borders, type, accents, tables, statuses.
+     3. print     — the paper document. Deliberately light for every tenant;
+                    see the note above the print section.
+   -------------------------------------------------------------------------*/
 :root {
+  /* -- 1. Palette (Flood City Elite) ------------------------------------ */
   --navy-900: #0a1a2f;
   --navy-800: #0f2742;
   --navy-700: #163458;
   --accent: #38bdf8;
   --accent-strong: #0ea5e9;
+
+  /* -- 2. Roles --------------------------------------------------------- */
+
+  /* Page background: two brand glows over a diagonal base. */
+  --page-glow-primary: #1c4a7e;
+  --page-glow-secondary: #0d3a63;
+  --page-base-start: var(--navy-900);
+  --page-base-mid: var(--navy-800);
+  --page-base-end: #08111f;
+
+  /* Type */
   --text: #eef4fb;
   --text-muted: #9db3cc;
-  --danger: #fca5a5;
-  --danger-bg: rgba(220, 38, 38, 0.14);
-  --card-border: rgba(148, 187, 233, 0.18);
+  --text-placeholder: #5f7690;
+  /* Text sitting on the accent fill (buttons, active tabs) and on the solid
+     positive fill (attending marks) — separate, because a theme can retune one
+     without the other. */
+  --text-on-accent: #04121f;
+  --text-on-status-ok: #04121f;
+  --text-on-positive: #052e16;
+  /* The accent used as type — links, accent labels, accent figures. Kept apart
+     from --accent (which paints borders, fills and marks) so a theme can pick a
+     lighter tone for small text than it uses for a 1px rule. */
+  --accent-text: var(--accent);
+
+  /* The brand wordmark. Its gradient tint and its typographic treatment are
+     both tenant-tunable: a wordmark that stands beside a drawn mark wants less
+     shouting than one carrying the brand alone. */
+  --wordmark-highlight: #cfeeff;
+  --wordmark-mid: var(--accent);
+  --wordmark-deep: var(--accent-strong);
+  --wordmark-weight: 800;
+  --wordmark-tracking: 0.05em;
+  --wordmark-transform: uppercase;
+
+  /* Surfaces, lightest-sitting first. */
+  --surface-card: rgba(15, 30, 52, 0.72);
+  --surface-control: rgba(8, 20, 36, 0.6);
   --field-bg: rgba(8, 20, 36, 0.55);
+  --surface-empty: rgba(8, 20, 36, 0.4);
+  --surface-sunken: rgba(8, 20, 36, 0.35);
+  --dialog-backdrop: rgba(4, 12, 24, 0.74);
+  /* Native <option> lists are painted by the OS, so they need an opaque fill
+     rather than one of the translucent surfaces above. */
+  --select-option-bg: var(--navy-800);
+
   /* Opaque backdrops for the roster so the frozen first column blends. */
   --roster-bg: #0e2036;
   --roster-head-bg: #0a1a2c;
   --roster-hover-bg: #14273e;
+  --table-head-bg-strong: rgba(8, 20, 36, 0.85);
+  --table-foot-bg: rgba(8, 20, 36, 0.6);
+  --table-row-border: rgba(148, 187, 233, 0.08);
+  --table-row-hover-tint: rgba(56, 189, 248, 0.05);
+
+  /* Borders and depth */
+  --card-border: rgba(148, 187, 233, 0.18);
+  --border-strong: rgba(148, 187, 233, 0.4);
+  --card-inner-highlight: rgba(255, 255, 255, 0.05);
+  --shadow-card: rgba(0, 0, 0, 0.45);
+  --shadow-panel: rgba(0, 0, 0, 0.35);
+  --shadow-popover: rgba(0, 0, 0, 0.45);
+  --shadow-modal: rgba(0, 0, 0, 0.55);
+  --shadow-pod: rgba(0, 0, 0, 0.35);
+
+  /* Accent chrome. The fill is a whole gradient rather than two stops so a
+     theme can change its direction as well as its colours. */
+  --accent-fill: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  --focus-ring: rgba(56, 189, 248, 0.18);
+  --focus-ring-strong: rgba(56, 189, 248, 0.28);
+  --selected-ring: rgba(56, 189, 248, 0.18);
+  --tab-hover-bg: rgba(56, 189, 248, 0.08);
+  --summary-hover-bg: rgba(56, 189, 248, 0.06);
+  --edit-row-bg: rgba(56, 189, 248, 0.05);
+  --draft-row-bg: rgba(56, 189, 248, 0.04);
+  --editing-border: rgba(56, 189, 248, 0.45);
+  --file-button-bg: rgba(56, 189, 248, 0.1);
+  /* Outline buttons (Edit, Add payment on a row). */
+  --accent-outline-border: rgba(56, 189, 248, 0.3);
+  --accent-outline-hover-bg: rgba(56, 189, 248, 0.12);
+  --accent-outline-hover-border: rgba(56, 189, 248, 0.55);
+  --accent-outline-hover-border-soft: rgba(56, 189, 248, 0.5);
+  /* Pill-shaped ghost button (View Field). */
+  --accent-ghost-bg: rgba(56, 189, 248, 0.08);
+  --accent-ghost-border: rgba(56, 189, 248, 0.3);
+  --accent-ghost-hover-bg: rgba(56, 189, 248, 0.18);
+  --accent-ghost-hover-border: rgba(56, 189, 248, 0.6);
+  /* Accent badges that carry a figure (schedule total, division level). */
+  --accent-chip-bg: rgba(56, 189, 248, 0.12);
+  --accent-chip-border: rgba(56, 189, 248, 0.3);
+  /* Accent-tinted blocks: the planner readout, the fixed-cost result tiles. */
+  --accent-panel-bg: rgba(56, 189, 248, 0.06);
+  --accent-panel-border: rgba(56, 189, 248, 0.25);
+  --accent-callout-bg: rgba(56, 189, 248, 0.08);
+  --accent-callout-border: rgba(56, 189, 248, 0.4);
+  /* Pickable things: search results, the accept/decline cards. */
+  --option-hover-bg: rgba(56, 189, 248, 0.12);
+  --option-hover-border: rgba(56, 189, 248, 0.4);
+  --option-selected-bg: rgba(56, 189, 248, 0.1);
+  --option-selected-ring: rgba(56, 189, 248, 0.14);
+
+  /* Neutral chrome tints */
+  --ghost-hover-bg: rgba(148, 187, 233, 0.12);
+  --code-bg: rgba(148, 187, 233, 0.12);
+  --chip-neutral-bg: rgba(148, 187, 233, 0.1);
+  --count-chip-bg: rgba(148, 163, 184, 0.18);
+  --meter-track-bg: rgba(148, 187, 233, 0.14);
+
+  /* -- Semantic status --------------------------------------------------
+     Green = paid / returning / money in, red = unpaid / danger / money out,
+     amber = pending or short, slate = rained out, violet = refunded, blue =
+     informational. Tokenized like everything else so a theme *can* retune
+     them, but they read as meaning rather than brand, so a theme usually
+     shouldn't. */
+
+  /* Positive */
+  --status-ok: #22c55e;
+  --status-ok-text: #bbf7d0;
+  --status-ok-text-strong: #86efac;
+  --status-ok-on-text: #eafff2;
+  --status-ok-bg: rgba(34, 197, 94, 0.16);
+  --status-ok-bg-soft: rgba(34, 197, 94, 0.14);
+  --status-ok-bg-faint: rgba(34, 197, 94, 0.12);
+  --status-ok-border: rgba(34, 197, 94, 0.4);
+  --status-ok-border-soft: rgba(34, 197, 94, 0.35);
+  --status-ok-border-hairline: rgba(34, 197, 94, 0.32);
+  --status-ok-border-hover: rgba(34, 197, 94, 0.55);
+  --status-ok-border-active: rgba(34, 197, 94, 0.6);
+  --status-ok-badge-bg: rgba(34, 197, 94, 0.18);
+  --status-ok-row-bg: rgba(34, 197, 94, 0.05);
+  --status-ok-select-bg: rgba(34, 197, 94, 0.1);
+  --status-ok-select-border: rgba(34, 197, 94, 0.45);
+  --status-ok-chip-on-bg: rgba(34, 197, 94, 0.22);
+  --status-ok-chip-on-border: rgba(34, 197, 94, 0.65);
+  --status-ok-chip-on-count-bg: rgba(34, 197, 94, 0.35);
+  --status-ok-nudge-bg: rgba(34, 197, 94, 0.06);
+  --status-ok-nudge-border: rgba(34, 197, 94, 0.3);
+  --accept-text: #b8f5d4;
+  --checkbox-accent: #34d399;
+  --paying-on-text: #7ee2b8;
+  --saved-text: #6ee7b7;
+  --positive-from: #4ade80;
+  --positive-to: #22c55e;
+  --result-ok-bg: rgba(16, 185, 129, 0.08);
+  --result-ok-border: rgba(52, 211, 153, 0.5);
+
+  /* Money: what a figure means, not what colour it is. */
+  --money-in: #7ee2a8;
+  --money-in-soft: #b7f5d8;
+  --money-out: #fca5a5;
+
+  /* Danger */
+  --danger: #fca5a5;
+  --danger-bg: rgba(220, 38, 38, 0.14);
+  --danger-bg-strong: rgba(220, 38, 38, 0.16);
+  --danger-border: rgba(220, 38, 38, 0.3);
+  --danger-border-soft: rgba(220, 38, 38, 0.4);
+  --danger-border-strong: rgba(220, 38, 38, 0.5);
+  --status-alert-text: #fecaca;
+  --status-alert-bg: rgba(248, 113, 113, 0.14);
+  --status-alert-border: rgba(248, 113, 113, 0.4);
+  --warn-alert-text: #ffc9c9;
+  --meter-over-from: #f87171;
+  --meter-over-to: #dc2626;
+
+  /* Warning / pending */
+  --status-warn-text: #ffe3a8;
+  --status-warn-bg: rgba(250, 204, 21, 0.14);
+  --status-warn-border: rgba(250, 204, 21, 0.4);
+  --warn-row-bg: rgba(250, 204, 21, 0.08);
+  --exception-bg: rgba(250, 204, 21, 0.1);
+  --exception-border: rgba(250, 204, 21, 0.5);
+  --notice-warn-bg: rgba(251, 191, 36, 0.08);
+  --notice-warn-border: rgba(251, 191, 36, 0.4);
+  --meter-warn-from: #facc15;
+  --meter-warn-to: #f59e0b;
+  --sport-softball-border: rgba(250, 204, 21, 0.35);
+  --fund-badge-text: #fde68a;
+  --fund-badge-bg: rgba(234, 179, 8, 0.14);
+  --fund-badge-border: rgba(234, 179, 8, 0.35);
+  /* The budget sheet's highlighted balance row. */
+  --balance-text: #ffe9a8;
+  --balance-bg: rgba(250, 204, 21, 0.16);
+  --balance-credit-bg: rgba(52, 211, 153, 0.16);
+
+  /* Informational / neutral / refunded */
+  --status-info-text: #bfe6ff;
+  --status-info-bg: rgba(56, 189, 248, 0.14);
+  --status-info-border: rgba(56, 189, 248, 0.35);
+  --status-new-text: #cfe9ff;
+  --status-new-bg: rgba(56, 189, 248, 0.16);
+  --status-new-border: rgba(56, 189, 248, 0.45);
+  --status-neutral-text: #cbd5e1;
+  --status-neutral-bg: rgba(148, 163, 184, 0.16);
+  --status-neutral-border: rgba(148, 163, 184, 0.42);
+  --status-off-bg: rgba(148, 163, 184, 0.2);
+  --status-refund-text: #e5d4ff;
+  --status-refund-bg: rgba(168, 85, 247, 0.16);
+  --status-refund-border: rgba(168, 85, 247, 0.42);
+
+  /* -- The field diagram ------------------------------------------------
+     Grass, dirt and chalk are the sport, not the brand, so a theme normally
+     leaves them alone; the card chrome around them follows the theme. */
+  --field-grass: #123829;
+  --field-grass-inner: #16432f;
+  --field-dirt: #493725;
+  --field-mound: #5b452f;
+  --field-chalk: rgba(238, 244, 251, 0.4);
+  --field-base: #e6edf7;
+  --field-outline: rgba(148, 187, 233, 0.28);
+  --field-pod-bg: rgba(6, 17, 31, 0.86);
+  --field-pod-none-bg: rgba(60, 15, 20, 0.82);
+  --field-pod-none-border: rgba(248, 113, 113, 0.45);
+  --field-pod-backup-bg: rgba(58, 36, 8, 0.84);
+  --field-pod-backup-border: rgba(251, 191, 36, 0.42);
+  --field-pod-deep-bg: rgba(8, 41, 66, 0.86);
+  --field-pod-deep-border: rgba(56, 189, 248, 0.5);
+  --field-flag-ok-bg: rgba(56, 189, 248, 0.12);
+  --field-flag-ok-border: rgba(56, 189, 248, 0.35);
+  --depth-backup-text: #fcd34d;
+  --depth-backup-bg: rgba(180, 83, 9, 0.2);
+  --depth-backup-border: rgba(251, 191, 36, 0.38);
+
+  /* -- 3. Print ---------------------------------------------------------
+     The reports are a light document on white paper in both the on-screen
+     preview and the saved PDF. A tenant may tint the brand line and the
+     accents, but every surface here stays paper-coloured and every ink stays
+     dark: a near-black page background would empty a toner cartridge and read
+     worse, not better. */
+  --print-paper: #ffffff;
+  --print-shadow: rgba(0, 0, 0, 0.35);
+  --print-ink: #111827;
+  --print-ink-strong: #0f2742;
+  --print-ink-mid: #374151;
+  --print-ink-body: #4b5563;
+  --print-ink-head: #475569;
+  --print-ink-muted: #64748b;
+  --print-ink-soft: #6b7280;
+  --print-ink-faint: #9ca3af;
+  --print-rule: #cbd5e1;
+  --print-rule-soft: #e5e7eb;
+  --print-rule-light: #eef1f4;
+  --print-rule-faint: #e2e8f0;
+  --print-band: #f8fafc;
+  --print-band-strong: #f1f5f9;
+  --print-brand: #0ea5e9;
+  --print-accent: #0369a1;
+  --print-accent-bg: #e0f2fe;
+  --print-accent-border: #bae6fd;
+  --print-accent-dot: #0284c7;
+  --print-dot-backup-border: #9ca3af;
+  --print-pos: #047857;
+  --print-neg: #b91c1c;
+  --print-neg-bg: #fee2e2;
+  --print-neg-border: #fca5a5;
+  --print-warn: #b45309;
+  --print-warn-bg: #fef3c7;
+  --print-warn-border: #fcd34d;
+  --print-highlight-bg: #fef9c3;
+  --print-fund-bg: #dcfce7;
+  --print-in-text: #15803d;
+  --print-in-bg: #dcfce7;
+  --print-out-text: #cbd5e1;
+  --print-field-grass: #eaf4ea;
+  --print-field-grass-inner: #dcebdc;
+  --print-field-dirt: #f4e8d7;
+  --print-field-mound: #e7d5bb;
+  --print-field-chalk: #9ca3af;
+  --print-field-base: #6b7280;
+  --print-field-outline: #94a3b8;
+  --print-pod-bg: #ffffff;
+  --print-pod-border: #cbd5e1;
+  --print-pod-none-bg: #fef2f2;
+  --print-pod-backup-bg: #fffbeb;
+  --print-pod-deep-bg: #eff6ff;
+  --print-pod-deep-border: #93c5fd;
+}
+
+/* ---------------------------------------------------------------------------
+   Fennell Bros. — white, black and a rich gold
+   ---------------------------------------------------------------------------
+   Set as data-tenant on <html>, so it overrides the tokens above for the whole
+   document without any selector below this block knowing a second brand exists.
+
+   The palette is sampled from their script mark: near-black ink in four steps,
+   gold in four, and a warm white for type. Gold does the work it is good at —
+   hairline borders, headings, active states, focus — and stays off small body
+   copy, where the warm white and the muted stone carry the text at 7:1 or
+   better against the surfaces they sit on. This is a data-entry app people read
+   all day; the gold is the trim, not the paper. */
+[data-tenant="fennell"] {
+  /* -- Palette ---------------------------------------------------------- */
+  --ink-900: #050505;
+  --ink-800: #0c0c0c;
+  --ink-700: #151515;
+  --ink-600: #1e1e1e;
+  --gold: #c9992e;
+  --gold-bright: #e2bb5c;
+  --gold-soft: #f0dba6;
+  --gold-deep: #8a6a1c;
+  /* The low-alpha fills below are these two at a few percent — the cream
+     (240, 219, 166) where a surface should read warm, the gold (201, 153, 46)
+     where it should read as accent. Written out because a custom property
+     can't be interpolated into rgba()'s channel list. */
+
+  /* -- Page -------------------------------------------------------------
+     Near-black, with the two brand glows turned down to a suggestion of warmth
+     in the corners rather than the navy wash the other theme carries. */
+  --page-glow-primary: rgba(201, 153, 46, 0.16);
+  --page-glow-secondary: rgba(138, 106, 28, 0.14);
+  --page-base-start: var(--ink-800);
+  --page-base-mid: var(--ink-900);
+  --page-base-end: #000000;
+
+  /* -- Type -------------------------------------------------------------- */
+  --text: #f6f3ec;
+  --text-muted: #a9a094;
+  --text-placeholder: #7d7263;
+  --text-on-accent: #1a1408;
+  /* Type in gold is the bright end of the ramp, never the base: mid-gold at
+     0.72rem on near-black is legible but tiring. */
+  --accent-text: var(--gold-bright);
+
+  /* The mark carries the brand, so the wordmark beside it drops to a spaced
+     title-case companion instead of the heavy uppercase Flood City uses. */
+  --wordmark-highlight: #f7edd6;
+  --wordmark-mid: var(--gold-bright);
+  --wordmark-deep: var(--gold);
+  --wordmark-weight: 600;
+  --wordmark-tracking: 0.08em;
+  --wordmark-transform: none;
+
+  /* -- Accent ------------------------------------------------------------
+     The fill runs bright gold to base gold, so black type on a button clears
+     7:1 at either end of it. */
+  --accent: var(--gold);
+  --accent-strong: var(--gold-deep);
+  --accent-fill: linear-gradient(180deg, var(--gold-bright), var(--gold));
+
+  /* -- Surfaces ---------------------------------------------------------
+     Below near-black there is nowhere left to go, so the recessed surfaces
+     (fields, tiles, secondary buttons) lift by a few percent of warm light
+     instead of sinking, and the gold hairline does the separating. */
+  --surface-card: rgba(12, 12, 12, 0.82);
+  --surface-control: rgba(240, 219, 166, 0.06);
+  --field-bg: rgba(240, 219, 166, 0.05);
+  --surface-empty: rgba(240, 219, 166, 0.035);
+  --surface-sunken: rgba(240, 219, 166, 0.035);
+  --dialog-backdrop: rgba(0, 0, 0, 0.78);
+  --select-option-bg: var(--ink-700);
+
+  --roster-bg: var(--ink-700);
+  --roster-head-bg: var(--ink-800);
+  --roster-hover-bg: var(--ink-600);
+  --table-head-bg-strong: rgba(5, 5, 5, 0.92);
+  --table-foot-bg: rgba(240, 219, 166, 0.06);
+  --table-row-border: rgba(201, 153, 46, 0.13);
+  --table-row-hover-tint: rgba(201, 153, 46, 0.07);
+
+  /* -- Borders and depth ------------------------------------------------- */
+  --card-border: rgba(201, 153, 46, 0.22);
+  --border-strong: rgba(201, 153, 46, 0.45);
+  --card-inner-highlight: rgba(240, 219, 166, 0.06);
+  --shadow-card: rgba(0, 0, 0, 0.6);
+  --shadow-panel: rgba(0, 0, 0, 0.5);
+  --shadow-popover: rgba(0, 0, 0, 0.6);
+  --shadow-modal: rgba(0, 0, 0, 0.7);
+  --shadow-pod: rgba(0, 0, 0, 0.5);
+
+  /* -- Accent chrome ----------------------------------------------------- */
+  --focus-ring: rgba(201, 153, 46, 0.3);
+  --focus-ring-strong: rgba(201, 153, 46, 0.42);
+  --selected-ring: rgba(201, 153, 46, 0.3);
+  --tab-hover-bg: rgba(201, 153, 46, 0.12);
+  --summary-hover-bg: rgba(201, 153, 46, 0.08);
+  --edit-row-bg: rgba(201, 153, 46, 0.07);
+  --draft-row-bg: rgba(201, 153, 46, 0.055);
+  --editing-border: rgba(201, 153, 46, 0.55);
+  --file-button-bg: rgba(201, 153, 46, 0.14);
+  --accent-outline-border: rgba(201, 153, 46, 0.4);
+  --accent-outline-hover-bg: rgba(201, 153, 46, 0.16);
+  --accent-outline-hover-border: rgba(201, 153, 46, 0.7);
+  --accent-outline-hover-border-soft: rgba(201, 153, 46, 0.6);
+  --accent-ghost-bg: rgba(201, 153, 46, 0.1);
+  --accent-ghost-border: rgba(201, 153, 46, 0.4);
+  --accent-ghost-hover-bg: rgba(201, 153, 46, 0.2);
+  --accent-ghost-hover-border: rgba(201, 153, 46, 0.7);
+  --accent-chip-bg: rgba(201, 153, 46, 0.14);
+  --accent-chip-border: rgba(201, 153, 46, 0.4);
+  --accent-panel-bg: rgba(201, 153, 46, 0.07);
+  --accent-panel-border: rgba(201, 153, 46, 0.3);
+  --accent-callout-bg: rgba(201, 153, 46, 0.1);
+  --accent-callout-border: rgba(201, 153, 46, 0.45);
+  --option-hover-bg: rgba(201, 153, 46, 0.14);
+  --option-hover-border: rgba(201, 153, 46, 0.5);
+  --option-selected-bg: rgba(201, 153, 46, 0.12);
+  --option-selected-ring: rgba(201, 153, 46, 0.18);
+
+  /* -- Neutral chrome tints ---------------------------------------------
+     Plain warm light, so a count chip or a code span reads as chrome and not
+     as another gold accent competing with the real ones. */
+  --ghost-hover-bg: rgba(246, 243, 236, 0.1);
+  --code-bg: rgba(240, 219, 166, 0.1);
+  --chip-neutral-bg: rgba(246, 243, 236, 0.07);
+  --count-chip-bg: rgba(246, 243, 236, 0.1);
+  --meter-track-bg: rgba(246, 243, 236, 0.1);
+
+  /* -- Field diagram ----------------------------------------------------
+     The diamond keeps its grass and dirt; only the card chrome around it and
+     the "deep" (accent) state follow the theme. */
+  --field-base: #f2ece0;
+  --field-outline: rgba(201, 153, 46, 0.3);
+  --field-pod-bg: rgba(10, 10, 10, 0.88);
+  --field-pod-deep-bg: rgba(34, 26, 8, 0.88);
+  --field-pod-deep-border: rgba(201, 153, 46, 0.55);
+  --field-flag-ok-bg: rgba(201, 153, 46, 0.14);
+  --field-flag-ok-border: rgba(201, 153, 46, 0.4);
+
+  /* -- Print ------------------------------------------------------------
+     Paper stays paper. Only the brand line and the accent trim move to gold,
+     dark enough to clear 5:1 on white, and the headings go near-black to match
+     the ink of the screen theme. */
+  --print-ink-strong: #171717;
+  --print-brand: #7d5f14;
+  --print-accent: #7d5f14;
+  --print-accent-bg: #faf3e0;
+  --print-accent-border: #e6d29a;
+  --print-accent-dot: #a8811f;
 }
 
 * {
@@ -32,9 +471,9 @@ body {
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
   background:
-    radial-gradient(1100px 700px at 15% -10%, #1c4a7e 0%, transparent 55%),
-    radial-gradient(900px 600px at 100% 0%, #0d3a63 0%, transparent 50%),
-    linear-gradient(160deg, var(--navy-900), var(--navy-800) 60%, #08111f);
+    radial-gradient(1100px 700px at 15% -10%, var(--page-glow-primary) 0%, transparent 55%),
+    radial-gradient(900px 600px at 100% 0%, var(--page-glow-secondary) 0%, transparent 50%),
+    linear-gradient(160deg, var(--page-base-start), var(--page-base-mid) 60%, var(--page-base-end));
   background-attachment: fixed;
 }
 
@@ -50,15 +489,15 @@ body {
 .card {
   width: 100%;
   max-width: 420px;
-  background: rgba(15, 30, 52, 0.72);
+  background: var(--surface-card);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--card-border);
   border-radius: 18px;
   padding: 40px 34px 34px;
   box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 24px 60px var(--shadow-card),
+    inset 0 1px 0 var(--card-inner-highlight);
 }
 
 .brand {
@@ -72,24 +511,57 @@ body {
 
 /* Text wordmark used as the brand logo. The shared look lives in .wordmark;
    each placement (.logo on the login card, .appbar-logo in the header) sets
-   only its own size. */
+   only its own size. Weight, tracking and casing are tokens because a wordmark
+   standing alone and one standing beside a drawn mark want different amounts of
+   emphasis — see the tenant block at the top of the file. */
 .wordmark {
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--accent);
+  font-weight: var(--wordmark-weight);
+  letter-spacing: var(--wordmark-tracking);
+  text-transform: var(--wordmark-transform);
+  color: var(--wordmark-mid);
 }
 
-/* Tint the wordmark with the brand's cyan→blue gradient where supported,
-   falling back to the flat accent color otherwise. */
+/* Tint the wordmark with the brand's own gradient where supported, falling
+   back to the flat mid tone otherwise. */
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .wordmark {
-    background: linear-gradient(180deg, #cfeeff 0%, #38bdf8 55%, #0ea5e9 100%);
+    background: linear-gradient(
+      180deg,
+      var(--wordmark-highlight) 0%,
+      var(--wordmark-mid) 55%,
+      var(--wordmark-deep) 100%
+    );
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
     color: transparent;
   }
+}
+
+/* The lockup wrapping the wordmark, and the mark beside it when the tenant has
+   one (see logo.tsx). Block-level rather than inline-flex so a wordmark that
+   wraps to two lines keeps sitting on the placement's own baseline instead of
+   hanging below it — Flood City Elite, which has no mark, renders exactly the
+   lone centered wordmark it always did. */
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42em;
+}
+
+/* Sized from the placement's font-size, so the two placements that set one
+   (.brand .logo below, .appbar-logo in the header) size the mark too and it
+   can never outgrow the row it sits in. */
+.brand-mark {
+  flex: none;
+  width: auto;
+  height: 2.4em;
+  max-width: 100%;
+}
+
+.appbar-logo .brand-mark {
+  height: 1.6em;
 }
 
 /* Login card: large, and free to wrap to two centered lines on a narrow card. */
@@ -163,14 +635,14 @@ body {
 
 .field input::placeholder,
 .field textarea::placeholder {
-  color: #5f7690;
+  color: var(--text-placeholder);
 }
 
 .field input:focus,
 .field select:focus,
 .field textarea:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 /* Password field with a show/hide (eye) toggle */
@@ -206,7 +678,7 @@ body {
 
 .password-toggle:hover {
   color: var(--text);
-  background: rgba(148, 187, 233, 0.12);
+  background: var(--ghost-hover-bg);
 }
 
 .password-toggle:focus-visible {
@@ -226,8 +698,8 @@ body {
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: #04121f;
-  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: var(--text-on-accent);
+  background: var(--accent-fill);
   border: none;
   border-radius: 10px;
   cursor: pointer;
@@ -256,7 +728,7 @@ body {
   font-size: 0.88rem;
   color: var(--danger);
   background: var(--danger-bg);
-  border: 1px solid rgba(220, 38, 38, 0.3);
+  border: 1px solid var(--danger-border);
   border-radius: 10px;
 }
 
@@ -265,9 +737,9 @@ body {
   margin: 0;
   padding: 10px 12px;
   font-size: 0.88rem;
-  color: #bbf7d0;
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: var(--status-ok-text);
+  background: var(--status-ok-bg-faint);
+  border: 1px solid var(--status-ok-border);
   border-radius: 10px;
 }
 
@@ -392,7 +864,7 @@ body {
 }
 
 .card-foot-link {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: none;
   font-size: 0.88rem;
   font-weight: 600;
@@ -479,7 +951,7 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .rg-meta {
@@ -505,21 +977,21 @@ body {
 }
 
 .payroll-status-pending {
-  color: #ffe3a8;
-  background-color: rgba(250, 204, 21, 0.14);
-  border-color: rgba(250, 204, 21, 0.4);
+  color: var(--status-warn-text);
+  background-color: var(--status-warn-bg);
+  border-color: var(--status-warn-border);
 }
 
 .payroll-status-approved {
-  color: #bbf7d0;
-  background-color: rgba(34, 197, 94, 0.16);
-  border-color: rgba(34, 197, 94, 0.4);
+  color: var(--status-ok-text);
+  background-color: var(--status-ok-bg);
+  border-color: var(--status-ok-border);
 }
 
 .payroll-status-denied {
-  color: #fecaca;
-  background-color: rgba(248, 113, 113, 0.14);
-  border-color: rgba(248, 113, 113, 0.4);
+  color: var(--status-alert-text);
+  background-color: var(--status-alert-bg);
+  border-color: var(--status-alert-border);
 }
 
 /* ---- Dashboard ---- */
@@ -529,13 +1001,13 @@ body {
 }
 
 .dash-card {
-  background: rgba(15, 30, 52, 0.72);
+  background: var(--surface-card);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--card-border);
   border-radius: 18px;
   padding: 34px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 24px 60px var(--shadow-card);
 }
 
 .dash-header {
@@ -589,7 +1061,7 @@ body {
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--text);
-  background: rgba(8, 20, 36, 0.6);
+  background: var(--surface-control);
   border: 1px solid var(--card-border);
   border-radius: 10px;
   cursor: pointer;
@@ -689,12 +1161,12 @@ body {
 
 .tab:hover {
   color: var(--text);
-  background: rgba(56, 189, 248, 0.08);
+  background: var(--tab-hover-bg);
 }
 
 .tab.active {
-  color: #04121f;
-  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: var(--text-on-accent);
+  background: var(--accent-fill);
 }
 
 /* ---- Content panels ---- */
@@ -703,11 +1175,11 @@ body {
 }
 
 .panel {
-  background: rgba(15, 30, 52, 0.72);
+  background: var(--surface-card);
   border: 1px solid var(--card-border);
   border-radius: 16px;
   padding: 28px;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 18px 44px var(--shadow-panel);
 }
 
 .panel-head h1 {
@@ -727,7 +1199,7 @@ body {
   border: 1px dashed var(--card-border);
   border-radius: 14px;
   text-align: center;
-  background: rgba(8, 20, 36, 0.4);
+  background: var(--surface-empty);
 }
 
 .empty-icon {
@@ -784,7 +1256,7 @@ body {
 .hp-viewall {
   flex-shrink: 0;
   white-space: nowrap;
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: none;
   font-size: 0.85rem;
   font-weight: 600;
@@ -845,7 +1317,7 @@ body {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .hp-datechip .d {
@@ -903,7 +1375,7 @@ body {
 }
 
 .hp-amount-pos {
-  color: #bbf7d0;
+  color: var(--status-ok-text);
 }
 
 .hp-amount-neg {
@@ -923,40 +1395,40 @@ body {
 }
 
 .hp-pill-registered {
-  color: #bfe6ff;
-  background-color: rgba(56, 189, 248, 0.14);
-  border-color: rgba(56, 189, 248, 0.35);
+  color: var(--status-info-text);
+  background-color: var(--status-info-bg);
+  border-color: var(--status-info-border);
 }
 
 .hp-pill-paid {
-  color: #bbf7d0;
-  background-color: rgba(34, 197, 94, 0.16);
-  border-color: rgba(34, 197, 94, 0.4);
+  color: var(--status-ok-text);
+  background-color: var(--status-ok-bg);
+  border-color: var(--status-ok-border);
 }
 
 .hp-pill-waitlisted,
 .hp-pill-warn {
-  color: #ffe3a8;
-  background-color: rgba(250, 204, 21, 0.14);
-  border-color: rgba(250, 204, 21, 0.4);
+  color: var(--status-warn-text);
+  background-color: var(--status-warn-bg);
+  border-color: var(--status-warn-border);
 }
 
 .hp-pill-rainout {
-  color: #cbd5e1;
-  background-color: rgba(148, 163, 184, 0.16);
-  border-color: rgba(148, 163, 184, 0.42);
+  color: var(--status-neutral-text);
+  background-color: var(--status-neutral-bg);
+  border-color: var(--status-neutral-border);
 }
 
 .hp-pill-refund {
-  color: #e5d4ff;
-  background-color: rgba(168, 85, 247, 0.16);
-  border-color: rgba(168, 85, 247, 0.42);
+  color: var(--status-refund-text);
+  background-color: var(--status-refund-bg);
+  border-color: var(--status-refund-border);
 }
 
 .hp-pill-over {
   color: var(--danger);
   background-color: var(--danger-bg);
-  border-color: rgba(220, 38, 38, 0.4);
+  border-color: var(--danger-border-soft);
 }
 
 /* Budget usage meter. */
@@ -975,11 +1447,11 @@ body {
 }
 
 .hp-meter.warn > span {
-  background: linear-gradient(90deg, #facc15, #f59e0b);
+  background: linear-gradient(90deg, var(--meter-warn-from), var(--meter-warn-to));
 }
 
 .hp-meter.over > span {
-  background: linear-gradient(90deg, #f87171, #dc2626);
+  background: linear-gradient(90deg, var(--meter-over-from), var(--meter-over-to));
 }
 
 /* Compact in-panel empty state and footer link. */
@@ -988,7 +1460,7 @@ body {
   padding: 22px;
   border: 1px dashed var(--card-border);
   border-radius: 12px;
-  background: rgba(8, 20, 36, 0.4);
+  background: var(--surface-empty);
   color: var(--text-muted);
   font-size: 0.9rem;
   text-align: center;
@@ -996,7 +1468,7 @@ body {
 
 .hp-empty a,
 .hp-more a {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: none;
   font-weight: 600;
 }
@@ -1053,8 +1525,8 @@ body {
   border-radius: 50%;
   font-size: 0.85rem;
   font-weight: 700;
-  color: #04121f;
-  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: var(--text-on-accent);
+  background: var(--accent-fill);
 }
 
 /* Division selector (sub-tabs) */
@@ -1083,8 +1555,8 @@ body {
 }
 
 .subtab.active {
-  color: #04121f;
-  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: var(--text-on-accent);
+  background: var(--accent-fill);
   border-color: transparent;
 }
 
@@ -1101,7 +1573,7 @@ body {
 }
 
 .subtab.active .subtab-count {
-  color: #04121f;
+  color: var(--text-on-accent);
 }
 
 /* Season (year) selector — sits just under the division tabs. Each division
@@ -1146,8 +1618,8 @@ body {
 }
 
 .season-pill.active {
-  color: #04121f;
-  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: var(--text-on-accent);
+  background: var(--accent-fill);
   border-color: transparent;
 }
 
@@ -1285,15 +1757,15 @@ body {
 }
 
 .sport-baseball {
-  color: #bfe6ff;
-  background: rgba(56, 189, 248, 0.14);
-  border-color: rgba(56, 189, 248, 0.35);
+  color: var(--status-info-text);
+  background: var(--status-info-bg);
+  border-color: var(--status-info-border);
 }
 
 .sport-softball {
-  color: #ffe3a8;
-  background: rgba(250, 204, 21, 0.14);
-  border-color: rgba(250, 204, 21, 0.35);
+  color: var(--status-warn-text);
+  background: var(--status-warn-bg);
+  border-color: var(--sport-softball-border);
 }
 
 .chip-delete {
@@ -1303,7 +1775,7 @@ body {
   font-weight: 600;
   color: var(--danger);
   background: transparent;
-  border: 1px solid rgba(220, 38, 38, 0.3);
+  border: 1px solid var(--danger-border);
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
@@ -1311,7 +1783,7 @@ body {
 
 .chip-delete:hover {
   background: var(--danger-bg);
-  border-color: rgba(220, 38, 38, 0.5);
+  border-color: var(--danger-border-strong);
 }
 
 /* Edit + Delete on a team chip. The pair is pushed to the chip's right edge as
@@ -1331,22 +1803,22 @@ body {
   padding: 6px 12px;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
   background: transparent;
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  border: 1px solid var(--accent-outline-border);
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .chip-edit:hover {
-  background: rgba(56, 189, 248, 0.12);
-  border-color: rgba(56, 189, 248, 0.55);
+  background: var(--accent-outline-hover-bg);
+  border-color: var(--accent-outline-hover-border);
 }
 
 /* Inline rename — replaces the chip's contents while a team is being edited. */
 .team-chip-editing {
-  border-color: rgba(56, 189, 248, 0.45);
+  border-color: var(--editing-border);
 }
 
 .team-chip-form {
@@ -1373,15 +1845,15 @@ body {
 
 .team-chip-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .chip-save {
   padding: 8px 16px;
   font-size: 0.8rem;
   font-weight: 700;
-  color: #04121f;
-  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: var(--text-on-accent);
+  background: var(--accent-fill);
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -1406,7 +1878,7 @@ body {
 
 .chip-cancel:hover {
   color: var(--text);
-  border-color: rgba(148, 187, 233, 0.4);
+  border-color: var(--border-strong);
 }
 
 .chip-save:disabled,
@@ -1454,7 +1926,7 @@ body {
 }
 
 .team-manage-summary:hover {
-  background: rgba(56, 189, 248, 0.06);
+  background: var(--summary-hover-bg);
 }
 
 .team-manage[open] > .team-manage-summary {
@@ -1539,7 +2011,7 @@ body {
   content: "";
 }
 .bulk-upload-summary:hover {
-  background: rgba(56, 189, 248, 0.06);
+  background: var(--summary-hover-bg);
 }
 .bulk-upload[open] > .bulk-upload-summary {
   border-bottom: 1px solid var(--card-border);
@@ -1574,7 +2046,7 @@ body {
   padding: 7px 12px;
   border: 1px solid var(--card-border);
   border-radius: 8px;
-  background: rgba(56, 189, 248, 0.1);
+  background: var(--file-button-bg);
   color: inherit;
   font: inherit;
   cursor: pointer;
@@ -1594,11 +2066,11 @@ body {
   padding: 14px 16px;
   border: 1px solid var(--card-border);
   border-radius: 12px;
-  background: rgba(8, 20, 36, 0.35);
+  background: var(--surface-sunken);
 }
 .bulk-result.ok {
-  border-color: rgba(52, 211, 153, 0.5);
-  background: rgba(16, 185, 129, 0.08);
+  border-color: var(--result-ok-border);
+  background: var(--result-ok-bg);
 }
 
 .bulk-result-headline {
@@ -1632,7 +2104,7 @@ body {
 }
 .bulk-namelist > summary {
   cursor: pointer;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .bulk-namelist ul {
   margin: 8px 0 0;
@@ -1689,9 +2161,9 @@ body {
 .bulk-unmatched {
   margin-top: 14px;
   padding: 12px 14px;
-  border: 1px solid rgba(251, 191, 36, 0.4);
+  border: 1px solid var(--notice-warn-border);
   border-radius: 10px;
-  background: rgba(251, 191, 36, 0.08);
+  background: var(--notice-warn-bg);
 }
 .bulk-unmatched .bulk-result-note {
   margin-top: 0;
@@ -1719,7 +2191,7 @@ body {
 .bulk-help-body code {
   padding: 1px 5px;
   border-radius: 5px;
-  background: rgba(148, 187, 233, 0.12);
+  background: var(--code-bg);
   font-size: 0.82rem;
 }
 .bulk-help-body ul {
@@ -1764,7 +2236,7 @@ body {
 .roster tbody td {
   padding: 9px 12px;
   white-space: nowrap;
-  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  border-bottom: 1px solid var(--table-row-border);
   vertical-align: middle;
 }
 
@@ -1800,7 +2272,7 @@ body {
 
 .roster .col-team {
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .roster .col-name {
@@ -1848,7 +2320,7 @@ body {
   width: 16px;
   height: 16px;
   margin: 0;
-  accent-color: #34d399;
+  accent-color: var(--checkbox-accent);
   cursor: pointer;
   flex: none;
 }
@@ -1864,7 +2336,7 @@ body {
 /* Green label once the box is ticked (falls back to the muted colour on
    browsers without :has()). */
 .paying-toggle:has(.paying-checkbox:checked) .paying-pill {
-  color: #7ee2b8;
+  color: var(--paying-on-text);
 }
 
 /* Checkbox "Paying" field inside the add-player and edit-player forms. */
@@ -1890,7 +2362,7 @@ body {
   background: none;
   border: none;
   border-radius: 0;
-  accent-color: #34d399;
+  accent-color: var(--checkbox-accent);
   cursor: pointer;
   flex: none;
 }
@@ -1901,7 +2373,7 @@ body {
   font-weight: 600;
   color: var(--danger);
   background: transparent;
-  border: 1px solid rgba(220, 38, 38, 0.3);
+  border: 1px solid var(--danger-border);
   border-radius: 7px;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
@@ -1909,7 +2381,7 @@ body {
 
 .row-delete:hover {
   background: var(--danger-bg);
-  border-color: rgba(220, 38, 38, 0.5);
+  border-color: var(--danger-border-strong);
 }
 
 /* Collapsible team groups */
@@ -1948,7 +2420,7 @@ body {
 }
 
 .team-group-summary:hover {
-  background: rgba(56, 189, 248, 0.06);
+  background: var(--summary-hover-bg);
 }
 
 .team-group[open] > .team-group-summary {
@@ -2006,17 +2478,17 @@ body {
   padding: 5px 10px;
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
   background: transparent;
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  border: 1px solid var(--accent-outline-border);
   border-radius: 7px;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .row-edit:hover {
-  background: rgba(56, 189, 248, 0.12);
-  border-color: rgba(56, 189, 248, 0.55);
+  background: var(--accent-outline-hover-bg);
+  border-color: var(--accent-outline-hover-border);
 }
 
 .btn-secondary {
@@ -2024,7 +2496,7 @@ body {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--text);
-  background: rgba(8, 20, 36, 0.6);
+  background: var(--surface-control);
   border: 1px solid var(--card-border);
   border-radius: 10px;
   cursor: pointer;
@@ -2043,7 +2515,7 @@ body {
 /* Inline edit form (expands within a roster row) */
 .player-edit-row > td {
   padding: 0;
-  background: rgba(56, 189, 248, 0.05);
+  background: var(--edit-row-bg);
 }
 
 .player-edit-form {
@@ -2091,7 +2563,7 @@ body {
 .budget-summary-empty {
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .budget-body {
@@ -2116,14 +2588,14 @@ body {
   font-weight: 500;
   color: var(--text);
   padding: 10px 14px;
-  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  border-bottom: 1px solid var(--table-row-border);
   vertical-align: middle;
 }
 
 .budget-sheet td {
   text-align: right;
   padding: 8px 14px;
-  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  border-bottom: 1px solid var(--table-row-border);
   vertical-align: middle;
   white-space: nowrap;
 }
@@ -2165,7 +2637,7 @@ body {
 }
 
 .bs-save-status.bss-saved {
-  color: #6ee7b7;
+  color: var(--saved-text);
 }
 
 .bs-save-status.bss-error {
@@ -2199,14 +2671,14 @@ body {
 /* Highlighted result rows — echo the source sheet's yellow current balance
    and green fundraising cells, tuned for the dark theme. */
 .budget-sheet .bs-current .bs-value {
-  background: rgba(250, 204, 21, 0.16);
-  color: #ffe9a8;
+  background: var(--balance-bg);
+  color: var(--balance-text);
   font-weight: 700;
 }
 
 .budget-sheet .bs-fundraise .bs-value {
-  background: rgba(52, 211, 153, 0.16);
-  color: #b7f5d8;
+  background: var(--balance-credit-bg);
+  color: var(--money-in-soft);
   font-weight: 700;
 }
 
@@ -2259,7 +2731,7 @@ body {
 
 .budget-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .budget-money {
@@ -2407,7 +2879,7 @@ body {
 
 .expenses-table tbody td {
   padding: 9px 12px;
-  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  border-bottom: 1px solid var(--table-row-border);
   vertical-align: middle;
 }
 
@@ -2435,21 +2907,21 @@ body {
 /* Expense status pill: red = money out (paid), amber = pending (not paid),
    green = money back (refund). Reuses the .status-select base. */
 .expense-status-paid {
-  color: #fecaca;
-  background-color: rgba(248, 113, 113, 0.14);
-  border-color: rgba(248, 113, 113, 0.4);
+  color: var(--status-alert-text);
+  background-color: var(--status-alert-bg);
+  border-color: var(--status-alert-border);
 }
 
 .expense-status-not_paid {
-  color: #ffe3a8;
-  background-color: rgba(250, 204, 21, 0.14);
-  border-color: rgba(250, 204, 21, 0.4);
+  color: var(--status-warn-text);
+  background-color: var(--status-warn-bg);
+  border-color: var(--status-warn-border);
 }
 
 .expense-status-refund {
-  color: #bbf7d0;
-  background-color: rgba(34, 197, 94, 0.16);
-  border-color: rgba(34, 197, 94, 0.4);
+  color: var(--status-ok-text);
+  background-color: var(--status-ok-bg);
+  border-color: var(--status-ok-border);
 }
 
 .expenses-empty {
@@ -2500,16 +2972,16 @@ body {
 }
 
 .et-deduct {
-  color: #fca5a5;
+  color: var(--money-out);
 }
 
 .et-deduct-strong {
-  color: #fca5a5;
+  color: var(--money-out);
   font-weight: 800;
 }
 
 .et-credit {
-  color: #b7f5d8;
+  color: var(--money-in-soft);
 }
 
 .et-muted {
@@ -2546,7 +3018,7 @@ body {
 /* Footer total — green, since this is money into the budget, against the
    tournaments' red deduction total directly beneath it. */
 .fund-total-value {
-  color: #86efac;
+  color: var(--status-ok-text-strong);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
@@ -2617,7 +3089,7 @@ body {
 }
 
 .tour-total-value {
-  color: #fca5a5;
+  color: var(--money-out);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
@@ -2625,7 +3097,7 @@ body {
 /* Inline expense editor (expands within an expenses-table row). */
 .expense-edit-row > td {
   padding: 0;
-  background: rgba(56, 189, 248, 0.05);
+  background: var(--edit-row-bg);
 }
 
 .expense-edit-form {
@@ -2677,7 +3149,7 @@ body {
   gap: 6px;
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: none;
   padding: 8px 4px;
 }
@@ -2704,9 +3176,9 @@ body {
   padding: 4px 10px;
   font-size: 0.76rem;
   font-weight: 600;
-  color: var(--accent);
-  background: rgba(56, 189, 248, 0.08);
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: var(--accent-text);
+  background: var(--accent-ghost-bg);
+  border: 1px solid var(--accent-ghost-border);
   border-radius: 999px;
   cursor: pointer;
   white-space: nowrap;
@@ -2714,8 +3186,8 @@ body {
 }
 
 .tg-field-btn:hover {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: rgba(56, 189, 248, 0.6);
+  background: var(--accent-ghost-hover-bg);
+  border-color: var(--accent-ghost-hover-border);
 }
 
 /* The modal itself (native <dialog>, portaled to <body>). */
@@ -2731,7 +3203,7 @@ body {
 }
 
 .fv-dialog::backdrop {
-  background: rgba(4, 12, 24, 0.74);
+  background: var(--dialog-backdrop);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
 }
@@ -2743,7 +3215,7 @@ body {
   background: var(--roster-bg);
   border: 1px solid var(--card-border);
   border-radius: 16px;
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 30px 70px var(--shadow-modal);
 }
 
 .fv-head {
@@ -2779,7 +3251,7 @@ body {
   gap: 6px;
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: none;
   padding: 7px 4px;
 }
@@ -2793,7 +3265,7 @@ body {
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--text);
-  background: rgba(8, 20, 36, 0.6);
+  background: var(--surface-control);
   border: 1px solid var(--card-border);
   border-radius: 8px;
   cursor: pointer;
@@ -2821,21 +3293,21 @@ body {
 
 .fv-flag-none {
   color: var(--danger);
-  background: rgba(220, 38, 38, 0.16);
-  border-color: rgba(248, 113, 113, 0.4);
+  background: var(--danger-bg-strong);
+  border-color: var(--status-alert-border);
 }
 
 .fv-flag-backup {
-  color: #fcd34d;
-  background: rgba(180, 83, 9, 0.2);
-  border-color: rgba(251, 191, 36, 0.38);
+  color: var(--depth-backup-text);
+  background: var(--depth-backup-bg);
+  border-color: var(--depth-backup-border);
 }
 
 .fv-flag-deep,
 .fv-flag-ok {
-  color: var(--accent);
-  background: rgba(56, 189, 248, 0.12);
-  border-color: rgba(56, 189, 248, 0.35);
+  color: var(--accent-text);
+  background: var(--field-flag-ok-bg);
+  border-color: var(--field-flag-ok-border);
 }
 
 /* The diagram box. The SVG and the position cards share one 400x380 frame, so
@@ -2867,31 +3339,31 @@ body {
 /* The drawing's paint, kept in CSS (not SVG attributes) so the print sheet can
    restyle the same markup for paper — see .print-field below. */
 .fv-grass {
-  fill: #123829;
-  stroke: rgba(148, 187, 233, 0.28);
+  fill: var(--field-grass);
+  stroke: var(--field-outline);
   stroke-width: 1.5;
 }
 
 .fv-grass-in {
-  fill: #16432f;
+  fill: var(--field-grass-inner);
 }
 
 .fv-dirt {
-  fill: #493725;
+  fill: var(--field-dirt);
 }
 
 .fv-mound {
-  fill: #5b452f;
+  fill: var(--field-mound);
 }
 
 .fv-chalk {
   fill: none;
-  stroke: rgba(238, 244, 251, 0.4);
+  stroke: var(--field-chalk);
   stroke-width: 2;
 }
 
 .fv-base {
-  fill: #e6edf7;
+  fill: var(--field-base);
 }
 
 /* One position card, centered on its spot. Sized as a share of the field so it
@@ -2905,8 +3377,8 @@ body {
   padding: 5px 7px 6px;
   border-radius: 9px;
   border: 1px solid var(--card-border);
-  background: rgba(6, 17, 31, 0.86);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  background: var(--field-pod-bg);
+  box-shadow: 0 6px 16px var(--shadow-pod);
 }
 
 /* Tall cards can crowd their neighbours (SS/3B, 2B/1B); hovering lifts one
@@ -2916,18 +3388,18 @@ body {
 }
 
 .fv-pod[data-depth="none"] {
-  border-color: rgba(248, 113, 113, 0.45);
-  background: rgba(60, 15, 20, 0.82);
+  border-color: var(--field-pod-none-border);
+  background: var(--field-pod-none-bg);
 }
 
 .fv-pod[data-depth="backup"] {
-  border-color: rgba(251, 191, 36, 0.42);
-  background: rgba(58, 36, 8, 0.84);
+  border-color: var(--field-pod-backup-border);
+  background: var(--field-pod-backup-bg);
 }
 
 .fv-pod[data-depth="deep"] {
-  border-color: rgba(56, 189, 248, 0.5);
-  background: rgba(8, 41, 66, 0.86);
+  border-color: var(--field-pod-deep-border);
+  background: var(--field-pod-deep-bg);
 }
 
 .fv-pod-head {
@@ -2941,7 +3413,7 @@ body {
   font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.04em;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .fv-pod[data-depth="none"] .fv-pod-pos {
@@ -2949,7 +3421,7 @@ body {
 }
 
 .fv-pod[data-depth="backup"] .fv-pod-pos {
-  color: #fcd34d;
+  color: var(--depth-backup-text);
 }
 
 .fv-pod-count {
@@ -3089,7 +3561,7 @@ body {
 .fv-extras-label {
   flex: 0 0 152px;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* Free text we couldn't map — shown as typed, and visibly not a known position. */
@@ -3120,7 +3592,7 @@ body {
 /* A light "paper" document that reads well on screen (inside the dark app) and
    prints/saves to PDF cleanly. @media print (below) strips the app chrome. */
 .print-view {
-  color: #111827;
+  color: var(--print-ink);
 }
 
 .print-toolbar {
@@ -3138,13 +3610,13 @@ body {
 }
 
 .print-doc {
-  background: #ffffff;
-  color: #111827;
+  background: var(--print-paper);
+  color: var(--print-ink);
   max-width: 920px;
   margin: 0 auto;
   padding: 36px 40px;
   border-radius: 12px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 12px 40px var(--print-shadow);
   font-size: 0.9rem;
   line-height: 1.4;
 }
@@ -3156,7 +3628,7 @@ body {
   gap: 24px;
   flex-wrap: wrap;
   padding-bottom: 16px;
-  border-bottom: 2px solid #0f2742;
+  border-bottom: 2px solid var(--print-ink-strong);
   margin-bottom: 22px;
 }
 
@@ -3166,32 +3638,32 @@ body {
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #0ea5e9;
+  color: var(--print-brand);
 }
 
 .print-doc-title {
   margin: 4px 0 2px;
   font-size: 1.5rem;
   font-weight: 800;
-  color: #0f2742;
+  color: var(--print-ink-strong);
 }
 
 .print-doc-scope {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--print-ink-mid);
 }
 
 .print-doc-meta {
   margin: 0;
   text-align: right;
   font-size: 0.78rem;
-  color: #6b7280;
+  color: var(--print-ink-soft);
 }
 
 .print-note {
-  color: #6b7280;
+  color: var(--print-ink-soft);
   font-style: italic;
 }
 
@@ -3212,7 +3684,7 @@ body {
   gap: 12px;
   flex-wrap: wrap;
   padding-bottom: 8px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--print-rule-soft);
   margin-bottom: 14px;
 }
 
@@ -3220,7 +3692,7 @@ body {
   margin: 0;
   font-size: 1.15rem;
   font-weight: 800;
-  color: #0f2742;
+  color: var(--print-ink-strong);
 }
 
 .print-badge {
@@ -3228,9 +3700,9 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #0369a1;
-  background: #e0f2fe;
-  border: 1px solid #bae6fd;
+  color: var(--print-accent);
+  background: var(--print-accent-bg);
+  border: 1px solid var(--print-accent-border);
   border-radius: 999px;
   padding: 2px 10px;
 }
@@ -3239,7 +3711,7 @@ body {
   margin-left: auto;
   font-size: 1.1rem;
   font-weight: 800;
-  color: #047857;
+  color: var(--print-pos);
   display: inline-flex;
   align-items: baseline;
   gap: 8px;
@@ -3250,15 +3722,15 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #6b7280;
+  color: var(--print-ink-soft);
 }
 
 .print-team-balance.neg {
-  color: #b91c1c;
+  color: var(--print-neg);
 }
 
 .print-team-balance.idle {
-  color: #6b7280;
+  color: var(--print-ink-soft);
   font-weight: 600;
   font-size: 0.9rem;
 }
@@ -3280,7 +3752,7 @@ body {
 .print-budget th,
 .print-budget td {
   padding: 6px 8px;
-  border-bottom: 1px solid #eef1f4;
+  border-bottom: 1px solid var(--print-rule-light);
   text-align: left;
 }
 
@@ -3295,8 +3767,8 @@ body {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: #64748b;
-  border-bottom: 1px solid #cbd5e1;
+  color: var(--print-ink-muted);
+  border-bottom: 1px solid var(--print-rule);
 }
 
 .print-budget tr.pt th,
@@ -3307,18 +3779,18 @@ body {
 .print-budget tr.pcur th,
 .print-budget tr.pcur td {
   font-weight: 800;
-  background: #fef9c3;
+  background: var(--print-highlight-bg);
 }
 
 .print-budget tr.pcur td.neg {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--print-neg-bg);
+  color: var(--print-neg);
 }
 
 .print-budget tr.pfund th,
 .print-budget tr.pfund td {
   font-weight: 700;
-  background: #dcfce7;
+  background: var(--print-fund-bg);
 }
 
 /* Expense log table */
@@ -3328,7 +3800,7 @@ body {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: #64748b;
+  color: var(--print-ink-muted);
 }
 
 /* The camp report stacks three of these headings inside one camp block, so
@@ -3350,14 +3822,14 @@ body {
   font-size: 0.66rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #64748b;
+  color: var(--print-ink-muted);
   padding: 6px 8px;
-  border-bottom: 1.5px solid #cbd5e1;
+  border-bottom: 1.5px solid var(--print-rule);
 }
 
 .print-exp-table td {
   padding: 6px 8px;
-  border-bottom: 1px solid #eef1f4;
+  border-bottom: 1px solid var(--print-rule-light);
 }
 
 .print-exp-table .amt {
@@ -3367,15 +3839,15 @@ body {
 
 .print-exp-table tfoot td {
   border-bottom: none;
-  border-top: 1px solid #e5e7eb;
-  color: #4b5563;
+  border-top: 1px solid var(--print-rule-soft);
+  color: var(--print-ink-body);
   font-size: 0.8rem;
 }
 
 .print-exp-table tfoot tr.net td {
   font-weight: 800;
-  color: #0f2742;
-  border-top: 1.5px solid #cbd5e1;
+  color: var(--print-ink-strong);
+  border-top: 1.5px solid var(--print-rule);
 }
 
 /* The fundraising and scheduled-tournaments blocks stack above the expense log
@@ -3389,7 +3861,7 @@ body {
   display: block;
   margin-top: 1px;
   font-size: 0.72rem;
-  color: #64748b;
+  color: var(--print-ink-muted);
 }
 
 /* Player/event count shown next to a team name in the roster/schedule reports,
@@ -3397,7 +3869,7 @@ body {
 .print-team-count {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--print-ink-muted);
 }
 
 /* The roster report is printed landscape (see the per-route @page rule), so let
@@ -3421,23 +3893,23 @@ body {
   font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #64748b;
+  color: var(--print-ink-muted);
   padding: 6px 6px;
-  border-bottom: 1.5px solid #cbd5e1;
+  border-bottom: 1.5px solid var(--print-rule);
   vertical-align: bottom;
 }
 
 .print-roster td {
   padding: 5px 6px;
-  border-bottom: 1px solid #eef1f4;
-  color: #111827;
+  border-bottom: 1px solid var(--print-rule-light);
+  color: var(--print-ink);
   vertical-align: top;
   word-break: break-word;
 }
 
 .print-roster .col-name {
   font-weight: 700;
-  color: #0f2742;
+  color: var(--print-ink-strong);
 }
 
 /* Schedule table: one team's tournaments, mirroring the on-screen columns. */
@@ -3453,15 +3925,15 @@ body {
   font-size: 0.64rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #64748b;
+  color: var(--print-ink-muted);
   padding: 6px 8px;
-  border-bottom: 1.5px solid #cbd5e1;
+  border-bottom: 1.5px solid var(--print-rule);
 }
 
 .print-sched td {
   padding: 6px 8px;
-  border-bottom: 1px solid #eef1f4;
-  color: #111827;
+  border-bottom: 1px solid var(--print-rule-light);
+  color: var(--print-ink);
   /* Let a long unbroken value (a spaceless venue/host token) wrap instead of
      widening the table off the portrait page and clipping Cost/Status. */
   overflow-wrap: anywhere;
@@ -3474,14 +3946,14 @@ body {
 
 .print-sched .col-name {
   font-weight: 600;
-  color: #0f2742;
+  color: var(--print-ink-strong);
 }
 
 .print-sched tfoot td {
   border-bottom: none;
-  border-top: 1.5px solid #cbd5e1;
+  border-top: 1.5px solid var(--print-rule);
   font-weight: 800;
-  color: #0f2742;
+  color: var(--print-ink-strong);
 }
 
 /* Division grand-total banner under the last team when printing a whole
@@ -3494,8 +3966,8 @@ body {
   gap: 16px;
   margin-top: 10px;
   padding: 12px 4px 4px;
-  border-top: 2px solid #0f2742;
-  color: #0f2742;
+  border-top: 2px solid var(--print-ink-strong);
+  color: var(--print-ink-strong);
   break-inside: avoid;
 }
 
@@ -3530,12 +4002,12 @@ body {
   flex-direction: column;
   gap: 3px;
   padding: 9px 12px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--print-rule);
   border-radius: 8px;
 }
 
 .print-stat.is-total {
-  border: 1.5px solid #0f2742;
+  border: 1.5px solid var(--print-ink-strong);
 }
 
 .print-stat-label {
@@ -3543,13 +4015,13 @@ body {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #64748b;
+  color: var(--print-ink-muted);
 }
 
 .print-stat-value {
   font-size: 1.02rem;
   font-weight: 800;
-  color: #0f2742;
+  color: var(--print-ink-strong);
   font-variant-numeric: tabular-nums;
 }
 
@@ -3568,15 +4040,15 @@ body {
   font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #64748b;
+  color: var(--print-ink-muted);
   padding: 6px 6px;
-  border-bottom: 1.5px solid #cbd5e1;
+  border-bottom: 1.5px solid var(--print-rule);
 }
 
 .print-pay-table td {
   padding: 5px 6px;
-  border-bottom: 1px solid #eef1f4;
-  color: #111827;
+  border-bottom: 1px solid var(--print-rule-light);
+  color: var(--print-ink);
   vertical-align: top;
   /* break-word, not anywhere: a long team name wraps between its words, but no
      column may be squeezed narrower than its own longest word — which is what
@@ -3596,7 +4068,7 @@ body {
 .print-pay-table .col-name,
 .print-pay-table .col-total {
   font-weight: 700;
-  color: #0f2742;
+  color: var(--print-ink-strong);
 }
 
 /* ---- Reports on a small screen ---- */
@@ -3689,7 +4161,7 @@ body {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #0f2742;
+  color: var(--print-ink-strong);
 }
 
 .print-grid-scroll {
@@ -3700,12 +4172,12 @@ body {
   border-collapse: collapse;
   font-size: 0.7rem;
   font-variant-numeric: tabular-nums;
-  color: #111827;
+  color: var(--print-ink);
 }
 
 .print-grid th,
 .print-grid td {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--print-rule-faint);
   padding: 3px 6px;
   text-align: center;
 }
@@ -3714,22 +4186,22 @@ body {
 .print-grid td.pg-player {
   text-align: left;
   font-weight: 600;
-  color: #0f2742;
+  color: var(--print-ink-strong);
   white-space: nowrap;
 }
 
 .print-grid thead th {
-  border-bottom: 1.5px solid #cbd5e1;
-  color: #475569;
+  border-bottom: 1.5px solid var(--print-rule);
+  color: var(--print-ink-head);
   vertical-align: bottom;
 }
 
 .print-grid th.pg-grp,
 .print-grid td.pg-grp {
   font-weight: 700;
-  color: #0f2742;
+  color: var(--print-ink-strong);
   font-variant-numeric: tabular-nums;
-  background: #f8fafc;
+  background: var(--print-band);
 }
 
 .print-grid .pg-evt {
@@ -3739,7 +4211,7 @@ body {
 .print-grid .pg-evt-date {
   display: block;
   font-weight: 800;
-  color: #0f2742;
+  color: var(--print-ink-strong);
   white-space: nowrap;
 }
 
@@ -3749,7 +4221,7 @@ body {
   margin: 0 auto;
   font-size: 0.58rem;
   font-weight: 500;
-  color: #64748b;
+  color: var(--print-ink-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3758,34 +4230,34 @@ body {
 .print-grid th.pg-total,
 .print-grid td.pg-total {
   font-weight: 800;
-  color: #0f2742;
-  background: #f1f5f9;
+  color: var(--print-ink-strong);
+  background: var(--print-band-strong);
 }
 
 .print-grid .pg-in {
-  color: #15803d;
+  color: var(--print-in-text);
   font-weight: 800;
-  background: #dcfce7;
+  background: var(--print-in-bg);
 }
 
 .print-grid .pg-out {
-  color: #cbd5e1;
+  color: var(--print-out-text);
 }
 
 .print-grid tfoot td {
-  border-top: 1.5px solid #cbd5e1;
+  border-top: 1.5px solid var(--print-rule);
   font-weight: 700;
-  color: #0f2742;
+  color: var(--print-ink-strong);
 }
 
 .print-grid tfoot .pg-count {
-  background: #f8fafc;
+  background: var(--print-band);
 }
 
 .print-groups-legend {
   margin: 6px 0 0;
   font-size: 0.64rem;
-  color: #64748b;
+  color: var(--print-ink-muted);
 }
 
 /* ---- Field / depth chart on paper ---- */
@@ -3811,74 +4283,74 @@ body {
 }
 
 .print-field .fv-grass {
-  fill: #eaf4ea;
-  stroke: #94a3b8;
+  fill: var(--print-field-grass);
+  stroke: var(--print-field-outline);
 }
 
 .print-field .fv-grass-in {
-  fill: #dcebdc;
+  fill: var(--print-field-grass-inner);
 }
 
 .print-field .fv-dirt {
-  fill: #f4e8d7;
+  fill: var(--print-field-dirt);
 }
 
 .print-field .fv-mound {
-  fill: #e7d5bb;
+  fill: var(--print-field-mound);
 }
 
 .print-field .fv-chalk {
-  stroke: #9ca3af;
+  stroke: var(--print-field-chalk);
 }
 
 .print-field .fv-base {
-  fill: #6b7280;
+  fill: var(--print-field-base);
 }
 
 /* Position cards: white with a colored edge, so a stacked or empty spot still
    reads at a glance without flooding the page with ink. */
 .print-field .fv-pod {
-  background: #ffffff;
-  border-color: #cbd5e1;
+  background: var(--print-pod-bg);
+  border-color: var(--print-pod-border);
   box-shadow: none;
-  color: #111827;
+  color: var(--print-ink);
 }
 
 .print-field .fv-pod[data-depth="none"] {
-  background: #fef2f2;
-  border-color: #fca5a5;
+  background: var(--print-pod-none-bg);
+  border-color: var(--print-neg-border);
 }
 
 .print-field .fv-pod[data-depth="backup"] {
-  background: #fffbeb;
-  border-color: #fcd34d;
+  background: var(--print-pod-backup-bg);
+  border-color: var(--print-warn-border);
 }
 
 .print-field .fv-pod[data-depth="deep"] {
-  background: #eff6ff;
-  border-color: #93c5fd;
+  background: var(--print-pod-deep-bg);
+  border-color: var(--print-pod-deep-border);
 }
 
 .print-field .fv-pod-pos {
-  color: #0f2742;
+  color: var(--print-ink-strong);
 }
 
 .print-field .fv-pod[data-depth="none"] .fv-pod-pos {
-  color: #b91c1c;
+  color: var(--print-neg);
 }
 
 .print-field .fv-pod[data-depth="backup"] .fv-pod-pos {
-  color: #b45309;
+  color: var(--print-warn);
 }
 
 .print-field .fv-pod-count,
 .print-field .fv-pod-num {
-  color: #6b7280;
+  color: var(--print-ink-soft);
 }
 
 .print-field .fv-pod-empty,
 .print-field .fv-pod-more {
-  color: #9ca3af;
+  color: var(--print-ink-faint);
 }
 
 .print-field .fv-pod {
@@ -3907,68 +4379,68 @@ body {
 }
 
 .print-field .fv-pod-names li::before {
-  background: #0284c7;
+  background: var(--print-accent-dot);
 }
 
 .print-field .fv-pod-names li.is-backup {
-  color: #6b7280;
+  color: var(--print-ink-soft);
 }
 
 .print-field .fv-pod-names li.is-backup::before {
   background: transparent;
-  border-color: #9ca3af;
+  border-color: var(--print-dot-backup-border);
 }
 
 .print-field .fv-flag-none {
-  color: #b91c1c;
-  background: #fee2e2;
-  border-color: #fca5a5;
+  color: var(--print-neg);
+  background: var(--print-neg-bg);
+  border-color: var(--print-neg-border);
 }
 
 .print-field .fv-flag-backup {
-  color: #b45309;
-  background: #fef3c7;
-  border-color: #fcd34d;
+  color: var(--print-warn);
+  background: var(--print-warn-bg);
+  border-color: var(--print-warn-border);
 }
 
 .print-field .fv-flag-deep,
 .print-field .fv-flag-ok {
-  color: #0369a1;
-  background: #e0f2fe;
-  border-color: #bae6fd;
+  color: var(--print-accent);
+  background: var(--print-accent-bg);
+  border-color: var(--print-accent-border);
 }
 
 .print-field .fv-legend {
-  color: #4b5563;
+  color: var(--print-ink-body);
 }
 
 .print-field .fv-key-primary {
-  background: #0284c7;
+  background: var(--print-accent-dot);
 }
 
 .print-field .fv-key-backup {
-  border-color: #9ca3af;
+  border-color: var(--print-dot-backup-border);
 }
 
 .print-field .fv-extras {
-  border-top-color: #e5e7eb;
+  border-top-color: var(--print-rule-soft);
 }
 
 .print-field .fv-extras-title {
-  color: #6b7280;
+  color: var(--print-ink-soft);
 }
 
 .print-field .fv-extras-label {
-  color: #0369a1;
+  color: var(--print-accent);
 }
 
 .print-field .fv-extras-label[data-unknown],
 .print-field .fv-extras-names .is-backup {
-  color: #6b7280;
+  color: var(--print-ink-soft);
 }
 
 .print-field .fv-extras-names {
-  color: #111827;
+  color: var(--print-ink);
 }
 
 /* Print rules: drop the app chrome and the toolbar; let the paper fill the
@@ -3995,7 +4467,7 @@ body {
   }
 
   body {
-    background: #ffffff;
+    background: var(--print-paper);
   }
 
   .print-doc {
@@ -4029,7 +4501,7 @@ body {
 
 /* Links inside empty-state copy (e.g. "…create one in the Teams tab"). */
 .empty-sub a {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: none;
 }
 
@@ -4042,12 +4514,12 @@ body {
 .tg-total {
   font-size: 0.82rem;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--accent-text);
   white-space: nowrap;
   padding: 3px 10px;
   border-radius: 999px;
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: var(--accent-chip-bg);
+  border: 1px solid var(--accent-chip-border);
 }
 
 /* Schedule table — same look as the roster, but no frozen first column
@@ -4075,7 +4547,7 @@ body {
 
 .sched tbody td {
   padding: 9px 12px;
-  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  border-bottom: 1px solid var(--table-row-border);
   vertical-align: middle;
 }
 
@@ -4110,7 +4582,7 @@ body {
 
 .sched-total-value {
   font-weight: 800;
-  color: var(--accent);
+  color: var(--accent-text);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -4139,51 +4611,51 @@ body {
 }
 
 .status-select:focus {
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 /* Keep the expanded option list readable on every platform. */
 .status-select option {
   color: var(--text);
-  background: var(--navy-800);
+  background: var(--select-option-bg);
 }
 
 .status-registered {
-  color: #bfe6ff;
-  background-color: rgba(56, 189, 248, 0.14);
-  border-color: rgba(56, 189, 248, 0.35);
+  color: var(--status-info-text);
+  background-color: var(--status-info-bg);
+  border-color: var(--status-info-border);
 }
 
 .status-paid {
-  color: #bbf7d0;
-  background-color: rgba(34, 197, 94, 0.16);
-  border-color: rgba(34, 197, 94, 0.4);
+  color: var(--status-ok-text);
+  background-color: var(--status-ok-bg);
+  border-color: var(--status-ok-border);
 }
 
 .status-waitlisted {
-  color: #ffe3a8;
-  background-color: rgba(250, 204, 21, 0.14);
-  border-color: rgba(250, 204, 21, 0.4);
+  color: var(--status-warn-text);
+  background-color: var(--status-warn-bg);
+  border-color: var(--status-warn-border);
 }
 
 /* Rained out — a washed-out slate. */
 .status-rainout {
-  color: #cbd5e1;
-  background-color: rgba(148, 163, 184, 0.16);
-  border-color: rgba(148, 163, 184, 0.42);
+  color: var(--status-neutral-text);
+  background-color: var(--status-neutral-bg);
+  border-color: var(--status-neutral-border);
 }
 
 /* Refund — violet, distinct from the green "paid". */
 .status-refund {
-  color: #e5d4ff;
-  background-color: rgba(168, 85, 247, 0.16);
-  border-color: rgba(168, 85, 247, 0.42);
+  color: var(--status-refund-text);
+  background-color: var(--status-refund-bg);
+  border-color: var(--status-refund-border);
 }
 
 /* Inline edit form (expands within a schedule row) */
 .sched-edit-row > td {
   padding: 0;
-  background: rgba(56, 189, 248, 0.05);
+  background: var(--edit-row-bg);
 }
 
 .sched-edit-form {
@@ -4211,9 +4683,9 @@ body {
   padding: 5px 10px;
   font-size: 0.78rem;
   font-weight: 600;
-  color: #bbf7d0;
+  color: var(--status-ok-text);
   background: transparent;
-  border: 1px solid rgba(34, 197, 94, 0.32);
+  border: 1px solid var(--status-ok-border-hairline);
   border-radius: 7px;
   cursor: pointer;
   white-space: nowrap;
@@ -4221,13 +4693,13 @@ body {
 }
 
 .row-groups:hover {
-  background: rgba(34, 197, 94, 0.12);
-  border-color: rgba(34, 197, 94, 0.55);
+  background: var(--status-ok-bg-faint);
+  border-color: var(--status-ok-border-hover);
 }
 
 .row-groups.is-open {
-  background: rgba(34, 197, 94, 0.16);
-  border-color: rgba(34, 197, 94, 0.6);
+  background: var(--status-ok-bg);
+  border-color: var(--status-ok-border-active);
 }
 
 .row-groups-badge {
@@ -4236,19 +4708,19 @@ body {
   font-variant-numeric: tabular-nums;
   padding: 1px 6px;
   border-radius: 999px;
-  background: rgba(34, 197, 94, 0.18);
-  border: 1px solid rgba(34, 197, 94, 0.35);
+  background: var(--status-ok-badge-bg);
+  border: 1px solid var(--status-ok-border-soft);
 }
 
 /* The expandable Groups panel row under an event. */
 .groups-row > td {
   padding: 0;
-  background: rgba(34, 197, 94, 0.05);
+  background: var(--status-ok-row-bg);
 }
 
 .groups-panel {
   padding: 16px;
-  border-left: 3px solid #22c55e;
+  border-left: 3px solid var(--status-ok);
 }
 
 .groups-head {
@@ -4286,7 +4758,7 @@ body {
   font-size: 0.76rem;
   font-weight: 600;
   color: var(--text);
-  background: rgba(8, 20, 36, 0.6);
+  background: var(--surface-control);
   border: 1px solid var(--card-border);
   border-radius: 7px;
   cursor: pointer;
@@ -4335,8 +4807,8 @@ body {
 }
 
 .group-player.is-in {
-  border-color: rgba(34, 197, 94, 0.45);
-  background: rgba(34, 197, 94, 0.1);
+  border-color: var(--status-ok-select-border);
+  background: var(--status-ok-select-bg);
 }
 
 .group-player.is-out {
@@ -4361,13 +4833,13 @@ body {
 }
 
 .group-player.is-in .group-player-mark {
-  color: #04121f;
-  background: #22c55e;
+  color: var(--text-on-status-ok);
+  background: var(--status-ok);
 }
 
 .group-player.is-out .group-player-mark {
   color: var(--text-muted);
-  background: rgba(148, 163, 184, 0.2);
+  background: var(--status-off-bg);
 }
 
 .group-player-name {
@@ -4387,7 +4859,7 @@ body {
   color: var(--text-muted);
   padding: 1px 6px;
   border-radius: 5px;
-  background: rgba(148, 187, 233, 0.1);
+  background: var(--chip-neutral-bg);
 }
 
 .group-player-state {
@@ -4399,7 +4871,7 @@ body {
 }
 
 .group-player.is-in .group-player-state {
-  color: #86efac;
+  color: var(--status-ok-text-strong);
 }
 
 .groups-empty {
@@ -4411,7 +4883,7 @@ body {
 }
 
 .groups-empty a {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* ---- Playing-time planner (per team, above the schedule table) ---- */
@@ -4472,7 +4944,7 @@ body {
 
 .planner-field input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .planner-result {
@@ -4482,9 +4954,9 @@ body {
   flex-wrap: wrap;
   margin-top: 16px;
   padding: 14px 16px;
-  border: 1px solid rgba(56, 189, 248, 0.25);
+  border: 1px solid var(--accent-panel-border);
   border-radius: 10px;
-  background: rgba(56, 189, 248, 0.06);
+  background: var(--accent-panel-bg);
 }
 
 .planner-number {
@@ -4499,7 +4971,7 @@ body {
   font-size: 2.2rem;
   font-weight: 800;
   line-height: 1;
-  color: var(--accent);
+  color: var(--accent-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -4536,11 +5008,11 @@ body {
 }
 
 .planner-gap.short {
-  color: #ffe3a8;
+  color: var(--status-warn-text);
 }
 
 .planner-gap.ok {
-  color: #86efac;
+  color: var(--status-ok-text-strong);
 }
 
 .planner-invalid {
@@ -4578,11 +5050,11 @@ body {
 }
 
 .planner-fairness-summary.short {
-  color: #ffe3a8;
+  color: var(--status-warn-text);
 }
 
 .planner-fairness-summary.ok {
-  color: #86efac;
+  color: var(--status-ok-text-strong);
 }
 
 .planner-note {
@@ -4613,8 +5085,8 @@ body {
 }
 
 .planner-player.short {
-  border-color: rgba(250, 204, 21, 0.4);
-  background: rgba(250, 204, 21, 0.08);
+  border-color: var(--status-warn-border);
+  background: var(--warn-row-bg);
 }
 
 .planner-player-name {
@@ -4631,7 +5103,7 @@ body {
 }
 
 .planner-player.short .planner-player-count {
-  color: #ffe3a8;
+  color: var(--status-warn-text);
 }
 
 .planner-player-of {
@@ -4653,11 +5125,11 @@ body {
   font-size: 0.64rem;
   font-weight: 800;
   letter-spacing: 0.03em;
-  color: #86efac;
+  color: var(--status-ok-text-strong);
   padding: 1px 5px;
   border-radius: 5px;
-  background: rgba(34, 197, 94, 0.14);
-  border: 1px solid rgba(34, 197, 94, 0.32);
+  background: var(--status-ok-bg-soft);
+  border: 1px solid var(--status-ok-border-hairline);
 }
 
 /* ---- Roster groups editor (per team, above the schedule table) ---- */
@@ -4769,7 +5241,7 @@ body {
 }
 
 .rgroups-step:hover:not(:disabled) {
-  background: rgba(34, 197, 94, 0.14);
+  background: var(--status-ok-bg-soft);
 }
 
 .rgroups-step:disabled {
@@ -4816,11 +5288,11 @@ body {
   font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.02em;
-  color: #bbf7d0;
+  color: var(--status-ok-text);
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(34, 197, 94, 0.16);
-  border: 1px solid rgba(34, 197, 94, 0.35);
+  background: var(--status-ok-bg);
+  border: 1px solid var(--status-ok-border-soft);
 }
 
 .rgroup-card-count {
@@ -4848,7 +5320,7 @@ body {
   margin: 6px 0 0;
   font-size: 0.72rem;
   font-weight: 700;
-  color: #ffc9c9;
+  color: var(--warn-alert-text);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -4893,7 +5365,7 @@ body {
   color: var(--text-muted);
   padding: 1px 6px;
   border-radius: 5px;
-  background: rgba(148, 187, 233, 0.1);
+  background: var(--chip-neutral-bg);
 }
 
 .rgroups-picker {
@@ -4909,7 +5381,7 @@ body {
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-muted);
-  background: rgba(8, 20, 36, 0.6);
+  background: var(--surface-control);
   border: 1px solid var(--card-border);
   border-radius: 7px;
   cursor: pointer;
@@ -4921,9 +5393,9 @@ body {
 }
 
 .rgroups-opt.is-on {
-  color: #04121f;
-  background: #22c55e;
-  border-color: #22c55e;
+  color: var(--text-on-status-ok);
+  background: var(--status-ok);
+  border-color: var(--status-ok);
 }
 
 .rgroups-foot {
@@ -4933,7 +5405,7 @@ body {
 }
 
 .rgroups-foot a {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* ---- Per-event group selector (inside the Groups panel) ---- */
@@ -4961,7 +5433,7 @@ body {
 .egroups-picked {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #86efac;
+  color: var(--status-ok-text-strong);
 }
 
 .egroup-chips {
@@ -4990,9 +5462,9 @@ body {
 }
 
 .egroup-chip.is-on {
-  color: #eafff2;
-  background: rgba(34, 197, 94, 0.22);
-  border-color: rgba(34, 197, 94, 0.65);
+  color: var(--status-ok-on-text);
+  background: var(--status-ok-chip-on-bg);
+  border-color: var(--status-ok-chip-on-border);
 }
 
 .egroup-chip-name {
@@ -5005,11 +5477,11 @@ body {
   font-variant-numeric: tabular-nums;
   padding: 1px 7px;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.18);
+  background: var(--count-chip-bg);
 }
 
 .egroup-chip.is-on .egroup-chip-count {
-  background: rgba(34, 197, 94, 0.35);
+  background: var(--status-ok-chip-on-count-bg);
 }
 
 .egroups-hint {
@@ -5025,23 +5497,23 @@ body {
   font-size: 0.8rem;
   line-height: 1.45;
   color: var(--text-muted);
-  background: rgba(34, 197, 94, 0.06);
-  border: 1px dashed rgba(34, 197, 94, 0.3);
+  background: var(--status-ok-nudge-bg);
+  border: 1px dashed var(--status-ok-nudge-border);
   border-radius: 9px;
 }
 
 .egroups-nudge strong {
-  color: #bbf7d0;
+  color: var(--status-ok-text);
 }
 
 /* A player whose state is a one-off exception to their group's baseline. */
 .group-player.is-exception {
   border-style: dashed;
-  border-color: rgba(250, 204, 21, 0.5);
+  border-color: var(--exception-border);
 }
 
 .group-player.is-in.is-exception {
-  background: rgba(250, 204, 21, 0.1);
+  background: var(--exception-bg);
 }
 
 /* ---- Payment Tracker ---- */
@@ -5069,7 +5541,7 @@ body {
 
 .pay-search-field:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .pay-search-icon {
@@ -5116,7 +5588,7 @@ body {
 
 .pay-search-clear:hover {
   color: var(--text);
-  background: rgba(148, 187, 233, 0.12);
+  background: var(--ghost-hover-bg);
 }
 
 /* Results dropdown; overlays the table below with an opaque backdrop. */
@@ -5132,7 +5604,7 @@ body {
   background: var(--roster-bg);
   border: 1px solid var(--card-border);
   border-radius: 12px;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 18px 44px var(--shadow-popover);
   max-height: 320px;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -5153,7 +5625,7 @@ body {
 
 .pay-search-option:hover,
 .pay-search-option.is-active {
-  background: rgba(56, 189, 248, 0.12);
+  background: var(--option-hover-bg);
 }
 
 .pay-search-player {
@@ -5233,19 +5705,19 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-muted);
-  background: rgba(8, 20, 36, 0.85);
+  background: var(--table-head-bg-strong);
   border-bottom: 1px solid var(--card-border);
 }
 
 .pay-table tbody td {
   padding: 10px 10px;
   white-space: nowrap;
-  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  border-bottom: 1px solid var(--table-row-border);
   vertical-align: middle;
 }
 
 .pay-table tbody tr:not(.pay-error-row):hover td {
-  background: rgba(56, 189, 248, 0.05);
+  background: var(--table-row-hover-tint);
 }
 
 .pay-nowrap {
@@ -5263,7 +5735,7 @@ body {
 
 .pay-running {
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .pay-check {
@@ -5318,7 +5790,7 @@ body {
 .pay-input:focus,
 .pay-select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .pay-input:disabled,
@@ -5328,7 +5800,7 @@ body {
 }
 
 .pay-draft-row td {
-  background: rgba(56, 189, 248, 0.04);
+  background: var(--draft-row-bg);
 }
 
 .pay-draft-total {
@@ -5349,22 +5821,22 @@ body {
 }
 
 .pay-type-check {
-  color: #bfe6ff;
-  background: rgba(56, 189, 248, 0.14);
-  border-color: rgba(56, 189, 248, 0.35);
+  color: var(--status-info-text);
+  background: var(--status-info-bg);
+  border-color: var(--status-info-border);
 }
 
 .pay-type-cash {
-  color: #bbf7d0;
-  background: rgba(34, 197, 94, 0.14);
-  border-color: rgba(34, 197, 94, 0.35);
+  color: var(--status-ok-text);
+  background: var(--status-ok-bg-soft);
+  border-color: var(--status-ok-border-soft);
 }
 
 /* Totals footer */
 .pay-total-row td {
   padding: 14px;
   border-top: 1px solid var(--card-border);
-  background: rgba(8, 20, 36, 0.6);
+  background: var(--table-foot-bg);
 }
 
 .pay-total-label {
@@ -5379,7 +5851,7 @@ body {
 .pay-grand {
   font-weight: 800;
   font-size: 1rem;
-  color: #7ee2a8;
+  color: var(--money-in);
 }
 
 /* Add Payment button + summary count */
@@ -5399,8 +5871,8 @@ body {
   font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: #052e16;
-  background: linear-gradient(180deg, #4ade80, #22c55e);
+  color: var(--text-on-positive);
+  background: linear-gradient(180deg, var(--positive-from), var(--positive-to));
   border: none;
   border-radius: 10px;
   cursor: pointer;
@@ -5432,8 +5904,8 @@ body {
   padding: 5px 12px;
   font-size: 0.78rem;
   font-weight: 700;
-  color: #052e16;
-  background: linear-gradient(180deg, #4ade80, #22c55e);
+  color: var(--text-on-positive);
+  background: linear-gradient(180deg, var(--positive-from), var(--positive-to));
   border: none;
   border-radius: 7px;
   cursor: pointer;
@@ -5458,7 +5930,7 @@ body {
 }
 
 .inline-link {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
 }
 
@@ -5493,9 +5965,9 @@ body {
   font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: #fde68a;
-  background: rgba(234, 179, 8, 0.14);
-  border: 1px solid rgba(234, 179, 8, 0.35);
+  color: var(--fund-badge-text);
+  background: var(--fund-badge-bg);
+  border: 1px solid var(--fund-badge-border);
 }
 
 /* Marks a whole-team (team-based) entry in the Player column, distinguishing
@@ -5508,7 +5980,7 @@ body {
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--text-muted);
-  background: rgba(148, 187, 233, 0.1);
+  background: var(--chip-neutral-bg);
   border: 1px solid var(--card-border);
 }
 
@@ -5560,7 +6032,7 @@ body {
 
 .fund-raised-amt {
   font-weight: 800;
-  color: #7ee2a8;
+  color: var(--money-in);
   font-variant-numeric: tabular-nums;
 }
 
@@ -5572,14 +6044,14 @@ body {
 .fund-progress {
   height: 6px;
   border-radius: 999px;
-  background: rgba(148, 187, 233, 0.14);
+  background: var(--meter-track-bg);
   overflow: hidden;
 }
 
 .fund-progress-bar {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #4ade80, #22c55e);
+  background: linear-gradient(90deg, var(--positive-from), var(--positive-to));
 }
 
 /* ---- Program/Camps ---- */
@@ -5614,7 +6086,7 @@ body {
 
 .camp-item.is-active {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 0 0 3px var(--selected-ring);
 }
 
 /* The main clickable area filling the card (everything but Remove). The right
@@ -5659,7 +6131,7 @@ body {
 
 .camp-collected {
   font-weight: 800;
-  color: #7ee2a8;
+  color: var(--money-in);
   font-variant-numeric: tabular-nums;
 }
 
@@ -5677,11 +6149,11 @@ body {
 }
 
 .camp-net-up {
-  color: #7ee2a8;
+  color: var(--money-in);
 }
 
 .camp-net-down {
-  color: #fca5a5;
+  color: var(--money-out);
 }
 
 .camp-item-delete {
@@ -5734,9 +6206,9 @@ body {
   font-size: 0.78rem;
   font-weight: 600;
   white-space: nowrap;
-  color: var(--accent);
+  color: var(--accent-text);
   background: transparent;
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  border: 1px solid var(--accent-outline-border);
   border-radius: 7px;
   cursor: pointer;
   transition:
@@ -5745,8 +6217,8 @@ body {
 }
 
 .camp-add-pay:hover {
-  background: rgba(56, 189, 248, 0.12);
-  border-color: rgba(56, 189, 248, 0.5);
+  background: var(--accent-outline-hover-bg);
+  border-color: var(--accent-outline-hover-border-soft);
 }
 
 /* ---------------------------------------------------------------------------
@@ -5801,7 +6273,7 @@ body {
 }
 
 .accept-option:hover {
-  border-color: rgba(56, 189, 248, 0.4);
+  border-color: var(--option-hover-border);
 }
 
 .accept-option input[type="radio"] {
@@ -5832,8 +6304,8 @@ body {
 .accept-option.selected,
 .accept-option:has(input[type="radio"]:checked) {
   border-color: var(--accent);
-  background: rgba(56, 189, 248, 0.1);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+  background: var(--option-selected-bg);
+  box-shadow: 0 0 0 3px var(--option-selected-ring);
 }
 
 /* Friendly note shown when a parent chooses to decline. */
@@ -5881,7 +6353,7 @@ body {
 
 .subs-search:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .subs-search-icon {
@@ -5928,7 +6400,7 @@ body {
 
 .subs-search-clear:hover {
   color: var(--text);
-  background: rgba(148, 187, 233, 0.12);
+  background: var(--ghost-hover-bg);
 }
 
 /* Row holding the status segments and the team dropdown. */
@@ -5981,13 +6453,13 @@ body {
 }
 
 .subs-seg-btn.is-active {
-  color: #04121f;
-  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: var(--text-on-accent);
+  background: var(--accent-fill);
 }
 
 .subs-seg-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.28);
+  box-shadow: 0 0 0 3px var(--focus-ring-strong);
 }
 
 .subs-seg-count {
@@ -5999,7 +6471,7 @@ body {
 
 .subs-seg-btn.is-active .subs-seg-count {
   /* Fully opaque so the count keeps AA contrast on the accent fill. */
-  color: #04121f;
+  color: var(--text-on-accent);
 }
 
 /* Team filter dropdown. */
@@ -6043,13 +6515,13 @@ body {
 
 .subs-team-select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .subs-team-select option,
 .subs-team-select optgroup {
   color: var(--text);
-  background: var(--navy-800);
+  background: var(--select-option-bg);
 }
 
 /* Inline "Clear filters" reset, shown in the summary line and empty state. */
@@ -6057,7 +6529,7 @@ body {
   padding: 0;
   font-size: inherit;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
   background: none;
   border: none;
   cursor: pointer;
@@ -6121,14 +6593,14 @@ body {
 }
 
 .sub-status-accepted {
-  color: #b8f5d4;
-  background: rgba(34, 197, 94, 0.14);
-  border-color: rgba(34, 197, 94, 0.4);
+  color: var(--accept-text);
+  background: var(--status-ok-bg-soft);
+  border-color: var(--status-ok-border);
 }
 
 .sub-status-declined {
   color: var(--text-muted);
-  background: rgba(148, 187, 233, 0.1);
+  background: var(--chip-neutral-bg);
   border-color: var(--card-border);
 }
 
@@ -6152,7 +6624,7 @@ body {
 
 .sub-team-link {
   font-weight: 700;
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: none;
 }
 
@@ -6250,7 +6722,7 @@ body {
 
 .dir-search:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .dir-search-icon {
@@ -6303,7 +6775,7 @@ body {
 
 .dir-search-clear:hover {
   color: var(--text);
-  background: rgba(148, 187, 233, 0.12);
+  background: var(--ghost-hover-bg);
 }
 
 /* Division-level dropdown. */
@@ -6351,12 +6823,12 @@ body {
 
 .dir-select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .dir-select option {
   color: var(--text);
-  background: var(--navy-800);
+  background: var(--select-option-bg);
 }
 
 /* Typed filter values that sit beside the pill dropdowns — the Payment
@@ -6387,7 +6859,7 @@ body {
 
 .dir-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 /* A date bound. The two share a width so they sit level whether or not either
@@ -6429,7 +6901,7 @@ body {
   padding: 0;
   font-size: inherit;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
   background: none;
   border: none;
   cursor: pointer;
@@ -6490,7 +6962,7 @@ body {
 .dir-table tbody td {
   padding: 9px 12px;
   white-space: nowrap;
-  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  border-bottom: 1px solid var(--table-row-border);
   vertical-align: middle;
 }
 
@@ -6557,7 +7029,7 @@ body {
 
 /* Phone / email / website open from the table. */
 .dir-link {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: none;
 }
 
@@ -6575,8 +7047,8 @@ body {
   letter-spacing: 0.02em;
   white-space: nowrap;
   color: var(--text);
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: var(--accent-chip-bg);
+  border: 1px solid var(--accent-chip-border);
 }
 
 /* Notes can run long — cap the column and keep the full text in the tooltip. */
@@ -6631,8 +7103,8 @@ body {
 
 /* The figure the rest of the app consumes gets the accent treatment. */
 .fx-tile-result {
-  border-color: rgba(56, 189, 248, 0.4);
-  background: rgba(56, 189, 248, 0.08);
+  border-color: var(--accent-callout-border);
+  background: var(--accent-callout-bg);
 }
 
 .fx-tile-label {
@@ -6679,7 +7151,7 @@ body {
   padding: 9px 12px;
   font-size: 0.95rem;
   color: var(--text);
-  background: rgba(8, 20, 36, 0.6);
+  background: var(--surface-control);
   border: 1px solid var(--card-border);
   border-radius: 9px;
   outline: none;
@@ -6690,7 +7162,7 @@ body {
 
 .fx-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .fx-input-count {
@@ -6820,7 +7292,7 @@ body {
 
 .fx-table tbody td {
   padding: 9px 18px;
-  border-bottom: 1px solid rgba(148, 187, 233, 0.08);
+  border-bottom: 1px solid var(--table-row-border);
   vertical-align: middle;
 }
 
@@ -6851,7 +7323,7 @@ body {
 /* Inline editor for a line item. */
 .fx-edit-row > td {
   padding: 0;
-  background: rgba(56, 189, 248, 0.05);
+  background: var(--edit-row-bg);
 }
 
 .fx-edit-form {
@@ -6896,9 +7368,9 @@ body {
   flex-wrap: wrap;
   gap: 10px 16px;
   padding: 16px 18px;
-  border: 1px solid rgba(56, 189, 248, 0.4);
+  border: 1px solid var(--accent-callout-border);
   border-radius: 14px;
-  background: rgba(56, 189, 248, 0.08);
+  background: var(--accent-callout-bg);
 }
 
 .fx-grand-label {
@@ -6920,7 +7392,7 @@ body {
   margin-left: auto;
   font-size: 0.88rem;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* Budgets sheet: the fixed-cost deduction row and its link. */
@@ -6933,12 +7405,12 @@ body {
    the balance, so it reads green against the deductions around it. Muted at
    $0.00, since "nothing raised yet" isn't a credit worth colouring. */
 .budget-sheet .bs-credit {
-  color: #86efac;
+  color: var(--status-ok-text-strong);
   font-variant-numeric: tabular-nums;
 }
 
 .bs-note-link {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: none;
 }
 
@@ -6969,15 +7441,15 @@ body {
 /* Returning reads as the settled, known quantity; new stands out as the one to
    get eyes on (sizes, paperwork, introductions). */
 .rs-returning {
-  color: #b8f5d4;
-  background: rgba(34, 197, 94, 0.14);
-  border-color: rgba(34, 197, 94, 0.4);
+  color: var(--accept-text);
+  background: var(--status-ok-bg-soft);
+  border-color: var(--status-ok-border);
 }
 
 .rs-new {
-  color: #cfe9ff;
-  background: rgba(56, 189, 248, 0.16);
-  border-color: rgba(56, 189, 248, 0.45);
+  color: var(--status-new-text);
+  background: var(--status-new-bg);
+  border-color: var(--status-new-border);
 }
 
 /* Roster Submissions — export buttons. Pushed to the end of the filter row so

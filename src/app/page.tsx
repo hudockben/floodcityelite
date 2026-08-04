@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { currentTenant } from "@/lib/tenant";
+import { currentTenant, isTenantLocked } from "@/lib/tenant";
 import { TENANT_QUERY_PARAM } from "@/lib/tenants";
 import LoginForm from "./login-form";
 import BrandLogo from "./logo";
@@ -11,10 +11,16 @@ export default async function HomePage() {
   if (session) redirect("/homeplate");
 
   const tenant = await currentTenant();
+
+  // On a deployment or domain of their own, this is simply that organization's
+  // site: the sign-in form drops the company-code field, and the public links
+  // need no `?c=` because the address already says which organization it is.
+  const locked = await isTenantLocked();
+
   // Payroll and roster acceptance are login-free, so a visitor arriving there has
   // no session to say which organization they belong to. Naming the tenant in the
   // link keeps them on the same one whose sign-in screen they started from.
-  const tenantQuery = `?${TENANT_QUERY_PARAM}=${tenant.code}`;
+  const tenantQuery = locked ? "" : `?${TENANT_QUERY_PARAM}=${tenant.code}`;
 
   return (
     <main className="page">
@@ -41,7 +47,7 @@ export default async function HomePage() {
               </div>
             </div>
 
-            <LoginForm />
+            <LoginForm showCompanyCode={!locked} />
           </section>
 
           {/* Payroll division — a public form employees fill out. */}

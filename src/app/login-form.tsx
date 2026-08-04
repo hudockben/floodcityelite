@@ -5,25 +5,35 @@ import { loginAction, type LoginState } from "./actions";
 
 const initialState: LoginState = {};
 
-export default function LoginForm() {
+// `showCompanyCode` is false on a deployment or domain dedicated to a single
+// organization: there is only one answer, the server fills it in regardless of
+// what is posted, and asking for it would tell the family that other
+// organizations use the software too.
+export default function LoginForm({
+  showCompanyCode = true,
+}: {
+  showCompanyCode?: boolean;
+}) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
   const [showPassword, setShowPassword] = useState(false);
 
   return (
     <form action={formAction} className="form" noValidate>
-      <div className="field">
-        <label htmlFor="companyCode">Company code</label>
-        <input
-          id="companyCode"
-          name="companyCode"
-          type="text"
-          autoComplete="organization"
-          placeholder="Company code"
-          autoCapitalize="none"
-          spellCheck={false}
-          required
-        />
-      </div>
+      {showCompanyCode ? (
+        <div className="field">
+          <label htmlFor="companyCode">Company code</label>
+          <input
+            id="companyCode"
+            name="companyCode"
+            type="text"
+            autoComplete="organization"
+            placeholder="Company code"
+            autoCapitalize="none"
+            spellCheck={false}
+            required
+          />
+        </div>
+      ) : null}
 
       <div className="field">
         <label htmlFor="username">Username</label>

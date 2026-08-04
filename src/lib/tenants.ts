@@ -98,6 +98,16 @@ export const DEFAULT_TENANT: Tenant = TENANTS[DEFAULT_TENANT_CODE];
 /** Request header the middleware uses to hand the resolved tenant downstream. */
 export const TENANT_HEADER = "x-portal-tenant";
 
+/**
+ * Request header marking the tenant as *fixed* for this request — decided by the
+ * deployment or the domain rather than by anything the visitor did.
+ *
+ * When it is set, the portal stops behaving like a multi-organization login and
+ * starts behaving like that one organization's own site: the sign-in form drops
+ * its company-code field, and a session belonging to anybody else is refused.
+ */
+export const TENANT_LOCK_HEADER = "x-portal-tenant-locked";
+
 /** Cookie that keeps a public (logged-out) visitor on the tenant they arrived at. */
 export const TENANT_COOKIE = "portal_tenant";
 
@@ -106,6 +116,21 @@ export const TENANT_QUERY_PARAM = "c";
 
 export function tenantList(): Tenant[] {
   return Object.values(TENANTS);
+}
+
+/**
+ * The tenant this whole deployment is dedicated to, set with the PORTAL_TENANT
+ * environment variable, or null when the deployment serves every organization.
+ *
+ * Set it and the build stops being a shared portal: every request belongs to
+ * that one organization no matter what hostname it arrived on, the sign-in
+ * screen never asks for a company code, and there is nothing on the site to
+ * suggest anybody else uses the software. That is what running one Vercel
+ * project per organization buys — the same repository deployed twice, each copy
+ * pinned to its own tenant and its own database.
+ */
+export function pinnedTenant(): Tenant | null {
+  return getTenant(process.env.PORTAL_TENANT);
 }
 
 /** Look a tenant up by company code. Returns null for anything unrecognised. */
