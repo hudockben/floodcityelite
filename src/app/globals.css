@@ -59,6 +59,11 @@
   --wordmark-weight: 800;
   --wordmark-tracking: 0.05em;
   --wordmark-transform: uppercase;
+  /* Height of a tenant's drawn mark, in ems of the placement's font-size (see
+     .brand-mark). Flood City is a wordmark alone and renders no mark at all, so
+     this only ever governs a tenant that has one — but it lives here with the
+     other wordmark tunables so the whole lockup is described in one place. */
+  --brand-mark-height: 2.4em;
 
   /* Surfaces, lightest-sitting first. */
   --surface-card: rgba(15, 30, 52, 0.72);
@@ -319,6 +324,14 @@
    better against the surfaces they sit on. This is a data-entry app people read
    all day; the gold is the trim, not the paper. */
 [data-tenant="fennell"] {
+  /* Tell the browser this brand is a dark one, so the parts of the page it
+     draws itself — scrollbars, <select> dropdowns, the date picker panel,
+     autofilled field backgrounds — come out dark too. Without it they are
+     painted in the light scheme, which is a white dropdown opening over a
+     near-black page. Scoped to this tenant rather than :root because Flood
+     City Elite has never set it and its appearance is not ours to change. */
+  color-scheme: dark;
+
   /* -- Palette ---------------------------------------------------------- */
   --ink-900: #050505;
   --ink-800: #0c0c0c;
@@ -345,8 +358,17 @@
   /* -- Type -------------------------------------------------------------- */
   --text: #f6f3ec;
   --text-muted: #a9a094;
-  --text-placeholder: #7d7263;
+  /* Warm stone, one step up the ramp from the muted tone. The step below it
+     (#7d7263) sat at 3.84:1 on --field-bg — under AA for the "MM/DD/YYYY" and
+     "Search a player" hints it draws, and under what this block's header
+     promises. At #938878 it is 5.20:1 on --field-bg, 5.25:1 on --roster-bg and
+     4.79:1 on the roster's hover row, so it clears 4.5:1 everywhere it lands
+     while still reading as a hint rather than as entered text. */
+  --text-placeholder: #938878;
   --text-on-accent: #1a1408;
+  /* The navy-black default would be an FCE colour sitting on a solid green
+     mark; near-black with a green cast instead, at 8.39:1 on --status-ok. */
+  --text-on-status-ok: #06120a;
   /* Type in gold is the bright end of the ramp, never the base: mid-gold at
      0.72rem on near-black is legible but tiring. */
   --accent-text: var(--gold-bright);
@@ -359,6 +381,15 @@
   --wordmark-weight: 600;
   --wordmark-tracking: 0.08em;
   --wordmark-transform: none;
+  /* The mark shares a line with "Fennell Bros." inside a 420px card (352px of
+     it usable) on /payroll and the sign-in screen. At 2.4em the three pieces
+     measure about 343px there and about 252px on a 360px phone against 244px
+     of room — so the lockup flipped between one line and two across ordinary
+     phone widths. .has-mark wraps rather than shatters, so neither state was
+     broken, but the flipping read as an accident. At 2em the one-line form
+     survives down to roughly a 355px viewport and keeps real headroom on the
+     card, and the mark still stands taller than the wordmark's caps. */
+  --brand-mark-height: 2em;
 
   /* -- Accent ------------------------------------------------------------
      The fill runs bright gold to base gold, so black type on a button clears
@@ -387,8 +418,13 @@
   --table-row-border: rgba(201, 153, 46, 0.13);
   --table-row-hover-tint: rgba(201, 153, 46, 0.07);
 
-  /* -- Borders and depth ------------------------------------------------- */
-  --card-border: rgba(201, 153, 46, 0.22);
+  /* -- Borders and depth -------------------------------------------------
+     This hairline is the only thing marking where an input ends, and on this
+     theme it has to do that against a surface only a few percent lighter than
+     the card behind it. At 0.22 it composited to 1.30:1 across that edge —
+     fainter than the 1.55:1 the navy theme's own rule manages, on a theme with
+     less to work with. 0.32 puts it at 1.61:1, level with the other tenant. */
+  --card-border: rgba(201, 153, 46, 0.32);
   --border-strong: rgba(201, 153, 46, 0.45);
   --card-inner-highlight: rgba(240, 219, 166, 0.06);
   --shadow-card: rgba(0, 0, 0, 0.6);
@@ -582,7 +618,7 @@ body {
 .brand-mark {
   flex: none;
   width: auto;
-  height: 2.4em;
+  height: var(--brand-mark-height);
   max-width: 100%;
 }
 

@@ -511,9 +511,10 @@ export async function listRosterSubmissions(
       rs.hat_size,
       -- created_at is TIMESTAMPTZ (stored UTC); convert to Eastern so the admin
       -- tab shows the correct calendar day. Without this an evening submission
-      -- would slice to the next day's UTC date. The zone is fixed rather than
-      -- per-tenant because Flood City Elite is in Johnstown, PA — onboarding an
-      -- organization outside Eastern is what would make it worth varying.
+      -- would slice to the next day's UTC date. The zone is still fixed rather
+      -- than per-tenant: both organizations on the portal are in Pennsylvania,
+      -- so Eastern is right for both. Onboarding one outside Eastern is what
+      -- would make it worth moving onto the tenant registry.
       (rs.created_at AT TIME ZONE 'America/New_York')::text AS created_at
     FROM roster_submissions rs
     LEFT JOIN teams t ON t.id = rs.team_id AND t.company_id = rs.company_id
