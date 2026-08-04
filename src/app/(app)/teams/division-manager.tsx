@@ -28,8 +28,13 @@ export default function DivisionManager({
   teamCounts,
 }: {
   divisions: Division[];
-  /** Teams per division slug, across every season — what makes removal safe. */
-  teamCounts: Record<string, number>;
+  /**
+   * Teams per division slug, across every season — what makes removal safe.
+   * `null` when the count query didn't run (the page's load failed after the
+   * divisions resolved): adding a division is still fine, but nothing may be
+   * offered for removal on the strength of a count we don't have.
+   */
+  teamCounts: Record<string, number> | null;
 }) {
   const [state, formAction, pending] = useActionState(
     createDivisionAction,
@@ -114,15 +119,21 @@ export default function DivisionManager({
 
       <ul className="division-chips">
         {divisions.map((d) => {
-          const count = teamCounts[d.slug] ?? 0;
+          const count = teamCounts?.[d.slug] ?? 0;
           const last = divisions.length <= 1;
           return (
             <li key={d.slug} className="division-chip">
               <span className="division-chip-name">{d.label}</span>
-              <span className="division-chip-count">
-                {count} {count === 1 ? "team" : "teams"}
-              </span>
-              {count > 0 ? (
+              {teamCounts ? (
+                <span className="division-chip-count">
+                  {count} {count === 1 ? "team" : "teams"}
+                </span>
+              ) : null}
+              {!teamCounts ? (
+                <span className="division-chip-note">
+                  Reload to remove — team counts didn&apos;t load
+                </span>
+              ) : count > 0 ? (
                 <span className="division-chip-note">
                   Remove its teams first
                 </span>

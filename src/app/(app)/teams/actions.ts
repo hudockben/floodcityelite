@@ -112,6 +112,17 @@ export async function createDivisionAction(
           };
     }
 
+    // A slug can be reused after its division was removed, and seasons are keyed
+    // by slug rather than by a division id. Clear any left from the old
+    // division — normally none, since removal deletes them, but that delete is a
+    // separate statement that can fail with the division already gone. Without
+    // this, resolveSeason would find those rows and hand the new division the
+    // old one's year picker and active season instead of a fresh current year.
+    await sql()`
+      DELETE FROM seasons
+      WHERE company_id = ${session.companyId} AND division = ${slug}
+    `;
+
     await sql()`
       INSERT INTO divisions (company_id, slug, label, default_sport)
       VALUES (
@@ -180,20 +191,36 @@ export async function deleteDivisionAction(formData: FormData): Promise<void> {
       RETURNING d.slug
     `;
   } catch (err) {
-    // Two simultaneous removals can deadlock on each other's row lock; Postgres
-    // kills one. Nothing was deleted, which is the right answer for whichever
-    // one lost — the page revalidates and the division is still there to retry.
-    console.error("deleteDivision error:", err);
+    // Only a deadlock is swallowed. Two simultaneous removals can deadlock on
+    // each other's row lock and Postgres kills one; nothing was deleted, which
+    // is the right answer for whichever one lost, and the division is still
+    // there to try again. Anything else — a dropped connection, a statement
+    // timeout, a missing table — is rethrown, because this action reports
+    // through nothing but its own effect: swallowing those would leave Remove
+    // silently doing nothing, indistinguishable from the guards refusing.
+    if ((err as { code?: string } | null)?.code !== "40P01") throw err;
+    console.error("deleteDivision deadlocked, nothing removed:", err);
     return;
   }
   if (removed.length === 0) return;
 
   // Only now that the division is definitely gone. Doing this first would have
   // wiped a division's seasons even when the delete above declined to run.
-  await sql()`
-    DELETE FROM seasons
-    WHERE company_id = ${session.companyId} AND division = ${slug}
-  `;
+  //
+  // These are separate statements over the HTTP driver, so there's no
+  // transaction spanning them: this one can fail with the division already
+  // deleted. That's survivable — createDivisionAction clears any leftover
+  // seasons for a slug before reusing it — so log it and carry on to the
+  // redirect rather than stranding the user on a page still listing a division
+  // that's gone.
+  try {
+    await sql()`
+      DELETE FROM seasons
+      WHERE company_id = ${session.companyId} AND division = ${slug}
+    `;
+  } catch (err) {
+    console.error("deleteDivision: division removed, seasons left behind:", err);
+  }
 
   revalidateDivisionPaths();
 

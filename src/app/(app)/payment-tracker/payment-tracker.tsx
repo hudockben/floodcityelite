@@ -96,7 +96,7 @@ export default function PaymentTracker({
       payments.filter((p) =>
         matchesPaymentFilters(p, filters, divisions, searchText.get(p.id)),
       ),
-    [payments, filters, searchText],
+    [payments, filters, searchText, divisions],
   );
 
   // The Total column accumulates across the payments on screen in display

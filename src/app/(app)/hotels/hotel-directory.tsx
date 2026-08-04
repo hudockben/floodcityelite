@@ -86,7 +86,7 @@ export default function HotelDirectory({
           allDivisions,
         ),
       ),
-    [hotels, query, activeDivision, activeTournament, searchText],
+    [hotels, query, activeDivision, activeTournament, searchText, allDivisions],
   );
 
   // The download carries the filters that are on screen, so the file holds the

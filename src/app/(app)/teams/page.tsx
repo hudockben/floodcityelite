@@ -49,7 +49,9 @@ export default async function TeamsPage({
   let division: Division | null = null;
   let teams: TeamRow[] = [];
   let players: PlayerRow[] = [];
-  let teamCounts: Record<string, number> = {};
+  // Null until the count query lands. DivisionManager offers Remove on the
+  // strength of these, so "we don't know" has to be distinguishable from zero.
+  let teamCounts: Record<string, number> | null = null;
   let companyHasActiveTeams = false;
   let seasons: Season[] = [];
   let season: Season | null = null;
@@ -220,14 +222,14 @@ export default async function TeamsPage({
           })}
         </nav>
 
-        {/* Add a division of your own, or drop one you don't run. Hidden when
-            the load failed: the divisions resolve before the roster queries, so
-            a failure between the two would leave teamCounts empty and show every
-            division as "0 teams" behind a Remove button promising nothing is
-            lost. (The server refuses such a delete, so it was a dead button
-            under a false confirmation rather than data loss — still worth not
-            showing.) */}
-        {divisions.length > 0 && !loadError ? (
+        {/* Add a division of your own, or drop one you don't run. The divisions
+            resolve before the roster queries, so a failure between the two
+            leaves teamCounts null while the list is perfectly good — adding
+            still works, and only Remove is withheld, since offering it on a
+            count we never loaded would promise a division was empty when it
+            isn't. (The server refuses such a delete anyway, so it was a dead
+            button under a false confirmation rather than data loss.) */}
+        {divisions.length > 0 ? (
           <DivisionManager divisions={divisions} teamCounts={teamCounts} />
         ) : null}
 
