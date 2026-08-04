@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
-import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { loadCampData } from "./load-camps";
 import ProgramCamps from "./program-camps";
-import { ensureCampsSchema } from "./schema";
 import type {
   CampExpenseRow,
   CampOption,
@@ -23,69 +22,11 @@ export default async function ProgramCampsPage() {
   let loadError = false;
 
   try {
-    // Create the camp tables on first use so the tab works even if the database
-    // predates this feature. Idempotent and memoized.
-    await ensureCampsSchema();
-
-    const [campRows, playerRows, paymentRows, expenseRows] = await Promise.all([
-      sql()`
-        SELECT
-          id,
-          name,
-          location,
-          event_date::text AS event_date
-        FROM camps
-        WHERE company_id = ${session.companyId}
-        ORDER BY event_date NULLS LAST, name, id
-      `,
-      sql()`
-        SELECT
-          cp.id,
-          cp.camp_id,
-          cp.player_name,
-          cp.parent_name,
-          cp.parent_contact,
-          cp.location
-        FROM camp_players cp
-        JOIN camps c ON c.id = cp.camp_id
-        WHERE c.company_id = ${session.companyId}
-        ORDER BY cp.player_name, cp.id
-      `,
-      sql()`
-        SELECT
-          pay.id,
-          pay.paid_on::text AS paid_on,
-          pay.payment_type,
-          pay.check_number,
-          pay.amount::text  AS amount,
-          cp.id             AS camp_player_id,
-          c.id              AS camp_id,
-          cp.player_name
-        FROM camp_payments pay
-        JOIN camp_players cp ON cp.id = pay.camp_player_id
-        JOIN camps c         ON c.id = cp.camp_id
-        WHERE c.company_id = ${session.companyId}
-        ORDER BY pay.paid_on, pay.id
-      `,
-      sql()`
-        SELECT
-          e.id,
-          e.camp_id,
-          e.expense_date::text AS expense_date,
-          e.vendor,
-          e.amount::text       AS amount,
-          e.status
-        FROM camp_expenses e
-        JOIN camps c ON c.id = e.camp_id
-        WHERE c.company_id = ${session.companyId}
-        ORDER BY e.expense_date NULLS LAST, e.id
-      `,
-    ]);
-
-    camps = campRows as CampOption[];
-    players = playerRows as CampPlayerRow[];
-    payments = paymentRows as CampPaymentRow[];
-    expenses = expenseRows as CampExpenseRow[];
+    // The same loader the downloads and the printed report read from, so a file
+    // or a printout can't come out holding different rows than the tab.
+    ({ camps, players, payments, expenses } = await loadCampData(
+      session.companyId,
+    ));
   } catch (err) {
     console.error("Program/Camps load error:", err);
     loadError = true;

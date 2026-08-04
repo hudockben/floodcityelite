@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import ExportButtons from "../export-buttons";
 import ConfirmButton from "../teams/confirm-button";
 import {
   deleteCampAction,
@@ -149,18 +150,45 @@ export default function ProgramCamps({
   const hasCamps = camps.length > 0;
   const hasPlayers = campPlayers.length > 0;
 
+  // Download links for the shown camp's three tables. The route re-reads the
+  // camp from the database, so a file always holds the rows the tab is showing.
+  const sheetHref =
+    (sheet: "roster" | "payments" | "expenses") =>
+    (format: "csv" | "xlsx") =>
+      `/program-camps/export?camp=${campId}&sheet=${sheet}&format=${format}`;
+  // The printable report covers the whole camp — roster, payments, and
+  // expenses on one document — so it lives with the camp's title rather than
+  // beside any single table.
+  const printHref = `/program-camps/print?camp=${campId}`;
+
   return (
     <div className="teams">
       <section className="panel">
-        <div className="panel-head">
-          <h1>Program/Camps</h1>
-          <p>
-            Create a camp, add players with their parent&apos;s name, contact,
-            and location, then track each payment they make — the Total column
-            accumulates every payment received, just like the Payment Tracker.
-            Log what the camp cost to put on under Expenses and the tab reports
-            the camp&apos;s net.
-          </p>
+        <div className="panel-head panel-head-row">
+          <div>
+            <h1>Program/Camps</h1>
+            <p>
+              Create a camp, add players with their parent&apos;s name, contact,
+              and location, then track each payment they make — the Total column
+              accumulates every payment received, just like the Payment Tracker.
+              Log what the camp cost to put on under Expenses and the tab
+              reports the camp&apos;s net.
+            </p>
+          </div>
+          {selectedCamp ? (
+            // Not a `download`: it opens a report page that offers the
+            // browser's own print / save-as-PDF dialog. A new tab keeps the
+            // camp you were working on waiting behind it.
+            <a
+              className="btn-secondary print-all-btn"
+              href={printHref}
+              target="_blank"
+              rel="noopener"
+              aria-label={`Open a printable PDF report for ${selectedCamp.name}`}
+            >
+              🖨 Print / Save PDF
+            </a>
+          ) : null}
         </div>
       </section>
 
@@ -258,15 +286,22 @@ export default function ProgramCamps({
       {/* Step 2 — the selected camp's roster */}
       {hasCamps && selectedCamp ? (
         <section className="panel">
-          <div className="panel-head">
-            <h2 className="step-title">
-              <span className="step-num">2</span> Players
-              <span className="step-context">· {selectedCamp.name}</span>
-            </h2>
-            <p>
-              Add each player to <strong>{selectedCamp.name}</strong> with their
-              parent&apos;s name, a parent contact, and a location.
-            </p>
+          <div className="panel-head panel-head-row">
+            <div>
+              <h2 className="step-title">
+                <span className="step-num">2</span> Players
+                <span className="step-context">· {selectedCamp.name}</span>
+              </h2>
+              <p>
+                Add each player to <strong>{selectedCamp.name}</strong> with
+                their parent&apos;s name, a parent contact, and a location.
+              </p>
+            </div>
+            <ExportButtons
+              href={sheetHref("roster")}
+              count={campPlayers.length}
+              nounPlural="players"
+            />
           </div>
 
           {/* Re-mount the form when the camp changes so its hidden campId and
@@ -361,16 +396,23 @@ export default function ProgramCamps({
       {/* Step 3 — payments for the selected camp */}
       {hasCamps && selectedCamp ? (
         <section className="panel">
-          <div className="panel-head">
-            <h2 className="step-title">
-              <span className="step-num">3</span> Payments
-              <span className="step-context">· {selectedCamp.name}</span>
-            </h2>
-            <p>
-              Log each payment against a player: pick the player, choose Check or
-              Cash, and enter the amount. The Total column accumulates every
-              payment received for this camp.
-            </p>
+          <div className="panel-head panel-head-row">
+            <div>
+              <h2 className="step-title">
+                <span className="step-num">3</span> Payments
+                <span className="step-context">· {selectedCamp.name}</span>
+              </h2>
+              <p>
+                Log each payment against a player: pick the player, choose Check
+                or Cash, and enter the amount. The Total column accumulates
+                every payment received for this camp.
+              </p>
+            </div>
+            <ExportButtons
+              href={sheetHref("payments")}
+              count={campPayments.length}
+              nounPlural="payments"
+            />
           </div>
 
           <div className="pay-scroll">
@@ -489,17 +531,24 @@ export default function ProgramCamps({
       {/* Step 4 — what the camp cost to put on */}
       {hasCamps && selectedCamp ? (
         <section className="panel">
-          <div className="panel-head">
-            <h2 className="step-title">
-              <span className="step-num">4</span> Expenses
-              <span className="step-context">· {selectedCamp.name}</span>
-            </h2>
-            <p>
-              Log what running <strong>{selectedCamp.name}</strong> cost — umpire
-              fees for a showcase, field rental, gear. A paid expense comes off
-              what the camp collected, a refund is credited back, and a not-paid
-              one is tracked without moving the net.
-            </p>
+          <div className="panel-head panel-head-row">
+            <div>
+              <h2 className="step-title">
+                <span className="step-num">4</span> Expenses
+                <span className="step-context">· {selectedCamp.name}</span>
+              </h2>
+              <p>
+                Log what running <strong>{selectedCamp.name}</strong> cost —
+                umpire fees for a showcase, field rental, gear. A paid expense
+                comes off what the camp collected, a refund is credited back,
+                and a not-paid one is tracked without moving the net.
+              </p>
+            </div>
+            <ExportButtons
+              href={sheetHref("expenses")}
+              count={campExpenses.length}
+              nounPlural="expenses"
+            />
           </div>
 
           {/* Re-mount when the camp changes so the add form's hidden campId and

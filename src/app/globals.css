@@ -3331,6 +3331,13 @@ body {
   color: #64748b;
 }
 
+/* The camp report stacks three of these headings inside one camp block, so
+   each needs air above it — .print-sub alone carries only a bottom margin,
+   which suits the budget report's single-block columns. */
+.print-camp-sub {
+  margin-top: 20px;
+}
+
 .print-exp-table {
   width: 100%;
   border-collapse: collapse;
