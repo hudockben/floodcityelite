@@ -100,6 +100,26 @@ export const HOTEL_FIELDS: HotelField[] = [
  */
 export const KEEP_EVENT = "keep";
 
+/**
+ * The same trick for the Division select, and for the same reason.
+ *
+ * A division can be removed on the Teams tab while hotels still carry it —
+ * removal only refuses when the division holds *teams*, and hotels.division is
+ * independent of teams. Such a stay keeps its slug and its badge still names the
+ * division, but the select's options are the divisions that currently exist, so
+ * no option matches and the browser falls back to "No division". Saving an
+ * unrelated field — a new phone number — then wrote NULL and the tag was gone.
+ * The editor selects this instead and the update leaves the column untouched;
+ * picking any real option (including "No division") still applies normally, so
+ * it can still be cleared on purpose.
+ *
+ * Not the bare "keep" that KEEP_EVENT uses: that one is compared against numeric
+ * event ids and can't collide, but a division named "Keep" slugifies to exactly
+ * "keep". Underscores can't appear in a slug (see isDivisionSlugFormat), so this
+ * value is unreachable as a real division.
+ */
+export const KEEP_DIVISION = "__keep__";
+
 // A Schedules-tab tournament offered in the "which tournament" dropdown, with
 // the team and season it belongs to so the option reads unambiguously and the
 // saved row can link back to the right Schedules view.
@@ -170,8 +190,8 @@ export function matchesHotelFilters(
   query: string,
   division: string,
   tournament: string,
-  searchText?: string,
-  divisions: Division[] = [],
+  searchText: string | undefined,
+  divisions: Division[],
 ): boolean {
   if (division !== "" && row.division !== division) return false;
   if (tournament !== "" && String(row.event_id) !== tournament) return false;

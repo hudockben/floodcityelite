@@ -148,23 +148,51 @@ export async function deleteDivisionAction(formData: FormData): Promise<void> {
 
   await ensureTeamsSchema();
 
-  const teams = await sql()`
-    SELECT 1 FROM teams
-    WHERE company_id = ${session.companyId} AND division = ${slug}
-    LIMIT 1
-  `;
-  if (teams.length > 0) return;
-
+  // Read the list first, only to pick where to land afterwards. Both guards are
+  // re-stated inside the DELETE below, which is what actually enforces them.
   const divisions = await listDivisions(session.companyId);
-  if (divisions.length <= 1) return;
 
+  // Both guards live in the statement that does the deleting, not in reads
+  // before it. Checking and then deleting over separate round trips is a
+  // read-then-write race: two admins removing two different divisions at once
+  // each saw a list of two, each passed "not the last one", and the company was
+  // left with none — whereupon seedDivisions found the table empty and put the
+  // three built-ins back, silently replacing a division list somebody had
+  // curated. `FOR UPDATE` on the division being kept is what serializes them:
+  // the second statement blocks, re-reads, finds the row it was counting on
+  // gone, and deletes nothing.
+  let removed: unknown[];
+  try {
+    removed = await sql()`
+      DELETE FROM divisions d
+      WHERE d.company_id = ${session.companyId}
+        AND d.slug = ${slug}
+        AND EXISTS (
+          SELECT 1 FROM divisions keep
+          WHERE keep.company_id = ${session.companyId}
+            AND keep.slug <> ${slug}
+          FOR UPDATE
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM teams t
+          WHERE t.company_id = ${session.companyId} AND t.division = ${slug}
+        )
+      RETURNING d.slug
+    `;
+  } catch (err) {
+    // Two simultaneous removals can deadlock on each other's row lock; Postgres
+    // kills one. Nothing was deleted, which is the right answer for whichever
+    // one lost — the page revalidates and the division is still there to retry.
+    console.error("deleteDivision error:", err);
+    return;
+  }
+  if (removed.length === 0) return;
+
+  // Only now that the division is definitely gone. Doing this first would have
+  // wiped a division's seasons even when the delete above declined to run.
   await sql()`
     DELETE FROM seasons
     WHERE company_id = ${session.companyId} AND division = ${slug}
-  `;
-  await sql()`
-    DELETE FROM divisions
-    WHERE company_id = ${session.companyId} AND slug = ${slug}
   `;
 
   revalidateDivisionPaths();

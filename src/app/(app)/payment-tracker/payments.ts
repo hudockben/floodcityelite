@@ -116,7 +116,7 @@ export function isoDateOrBlank(value: string | null | undefined): string {
  */
 export function paymentSearchText(
   row: PaymentRow,
-  divisions: Division[] = [],
+  divisions: Division[],
 ): string {
   return [
     row.player_name,
@@ -144,6 +144,9 @@ export function paymentSearchText(
 export function matchesPaymentFilters(
   row: PaymentRow,
   filters: PaymentFilters,
+  /** The company's divisions — a division name is searchable, so the haystack
+   *  has to be built from the same labels the ledger showed. */
+  divisions: Division[],
   searchText?: string,
 ): boolean {
   if (filters.division !== "" && row.division !== filters.division) return false;
@@ -164,7 +167,7 @@ export function matchesPaymentFilters(
 
   const q = filters.query.trim().toLowerCase();
   if (q === "") return true;
-  return (searchText ?? paymentSearchText(row)).includes(q);
+  return (searchText ?? paymentSearchText(row, divisions)).includes(q);
 }
 
 /**
@@ -258,7 +261,7 @@ export function describeDateRange(from: string, to: string): string {
  */
 export function describePaymentFilters(
   filters: PaymentFilters,
-  divisions: Division[] = [],
+  divisions: Division[],
 ): string {
   const parts: string[] = [];
   if (filters.division !== "") {

@@ -14,7 +14,7 @@ import {
 } from "../bulk-import";
 import { isDivisionSlugFormat } from "../teams/divisions";
 import { listDivisions } from "../teams/division-store";
-import { HOTEL_FIELDS, KEEP_EVENT } from "./hotels";
+import { HOTEL_FIELDS, KEEP_DIVISION, KEEP_EVENT } from "./hotels";
 import {
   hotelDisplayName,
   hotelKey,
@@ -48,19 +48,27 @@ function money(raw: unknown): string | null {
   return n.toFixed(2);
 }
 
-// The optional division dropdown: one of this company's division slugs, or
-// null. Divisions are company rows now, so the slug is checked against the list
-// rather than against a hardcoded set — a stale form or a hand-rolled POST
+// The optional division dropdown: one of this company's division slugs, null,
+// or `keep`. Divisions are company rows now, so the slug is checked against the
+// list rather than against a hardcoded set — a stale form or a hand-rolled POST
 // naming a division that isn't there leaves the column blank instead of
 // stamping the hotel with a division nobody runs.
+//
+// `keep` is the editor saying "this hotel's division was removed from the Teams
+// tab; leave the column alone" — see KEEP_DIVISION. Only the update honours it;
+// a brand-new hotel has no earlier value to hold on to.
 async function division(
   companyId: number,
   formData: FormData,
-): Promise<string | null> {
+): Promise<{ keep: boolean; slug: string | null }> {
   const value = String(formData.get("division") ?? "").trim();
-  if (value === "" || !isDivisionSlugFormat(value)) return null;
+  if (value === KEEP_DIVISION) return { keep: true, slug: null };
+  if (value === "" || !isDivisionSlugFormat(value)) return { keep: false, slug: null };
   const divisions = await listDivisions(companyId);
-  return divisions.some((d) => d.slug === value) ? value : null;
+  return {
+    keep: false,
+    slug: divisions.some((d) => d.slug === value) ? value : null,
+  };
 }
 
 /**
@@ -146,7 +154,7 @@ export async function addHotelAction(
         ${field(formData, "address")},
         ${field(formData, "city")},
         ${field(formData, "state")},
-        ${await division(session.companyId, formData)},
+        ${(await division(session.companyId, formData)).slug},
         ${eventId},
         ${eventName},
         ${cost},
@@ -193,16 +201,22 @@ export async function updateHotelAction(
       session.companyId,
     );
 
+    // The division select sends `keep` when this hotel's division has been
+    // removed from the Teams tab, for the same reason the tournament one does.
+    const chosenDivision = await division(session.companyId, formData);
+
     // Scope the update to a hotel owned by this company. When the editor sent
-    // `keep`, the tournament columns are written back to themselves so a stay
-    // whose tournament was deleted holds on to the name it was booked under.
+    // `keep`, the tournament and division columns are written back to
+    // themselves so a stay whose tournament or division was deleted holds on to
+    // what it was booked under.
     const updated = await sql()`
       UPDATE hotels SET
         name               = ${name},
         address            = ${field(formData, "address")},
         city               = ${field(formData, "city")},
         state              = ${field(formData, "state")},
-        division           = ${await division(session.companyId, formData)},
+        division           = CASE WHEN ${chosenDivision.keep} THEN division
+                               ELSE ${chosenDivision.slug} END,
         event_id           = CASE WHEN ${keep} THEN event_id ELSE ${eventId} END,
         event_name         = CASE WHEN ${keep} THEN event_name ELSE ${eventName} END,
         avg_cost_per_night = ${cost},
@@ -267,10 +281,21 @@ export async function bulkUploadHotelsAction(
     };
   }
 
-  // 2) Match its columns onto the hotel fields.
-  // Division cells are matched against the company's own divisions, so a
-  // spreadsheet can name one added on the Teams tab.
-  const mapped = mapHotelRows(rows, await listDivisions(session.companyId));
+  // 2) Match its columns onto the hotel fields. Division cells are matched
+  //    against the company's own divisions, so a spreadsheet can name one added
+  //    on the Teams tab. The lookup runs the teams DDL on a cold start and hits
+  //    the database twice, so it needs the same "show the upload panel an error"
+  //    treatment as every other failure here — outside a try it would reject the
+  //    action instead, after the file had already been read successfully.
+  let divisions;
+  try {
+    divisions = await listDivisions(session.companyId);
+  } catch (err) {
+    console.error("bulkUploadHotels divisions error:", err);
+    return { error: "Couldn't read your divisions just now. Please try again." };
+  }
+
+  const mapped = mapHotelRows(rows, divisions);
   if (!mapped.hasNameColumn) {
     return {
       error:

@@ -1,8 +1,9 @@
 "use client";
 
-import { type Division } from "../teams/divisions";
+import { divisionLabel, type Division } from "../teams/divisions";
 import {
   HOTEL_FIELDS,
+  KEEP_DIVISION,
   KEEP_EVENT,
   hotelValue,
   tournamentOptionLabel,
@@ -100,6 +101,15 @@ export default function HotelFields({
   // one of the live options. Offer it as its own (selected) option so saving
   // the row doesn't quietly drop it — see KEEP_EVENT.
   const removedEvent = hotel?.event_id == null ? hotel?.event_name : null;
+
+  // A division removed from the Teams tab while this hotel still carried it: the
+  // slug is on the row but no live option matches, so offer it as its own
+  // (selected) option rather than letting the select fall back to "No division"
+  // and quietly clear the column on the next save — see KEEP_DIVISION.
+  const removedDivision =
+    hotel?.division && !divisions.some((d) => d.slug === hotel.division)
+      ? divisionLabel(hotel.division, divisions)
+      : null;
   const selectedEvent =
     hotel?.event_id != null
       ? String(hotel.event_id)
@@ -152,9 +162,12 @@ export default function HotelFields({
         <select
           id={`${idPrefix}-division`}
           name="division"
-          defaultValue={hotel?.division ?? ""}
+          defaultValue={removedDivision ? KEEP_DIVISION : (hotel?.division ?? "")}
         >
           <option value="">No division</option>
+          {removedDivision ? (
+            <option value={KEEP_DIVISION}>{removedDivision} (removed)</option>
+          ) : null}
           {divisions.map((d) => (
             <option key={d.slug} value={d.slug}>
               {d.label}

@@ -26,13 +26,17 @@ export async function GET(request: Request): Promise<Response> {
   const format = resolveFormat(params.get("format"));
   const filters = readPaymentFilters(params);
 
+  // Loaded before the filter: a division name is searchable, so re-applying the
+  // ledger's ?q= has to match against the same labels the ledger did.
+  const divisions = await listDivisionsSafe(session.companyId);
+
   let rows: PaymentExportRow[];
   try {
     const all = await listPayments(session.companyId);
     // Totals accumulate over what's in the file, so the last Total cell is the
     // total for this slice of the ledger — the figure the tab was showing.
     rows = withRunningTotals(
-      all.filter((p) => matchesPaymentFilters(p, filters)),
+      all.filter((p) => matchesPaymentFilters(p, filters, divisions)),
     );
   } catch (err) {
     console.error("Payment Tracker export error:", err);
@@ -45,7 +49,7 @@ export async function GET(request: Request): Promise<Response> {
     format,
     baseName: "payments",
     sheetName: "Payments",
-    columns: paymentExportColumns(await listDivisionsSafe(session.companyId)),
+    columns: paymentExportColumns(divisions),
     rows,
   });
 }

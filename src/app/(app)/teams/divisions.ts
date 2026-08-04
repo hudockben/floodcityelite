@@ -118,14 +118,18 @@ export function resolveDivision(
 /**
  * Name a division for display.
  *
- * Pass the company's divisions whenever they're to hand — that's the only
- * source that knows a user-created division's exact name. Without them this
- * falls back to the built-in names and then to de-slugifying, so a slug never
- * leaks to the screen raw.
+ * The company's divisions are a REQUIRED argument, deliberately: they're the
+ * only source that knows a user-created division's exact name, and making them
+ * optional let three server-side call sites quietly default to an empty list and
+ * render de-slugified names that disagreed with the screen. A caller with
+ * genuinely no list to hand passes one explicitly (BUILTIN_DIVISIONS, or []).
+ *
+ * The fallback below is for a slug whose division row is *gone* — the built-in
+ * names first, then de-slugifying — so a slug never leaks to the screen raw.
  */
-export function divisionLabel(value: string, divisions?: Division[]): string {
+export function divisionLabel(value: string, divisions: Division[]): string {
   const found =
-    divisions?.find((d) => d.slug === value) ??
+    divisions.find((d) => d.slug === value) ??
     BUILTIN_DIVISIONS.find((d) => d.slug === value);
   if (found) return found.label;
   return deslugifyDivision(value);

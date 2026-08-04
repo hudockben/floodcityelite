@@ -32,7 +32,7 @@ export type Season = {
 // year plus the division (e.g. "2026 Spring/Summer Baseball").
 export function seasonLabel(
   s: Pick<Season, "year" | "label" | "division">,
-  divisions: Division[] = [],
+  divisions: Division[],
 ): string {
   const custom = s.label?.trim();
   return custom ? custom : `${s.year} ${divisionLabel(s.division, divisions)}`;

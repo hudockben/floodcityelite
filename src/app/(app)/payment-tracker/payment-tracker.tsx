@@ -94,7 +94,7 @@ export default function PaymentTracker({
   const filtered = useMemo(
     () =>
       payments.filter((p) =>
-        matchesPaymentFilters(p, filters, searchText.get(p.id)),
+        matchesPaymentFilters(p, filters, divisions, searchText.get(p.id)),
       ),
     [payments, filters, searchText],
   );

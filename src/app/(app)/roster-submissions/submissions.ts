@@ -50,7 +50,7 @@ export function teamKeyOf(s: RosterSubmissionRow): string | null {
  */
 export function haystackOf(
   s: RosterSubmissionRow,
-  divisions: Division[] = [],
+  divisions: Division[],
 ): string {
   const parts: (string | number | null)[] = [
     s.player_name,

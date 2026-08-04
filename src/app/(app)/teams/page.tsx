@@ -220,8 +220,14 @@ export default async function TeamsPage({
           })}
         </nav>
 
-        {/* Add a division of your own, or drop one you don't run. */}
-        {divisions.length > 0 ? (
+        {/* Add a division of your own, or drop one you don't run. Hidden when
+            the load failed: the divisions resolve before the roster queries, so
+            a failure between the two would leave teamCounts empty and show every
+            division as "0 teams" behind a Remove button promising nothing is
+            lost. (The server refuses such a delete, so it was a dead button
+            under a false confirmation rather than data loss — still worth not
+            showing.) */}
+        {divisions.length > 0 && !loadError ? (
           <DivisionManager divisions={divisions} teamCounts={teamCounts} />
         ) : null}
 

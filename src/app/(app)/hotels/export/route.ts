@@ -28,6 +28,10 @@ export async function GET(request: Request): Promise<Response> {
   const tournamentRaw = params.get("tournament") ?? "";
   const tournament = /^\d+$/.test(tournamentRaw) ? tournamentRaw : "";
 
+  // Loaded before the filter: a division name is searchable, so re-applying the
+  // tab's ?q= has to match against the same labels the tab did.
+  const divisions = await listDivisionsSafe(session.companyId);
+
   let rows: HotelRow[];
   try {
     await ensureHotelsSchema();
@@ -58,7 +62,7 @@ export async function GET(request: Request): Promise<Response> {
       ORDER BY lower(h.name), h.id
     `) as HotelRow[];
     rows = all.filter((h) =>
-      matchesHotelFilters(h, query, division, tournament),
+      matchesHotelFilters(h, query, division, tournament, undefined, divisions),
     );
   } catch (err) {
     console.error("Hotels export error:", err);
@@ -71,7 +75,7 @@ export async function GET(request: Request): Promise<Response> {
     format,
     baseName: "hotels",
     sheetName: "Hotels",
-    columns: hotelExportColumns(await listDivisionsSafe(session.companyId)),
+    columns: hotelExportColumns(divisions),
     rows,
   });
 }

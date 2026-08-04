@@ -83,6 +83,7 @@ export default function HotelDirectory({
           activeDivision,
           activeTournament,
           searchText.get(h.id),
+          allDivisions,
         ),
       ),
     [hotels, query, activeDivision, activeTournament, searchText],

@@ -61,9 +61,14 @@ export default async function PaymentTrackerPrintPage({
   let payments: PaymentRow[] = [];
   let loadError = false;
 
+  // Loaded before the filter, not after it: a division name is searchable, so
+  // re-applying the ledger's ?q= here has to match against the same labels the
+  // ledger did. Reading it afterwards silently filtered on de-slugified names.
+  const divisions = await listDivisionsSafe(session.companyId);
+
   try {
     const all = await listPayments(session.companyId);
-    payments = all.filter((p) => matchesPaymentFilters(p, filters));
+    payments = all.filter((p) => matchesPaymentFilters(p, filters, divisions));
   } catch (err) {
     console.error("Payment Tracker print load error:", err);
     loadError = true;
@@ -84,9 +89,6 @@ export default async function PaymentTrackerPrintPage({
     return { payment, runningTotal: running };
   });
 
-  // The company's divisions, so the report's scope line and Division column
-  // name a division the way the tab does.
-  const divisions = await listDivisionsSafe(session.companyId);
   const scope = describePaymentFilters(filters, divisions) || "All payments";
   // Plain, with no filters appended: the tab holds them in client state and
   // doesn't read them off the URL, so a link carrying them would land on an
