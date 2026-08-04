@@ -156,39 +156,28 @@ export default function ProgramCamps({
     (sheet: "roster" | "payments" | "expenses") =>
     (format: "csv" | "xlsx") =>
       `/program-camps/export?camp=${campId}&sheet=${sheet}&format=${format}`;
-  // The printable report covers the whole camp — roster, payments, and
-  // expenses on one document — so it lives with the camp's title rather than
-  // beside any single table.
+  // One printable report covers the whole camp — roster, payments, and expenses
+  // on a single document — so the ⬇ PDF button offers the same report wherever
+  // it sits, and says so in its accessible label.
   const printHref = `/program-camps/print?camp=${campId}`;
+  const printLabel = selectedCamp
+    ? `Open a printable PDF report for ${selectedCamp.name}`
+    : undefined;
 
   return (
     <div className="teams">
       <section className="panel">
-        <div className="panel-head panel-head-row">
-          <div>
-            <h1>Program/Camps</h1>
-            <p>
-              Create a camp, add players with their parent&apos;s name, contact,
-              and location, then track each payment they make — the Total column
-              accumulates every payment received, just like the Payment Tracker.
-              Log what the camp cost to put on under Expenses and the tab
-              reports the camp&apos;s net.
-            </p>
-          </div>
-          {selectedCamp ? (
-            // Not a `download`: it opens a report page that offers the
-            // browser's own print / save-as-PDF dialog. A new tab keeps the
-            // camp you were working on waiting behind it.
-            <a
-              className="btn-secondary print-all-btn"
-              href={printHref}
-              target="_blank"
-              rel="noopener"
-              aria-label={`Open a printable PDF report for ${selectedCamp.name}`}
-            >
-              🖨 Print / Save PDF
-            </a>
-          ) : null}
+        <div className="panel-head">
+          <h1>Program/Camps</h1>
+          <p>
+            Create a camp, add players with their parent&apos;s name, contact,
+            and location, then track each payment they make — the Total column
+            accumulates every payment received, just like the Payment Tracker.
+            Log what the camp cost to put on under Expenses and the tab reports
+            the camp&apos;s net. Each section below downloads as CSV or Excel,
+            and ⬇ PDF prints the whole camp — roster, payments and expenses —
+            as one report.
+          </p>
         </div>
       </section>
 
@@ -299,6 +288,8 @@ export default function ProgramCamps({
             </div>
             <ExportButtons
               href={sheetHref("roster")}
+              pdfHref={printHref}
+              pdfLabel={printLabel}
               count={campPlayers.length}
               nounPlural="players"
             />
@@ -410,6 +401,8 @@ export default function ProgramCamps({
             </div>
             <ExportButtons
               href={sheetHref("payments")}
+              pdfHref={printHref}
+              pdfLabel={printLabel}
               count={campPayments.length}
               nounPlural="payments"
             />
@@ -546,6 +539,8 @@ export default function ProgramCamps({
             </div>
             <ExportButtons
               href={sheetHref("expenses")}
+              pdfHref={printHref}
+              pdfLabel={printLabel}
               count={campExpenses.length}
               nounPlural="expenses"
             />

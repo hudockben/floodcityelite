@@ -10,6 +10,7 @@
 export default function ExportButtons({
   href,
   pdfHref,
+  pdfLabel,
   count,
   nounPlural,
 }: {
@@ -20,6 +21,12 @@ export default function ExportButtons({
    * prints it or saves it as a PDF. Omitted on tabs that don't have one.
    */
   pdfHref?: string;
+  /**
+   * The PDF button's accessible label, for a report that covers more than the
+   * rows beside it — a camp's whole report, say, rather than just its roster.
+   * Without it the label describes the same rows the CSV and Excel do.
+   */
+  pdfLabel?: string;
   count: number;
   nounPlural: string;
 }) {
@@ -51,7 +58,7 @@ export default function ExportButtons({
           href={pdfHref}
           target="_blank"
           rel="noopener"
-          aria-label={`Open a printable PDF of ${label}`}
+          aria-label={pdfLabel ?? `Open a printable PDF of ${label}`}
         >
           ⬇ PDF
         </a>
