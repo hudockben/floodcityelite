@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
-import { sql } from "@/lib/db";
+import { dbFor } from "@/lib/db";
+import { getTenant } from "@/lib/tenants";
 import type { SessionUser } from "@/lib/session";
 
 // A bcrypt hash of a random value that no real password will match. It is
@@ -14,15 +15,23 @@ const DUMMY_PASSWORD_HASH =
  * company code / username / password combination is invalid or the account
  * is inactive. The same null result is used for every failure mode so that
  * callers cannot distinguish "no such user" from "wrong password".
+ *
+ * The company code also picks the database: each organization on this portal
+ * has its own, so a sign-in is looked up only in the tables belonging to the
+ * code that was typed. An unknown code never reaches a database at all.
  */
 export async function authenticate(
   companyCode: string,
   username: string,
   password: string,
 ): Promise<SessionUser | null> {
-  const db = sql();
+  const tenant = getTenant(companyCode);
 
-  const rows = await db`
+  // An unrecognised company code still runs a bcrypt comparison below, so it
+  // costs the same wall-clock time as a wrong password and cannot be told apart
+  // by measuring the response.
+  const rows = tenant
+    ? await dbFor(tenant)`
     SELECT
       u.id            AS user_id,
       u.username      AS username,
@@ -35,10 +44,11 @@ export async function authenticate(
       c.name          AS company_name
     FROM users u
     JOIN companies c ON c.id = u.company_id
-    WHERE c.code = ${companyCode}
+    WHERE c.code = ${tenant.code}
       AND lower(u.username) = lower(${username})
     LIMIT 1
-  `;
+  `
+    : [];
 
   const row =
     rows.length > 0 ? (rows[0] as Record<string, unknown>) : null;
@@ -50,9 +60,9 @@ export async function authenticate(
   const hash = row && active ? String(row.password_hash) : DUMMY_PASSWORD_HASH;
   const passwordMatches = await bcrypt.compare(password, hash);
 
-  if (!row || !active || !passwordMatches) return null;
+  if (!tenant || !row || !active || !passwordMatches) return null;
 
-  await db`UPDATE users SET last_login_at = now() WHERE id = ${row.user_id as number}`;
+  await dbFor(tenant)`UPDATE users SET last_login_at = now() WHERE id = ${row.user_id as number}`;
 
   return {
     userId: row.user_id as number,
