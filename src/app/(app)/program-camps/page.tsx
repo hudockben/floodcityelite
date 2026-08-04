@@ -3,7 +3,12 @@ import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import ProgramCamps from "./program-camps";
 import { ensureCampsSchema } from "./schema";
-import type { CampOption, CampPaymentRow, CampPlayerRow } from "./camps";
+import type {
+  CampExpenseRow,
+  CampOption,
+  CampPaymentRow,
+  CampPlayerRow,
+} from "./camps";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +19,7 @@ export default async function ProgramCampsPage() {
   let camps: CampOption[] = [];
   let players: CampPlayerRow[] = [];
   let payments: CampPaymentRow[] = [];
+  let expenses: CampExpenseRow[] = [];
   let loadError = false;
 
   try {
@@ -21,7 +27,7 @@ export default async function ProgramCampsPage() {
     // predates this feature. Idempotent and memoized.
     await ensureCampsSchema();
 
-    const [campRows, playerRows, paymentRows] = await Promise.all([
+    const [campRows, playerRows, paymentRows, expenseRows] = await Promise.all([
       sql()`
         SELECT
           id,
@@ -61,11 +67,25 @@ export default async function ProgramCampsPage() {
         WHERE c.company_id = ${session.companyId}
         ORDER BY pay.paid_on, pay.id
       `,
+      sql()`
+        SELECT
+          e.id,
+          e.camp_id,
+          e.expense_date::text AS expense_date,
+          e.vendor,
+          e.amount::text       AS amount,
+          e.status
+        FROM camp_expenses e
+        JOIN camps c ON c.id = e.camp_id
+        WHERE c.company_id = ${session.companyId}
+        ORDER BY e.expense_date NULLS LAST, e.id
+      `,
     ]);
 
     camps = campRows as CampOption[];
     players = playerRows as CampPlayerRow[];
     payments = paymentRows as CampPaymentRow[];
+    expenses = expenseRows as CampExpenseRow[];
   } catch (err) {
     console.error("Program/Camps load error:", err);
     loadError = true;
@@ -94,6 +114,11 @@ export default async function ProgramCampsPage() {
   }
 
   return (
-    <ProgramCamps camps={camps} players={players} payments={payments} />
+    <ProgramCamps
+      camps={camps}
+      players={players}
+      payments={payments}
+      expenses={expenses}
+    />
   );
 }

@@ -78,4 +78,25 @@ async function provision(): Promise<void> {
   `;
 
   await db`CREATE INDEX IF NOT EXISTS idx_camp_payments_camp_player_id ON camp_payments (camp_player_id)`;
+
+  // A camp expense is what running the camp cost — umpire fees for a showcase,
+  // field rental, gear. It mirrors the Budgets tab's `team_expenses`, statuses
+  // included: 'paid' comes off what the camp collected, 'refund' is credited
+  // back, and 'not_paid' is tracked without changing the camp's net. Totals are
+  // computed at read time.
+  await db`
+    CREATE TABLE IF NOT EXISTS camp_expenses (
+      id            SERIAL        PRIMARY KEY,
+      camp_id       INTEGER       NOT NULL REFERENCES camps(id) ON DELETE CASCADE,
+      expense_date  DATE,
+      vendor        VARCHAR(200),
+      amount        NUMERIC(12,2) NOT NULL DEFAULT 0,
+      status        VARCHAR(16)   NOT NULL DEFAULT 'paid'
+                      CHECK (status IN ('paid', 'not_paid', 'refund')),
+      created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await db`CREATE INDEX IF NOT EXISTS idx_camp_expenses_camp_id ON camp_expenses (camp_id)`;
 }

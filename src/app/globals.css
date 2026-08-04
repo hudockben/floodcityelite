@@ -5661,6 +5661,22 @@ body {
   color: var(--text-muted);
 }
 
+/* Second stat line on a camp card, shown once the camp has cost something:
+   what came off, and what's left after it. */
+.camp-item-net {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.camp-net-up {
+  color: #7ee2a8;
+}
+
+.camp-net-down {
+  color: #fca5a5;
+}
+
 .camp-item-delete {
   position: absolute;
   top: 12px;
@@ -5692,6 +5708,18 @@ body {
 .cpn-amount { width: 100px; }
 .cpn-total { width: 104px; }
 .cpn-actions { width: 124px; }
+
+/* The camp expenses block reuses the Budgets tab's .expense-* / .expenses-* /
+   .et-* styles wholesale so a cost looks the same wherever it's logged. Only
+   the roll-up needs widening — it carries a "Net for <camp name>" label, which
+   the Budgets tab's 360px column would wrap. */
+.camp-expenses {
+  min-width: 0;
+}
+
+.camp-expenses-totals {
+  max-width: 440px;
+}
 
 /* Accent "Add payment" action on a roster row (matches .row-edit's look). */
 .camp-add-pay {

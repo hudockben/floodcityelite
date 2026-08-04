@@ -8,12 +8,17 @@ import {
   deleteCampPlayerAction,
 } from "./actions";
 import AddCampPlayerForm from "./add-camp-player-form";
+import CampExpenses from "./camp-expenses";
 import CampPaymentDraftRow from "./camp-payment-draft-row";
 import CreateCamp from "./create-camp";
 import {
+  amountToCents,
+  formatCents,
   formatDate,
   formatMoney,
   paymentTypeLabel,
+  summarizeExpenses,
+  type CampExpenseRow,
   type CampOption,
   type CampPaymentRow,
   type CampPlayerRow,
@@ -40,10 +45,12 @@ export default function ProgramCamps({
   camps,
   players,
   payments,
+  expenses,
 }: {
   camps: CampOption[];
   players: CampPlayerRow[];
   payments: CampPaymentRow[];
+  expenses: CampExpenseRow[];
 }) {
   // Which camp's roster + payments are shown below. Defaults to the first camp;
   // if the selection no longer exists (e.g. the camp was deleted), fall back to
@@ -81,21 +88,43 @@ export default function ProgramCamps({
     setDrafts((cur) => cur.filter((d) => d.id !== id));
   }
 
-  // Total collected per camp and roster size per camp, for the camp cards.
-  const { collectedByCamp, countByCamp, paidByPlayer } = useMemo(() => {
-    const collected = new Map<number, number>();
-    const paid = new Map<number, number>();
-    for (const p of payments) {
-      const amt = Number(p.amount) || 0;
-      collected.set(p.camp_id, (collected.get(p.camp_id) ?? 0) + amt);
-      paid.set(p.camp_player_id, (paid.get(p.camp_player_id) ?? 0) + amt);
-    }
-    const count = new Map<number, number>();
-    for (const pl of players) {
-      count.set(pl.camp_id, (count.get(pl.camp_id) ?? 0) + 1);
-    }
-    return { collectedByCamp: collected, countByCamp: count, paidByPlayer: paid };
-  }, [payments, players]);
+  // Per-camp roll-ups for the camp cards: what came in, what the camp cost, and
+  // its roster size — plus what each player has paid, for the roster table.
+  // Money is accumulated in integer cents so a camp that exactly broke even
+  // reads "$0.00" rather than a float-drifted "−$0.00".
+  const { collectedByCamp, expenseNetByCamp, countByCamp, paidByPlayer } =
+    useMemo(() => {
+      const collected = new Map<number, number>();
+      const paid = new Map<number, number>();
+      for (const p of payments) {
+        const cents = amountToCents(p.amount);
+        collected.set(p.camp_id, (collected.get(p.camp_id) ?? 0) + cents);
+        paid.set(p.camp_player_id, (paid.get(p.camp_player_id) ?? 0) + cents);
+      }
+      // Only paid expenses (less refunds) move a camp's net; a Not Paid one is
+      // tracked without changing it — same rule as the Budgets tab, applied by
+      // the same helper.
+      const byCamp = new Map<number, CampExpenseRow[]>();
+      for (const e of expenses) {
+        const list = byCamp.get(e.camp_id);
+        if (list) list.push(e);
+        else byCamp.set(e.camp_id, [e]);
+      }
+      const expenseNet = new Map<number, number>();
+      for (const [id, rows] of byCamp) {
+        expenseNet.set(id, summarizeExpenses(rows).netCents);
+      }
+      const count = new Map<number, number>();
+      for (const pl of players) {
+        count.set(pl.camp_id, (count.get(pl.camp_id) ?? 0) + 1);
+      }
+      return {
+        collectedByCamp: collected,
+        expenseNetByCamp: expenseNet,
+        countByCamp: count,
+        paidByPlayer: paid,
+      };
+    }, [payments, players, expenses]);
 
   const campId = selectedCamp?.id ?? null;
   const campPlayers = campId
@@ -103,6 +132,9 @@ export default function ProgramCamps({
     : [];
   const campPayments = campId
     ? payments.filter((p) => p.camp_id === campId)
+    : [];
+  const campExpenses = campId
+    ? expenses.filter((e) => e.camp_id === campId)
     : [];
 
   // The Total column accumulates across the selected camp's payments in display
@@ -126,6 +158,8 @@ export default function ProgramCamps({
             Create a camp, add players with their parent&apos;s name, contact,
             and location, then track each payment they make — the Total column
             accumulates every payment received, just like the Payment Tracker.
+            Log what the camp cost to put on under Expenses and the tab reports
+            the camp&apos;s net.
           </p>
         </div>
       </section>
@@ -153,6 +187,7 @@ export default function ProgramCamps({
             {camps.map((camp) => {
               const active = camp.id === selectedCamp?.id;
               const collected = collectedByCamp.get(camp.id) ?? 0;
+              const spent = expenseNetByCamp.get(camp.id) ?? 0;
               const count = countByCamp.get(camp.id) ?? 0;
               return (
                 <li
@@ -178,12 +213,32 @@ export default function ProgramCamps({
                     ) : null}
                     <span className="camp-item-stats">
                       <span className="camp-collected">
-                        {formatMoney(collected)}
+                        {formatCents(collected)}
                       </span>
                       <span className="camp-count">
                         {count} {count === 1 ? "player" : "players"}
                       </span>
                     </span>
+                    {/* Only worth a line once the camp has cost something —
+                        otherwise the net is just the collected figure again.
+                        A negative `spent` means refunds outran paid expenses,
+                        so it reads as money back rather than an expense. */}
+                    {spent !== 0 ? (
+                      <span className="camp-item-net">
+                        {spent > 0
+                          ? `${formatCents(spent)} expenses`
+                          : `${formatCents(-spent)} refunded`}{" "}
+                        ·{" "}
+                        <strong
+                          className={
+                            collected - spent < 0 ? "camp-net-down" : "camp-net-up"
+                          }
+                        >
+                          {collected - spent < 0 ? "−" : ""}
+                          {formatCents(Math.abs(collected - spent))} net
+                        </strong>
+                      </span>
+                    ) : null}
                   </button>
                   <ConfirmButton
                     action={deleteCampAction}
@@ -273,7 +328,7 @@ export default function ProgramCamps({
                         {player.location || <Dash />}
                       </td>
                       <td className="pay-num pay-running">
-                        {formatMoney(paidByPlayer.get(player.id) ?? 0)}
+                        {formatCents(paidByPlayer.get(player.id) ?? 0)}
                       </td>
                       <td className="col-actions">
                         <div className="row-actions">
@@ -428,6 +483,34 @@ export default function ProgramCamps({
               </span>
             )}
           </div>
+        </section>
+      ) : null}
+
+      {/* Step 4 — what the camp cost to put on */}
+      {hasCamps && selectedCamp ? (
+        <section className="panel">
+          <div className="panel-head">
+            <h2 className="step-title">
+              <span className="step-num">4</span> Expenses
+              <span className="step-context">· {selectedCamp.name}</span>
+            </h2>
+            <p>
+              Log what running <strong>{selectedCamp.name}</strong> cost — umpire
+              fees for a showcase, field rental, gear. A paid expense comes off
+              what the camp collected, a refund is credited back, and a not-paid
+              one is tracked without moving the net.
+            </p>
+          </div>
+
+          {/* Re-mount when the camp changes so the add form's hidden campId and
+              any half-typed values reset cleanly. */}
+          <CampExpenses
+            key={selectedCamp.id}
+            campId={selectedCamp.id}
+            campName={selectedCamp.name}
+            expenses={campExpenses}
+            collectedCents={collectedByCamp.get(selectedCamp.id) ?? 0}
+          />
         </section>
       ) : null}
     </div>

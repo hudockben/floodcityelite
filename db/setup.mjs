@@ -460,6 +460,26 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_camp_payments_camp_player_id ON camp_payments (camp_player_id)`;
 
+  // A camp expense is what running the camp cost (umpire fees for a showcase,
+  // field rental, gear) and mirrors `team_expenses`, statuses included: 'paid'
+  // comes off what the camp collected, 'refund' is credited back, 'not_paid' is
+  // tracked only. Powers the Program/Camps tab's per-camp net.
+  await sql`
+    CREATE TABLE IF NOT EXISTS camp_expenses (
+      id            SERIAL        PRIMARY KEY,
+      camp_id       INTEGER       NOT NULL REFERENCES camps(id) ON DELETE CASCADE,
+      expense_date  DATE,
+      vendor        VARCHAR(200),
+      amount        NUMERIC(12,2) NOT NULL DEFAULT 0,
+      status        VARCHAR(16)   NOT NULL DEFAULT 'paid'
+                      CHECK (status IN ('paid', 'not_paid', 'refund')),
+      created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_camp_expenses_camp_id ON camp_expenses (camp_id)`;
+
 // Fixed costs: what the program pays up front (uniforms, insurance, facility
   // time), grouped under sections the user names. The total divided by the
   // player count is the fixed cost per player the Budgets tab subtracts from

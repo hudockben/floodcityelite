@@ -328,8 +328,11 @@ CREATE INDEX IF NOT EXISTS idx_fundraiser_entries_player_id ON fundraiser_entrie
 -- player's name, the parent's name, a parent contact, and a location. A
 -- camp_payment is logged against a camp player and mirrors the payments table:
 -- the date received, the type (check or cash), an optional check number, and an
--- amount. The Program/Camps tab shows per-player and per-camp totals from these
--- rows. Only the camp name and a player's name are required.
+-- amount. A camp_expense is what putting the camp on cost — umpire fees for a
+-- showcase, field rental, gear — and mirrors the Budgets tab's team_expenses,
+-- statuses included, so it comes off what the camp collected. The Program/Camps
+-- tab shows per-player, per-camp, and net totals from these rows. Only the camp
+-- name and a player's name are required.
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS camps (
@@ -370,6 +373,20 @@ CREATE TABLE IF NOT EXISTS camp_payments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_camp_payments_camp_player_id ON camp_payments (camp_player_id);
+
+CREATE TABLE IF NOT EXISTS camp_expenses (
+    id            SERIAL        PRIMARY KEY,
+    camp_id       INTEGER       NOT NULL REFERENCES camps(id) ON DELETE CASCADE,
+    expense_date  DATE,
+    vendor        VARCHAR(200),
+    amount        NUMERIC(12,2) NOT NULL DEFAULT 0,
+    status        VARCHAR(16)   NOT NULL DEFAULT 'paid'
+                    CHECK (status IN ('paid', 'not_paid', 'refund')),
+    created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_camp_expenses_camp_id ON camp_expenses (camp_id);
 
 -- ---------------------------------------------------------------------------
 -- Fixed costs
