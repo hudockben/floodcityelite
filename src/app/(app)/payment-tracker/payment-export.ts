@@ -10,7 +10,7 @@
 // ---------------------------------------------------------------------------
 
 import type { ExportColumn } from "@/lib/sheet-export";
-import { divisionLabel } from "../teams/divisions";
+import { divisionLabel, type Division } from "../teams/divisions";
 import {
   amountToCents,
   formatDate,
@@ -35,9 +35,18 @@ export function withRunningTotals(rows: PaymentRow[]): PaymentExportRow[] {
   });
 }
 
-export const PAYMENT_EXPORT_COLUMNS: ExportColumn<PaymentExportRow>[] = [
+// Built per request rather than declared once: the Division column names the
+// company's own divisions, which are rows now, not a constant.
+export function paymentExportColumns(
+  divisions: Division[],
+): ExportColumn<PaymentExportRow>[] {
+  return [
   { header: "Date", width: 14, value: (p) => formatDate(p.paid_on) },
-  { header: "Division", width: 22, value: (p) => divisionLabel(p.division) },
+  {
+    header: "Division",
+    width: 22,
+    value: (p) => divisionLabel(p.division, divisions),
+  },
   { header: "Team Name", width: 32, value: (p) => p.team_name },
   { header: "Player Name", width: 24, value: (p) => p.player_name },
   {
@@ -57,4 +66,5 @@ export const PAYMENT_EXPORT_COLUMNS: ExportColumn<PaymentExportRow>[] = [
     value: (p) => (amountToCents(p.amount) / 100).toFixed(2),
   },
   { header: "Total", width: 14, numeric: true, value: (p) => p.running_total },
-];
+  ];
+}

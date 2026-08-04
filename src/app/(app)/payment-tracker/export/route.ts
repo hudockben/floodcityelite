@@ -1,8 +1,9 @@
 import { getSession } from "@/lib/session";
 import { resolveFormat, sheetResponse } from "@/lib/sheet-export";
 import { listPayments } from "../load-payments";
+import { listDivisionsSafe } from "../../teams/division-store";
 import {
-  PAYMENT_EXPORT_COLUMNS,
+  paymentExportColumns,
   withRunningTotals,
   type PaymentExportRow,
 } from "../payment-export";
@@ -44,7 +45,7 @@ export async function GET(request: Request): Promise<Response> {
     format,
     baseName: "payments",
     sheetName: "Payments",
-    columns: PAYMENT_EXPORT_COLUMNS,
+    columns: paymentExportColumns(await listDivisionsSafe(session.companyId)),
     rows,
   });
 }

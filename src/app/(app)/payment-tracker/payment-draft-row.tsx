@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { DIVISIONS, type DivisionSlug } from "../teams/divisions";
+import { type Division, type DivisionSlug } from "../teams/divisions";
 import { addPaymentAction } from "./actions";
 import {
   PAYMENT_TYPES,
@@ -30,6 +30,7 @@ export default function PaymentDraftRow({
   id,
   teams,
   players,
+  divisions,
   initial,
   onRemove,
   onSaved,
@@ -37,6 +38,8 @@ export default function PaymentDraftRow({
   id: number;
   teams: TeamOption[];
   players: PlayerOption[];
+  /** The company's divisions, offered in this row's Division dropdown. */
+  divisions: Division[];
   initial?: DraftInitial;
   onRemove: (id: number) => void;
   onSaved: (id: number) => void;
@@ -126,7 +129,7 @@ export default function PaymentDraftRow({
             <option value="" disabled>
               Division…
             </option>
-            {DIVISIONS.map((d) => (
+            {divisions.map((d) => (
               <option key={d.slug} value={d.slug}>
                 {d.label}
               </option>

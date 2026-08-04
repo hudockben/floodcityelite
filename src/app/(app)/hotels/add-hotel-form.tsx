@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef } from "react";
 import { addHotelAction, type FormState } from "./actions";
 import HotelFields from "./hotel-fields";
+import type { Division } from "../teams/divisions";
 import type { TournamentOption } from "./hotels";
 
 const initialState: FormState = {};
@@ -11,8 +12,11 @@ const initialState: FormState = {};
 // hotel can be typed straight in.
 export default function AddHotelForm({
   tournaments,
+  divisions,
 }: {
   tournaments: TournamentOption[];
+  /** The company's divisions, offered in the Division select. */
+  divisions: Division[];
 }) {
   const [state, formAction, pending] = useActionState(
     addHotelAction,
@@ -26,7 +30,11 @@ export default function AddHotelForm({
 
   return (
     <form ref={formRef} action={formAction} className="player-form">
-      <HotelFields idPrefix="hotel-new" tournaments={tournaments} />
+      <HotelFields
+        idPrefix="hotel-new"
+        tournaments={tournaments}
+        divisions={divisions}
+      />
 
       <div className="player-form-actions">
         <button type="submit" className="btn" disabled={pending}>

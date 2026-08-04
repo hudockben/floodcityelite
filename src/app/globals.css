@@ -1489,6 +1489,135 @@ body {
   margin: 12px 14px 14px;
 }
 
+/* ---- Add / remove a division (Teams tab, under the division selector) ---- */
+/* Reuses the team-manage disclosure and the team-form layout: it's the same
+   shape of job one level up, and it should read that way. */
+.division-manage {
+  margin-top: 16px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--field-bg);
+  overflow: hidden;
+}
+
+.division-manage-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+.division-manage-summary::-webkit-details-marker {
+  display: none;
+}
+.division-manage-summary::marker {
+  content: "";
+}
+
+.division-manage-summary:hover {
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.division-manage[open] > .division-manage-summary {
+  border-bottom: 1px solid var(--card-border);
+}
+
+.division-manage[open] > .division-manage-summary .tg-caret {
+  transform: rotate(45deg);
+}
+
+.division-manage-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.division-manage-count {
+  margin-left: auto;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.division-manage-hint {
+  margin: 0;
+  padding: 12px 14px 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.division-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+  margin: 14px 14px 0;
+}
+
+.division-form .field {
+  flex: 1 1 220px;
+}
+
+/* The live slug preview under the name field. */
+.division-form .field-hint {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.division-form .field-hint code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(148, 187, 233, 0.1);
+  font-size: 0.72rem;
+}
+
+/* One row per division: its name, how many teams it holds, and either a Remove
+   button or the reason there isn't one. */
+.division-chips {
+  list-style: none;
+  margin: 14px 14px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.division-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 9px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: var(--card-bg);
+}
+
+.division-chip-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.division-chip-count {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.division-chip-note {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.division-chip .row-delete {
+  margin-left: auto;
+}
+
 /* Add-player form */
 .player-form {
   margin-top: 20px;

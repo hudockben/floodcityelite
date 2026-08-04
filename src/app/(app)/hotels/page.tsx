@@ -6,6 +6,8 @@ import AddHotelForm from "./add-hotel-form";
 import BulkUploadForm from "./bulk-upload-form";
 import HotelDirectory from "./hotel-directory";
 import { ensureHotelsSchema } from "./schema";
+import { listDivisionsSafe } from "../teams/division-store";
+import type { Division } from "../teams/divisions";
 import type { HotelRow, TournamentOption } from "./hotels";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +18,9 @@ export default async function HotelsPage() {
 
   let hotels: HotelRow[] = [];
   let tournaments: TournamentOption[] = [];
+  // The company's divisions, so the Division select and filter offer every
+  // division the program runs — including ones added on the Teams tab.
+  const divisions: Division[] = await listDivisionsSafe(session.companyId);
   let loadError = false;
 
   try {
@@ -122,7 +127,7 @@ export default async function HotelsPage() {
               </p>
             </div>
 
-            <AddHotelForm tournaments={tournaments} />
+            <AddHotelForm tournaments={tournaments} divisions={divisions} />
 
             <BulkUploadForm />
           </section>
@@ -140,7 +145,11 @@ export default async function HotelsPage() {
               </p>
             </div>
 
-            <HotelDirectory hotels={hotels} tournaments={tournaments} />
+            <HotelDirectory
+              hotels={hotels}
+              tournaments={tournaments}
+              divisions={divisions}
+            />
           </section>
         </>
       )}

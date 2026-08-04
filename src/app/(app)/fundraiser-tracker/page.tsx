@@ -9,6 +9,8 @@ import type {
   PlayerOption,
   TeamOption,
 } from "./fundraisers";
+import { listDivisionsSafe } from "../teams/division-store";
+import type { Division } from "../teams/divisions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,9 @@ export default async function FundraiserTrackerPage() {
   let players: PlayerOption[] = [];
   let fundraisers: FundraiserOption[] = [];
   let entries: FundraiserEntryRow[] = [];
+  // The company's divisions, so the Division dropdown offers every division the
+  // program runs and a division name reads the same here as on the Teams tab.
+  const divisions: Division[] = await listDivisionsSafe(session.companyId);
   let loadError = false;
 
   try {
@@ -109,6 +114,7 @@ export default async function FundraiserTrackerPage() {
       players={players}
       fundraisers={fundraisers}
       entries={entries}
+      divisions={divisions}
     />
   );
 }

@@ -5,12 +5,15 @@ import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import {
+  DIVISION_LABEL_MAX,
   divisionLabel,
-  isDivisionSlug,
+  isDivisionSlugFormat,
   isSport,
   parseRosterStatus,
+  slugifyDivision,
   TEAM_NAME_MAX,
 } from "./divisions";
+import { divisionExists, listDivisions } from "./division-store";
 import {
   mapRows,
   nameKey,
@@ -58,6 +61,145 @@ function checkbox(formData: FormData, key: string): boolean {
   return formData.get(key) != null;
 }
 
+// --- create a division -----------------------------------------------------
+
+// The division a team sits in used to be one of three hardcoded values. A
+// company can add its own now — a fall showcase circuit, an 18U travel run —
+// and the new division gets its own seasons, teams, rosters, schedules, and
+// budgets like any other. The slug is derived from the name (see
+// slugifyDivision) so it's stable and URL-safe; the name itself is what shows.
+export async function createDivisionAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await getSession();
+  if (!session) return { error: "Your session has expired. Please sign in again." };
+
+  const label = text(formData, "label");
+  if (!label) return { error: "Enter a division name." };
+  if (label.length > DIVISION_LABEL_MAX) {
+    return { error: `Keep the division name under ${DIVISION_LABEL_MAX} characters.` };
+  }
+
+  const sport = String(formData.get("default_sport") ?? "baseball");
+  if (!isSport(sport)) return { error: "Pick a sport (baseball or softball)." };
+
+  // "18U Fall Showcase" → "18u-fall-showcase". A name of nothing but
+  // punctuation leaves no slug behind, so there'd be nothing to store or link.
+  const slug = slugifyDivision(label);
+  if (!slug || !isDivisionSlugFormat(slug)) {
+    return { error: "Give the division a name with some letters or numbers in it." };
+  }
+
+  try {
+    await ensureTeamsSchema();
+
+    // Seeds the built-ins for a company that has never had a divisions row, so
+    // the new division is added alongside them rather than instead of them.
+    const existing = await listDivisions(session.companyId);
+
+    // Name the division actually in the way. Usually it's the same name typed
+    // twice, but two long names can also slugify to the same thing once they're
+    // cut to the column width — and "X already exists" would be baffling then.
+    const clash = existing.find((d) => d.slug === slug);
+    if (clash) {
+      return clash.label.toLowerCase() === label.toLowerCase()
+        ? { error: `A division named "${clash.label}" already exists.` }
+        : {
+            error:
+              `That name shares a link (?division=${slug}) with your ` +
+              `"${clash.label}" division. Try a different name.`,
+          };
+    }
+
+    await sql()`
+      INSERT INTO divisions (company_id, slug, label, default_sport)
+      VALUES (
+        ${session.companyId},
+        ${slug},
+        ${label.slice(0, DIVISION_LABEL_MAX)},
+        ${sport}
+      )
+      ON CONFLICT (company_id, slug) DO NOTHING
+    `;
+  } catch (err) {
+    console.error("createDivision error:", err);
+    return { error: `Could not add the division — ${describeError(err)}` };
+  }
+
+  // Divisions drive the selector on several tabs, so refresh them all rather
+  // than leaving a new division missing from a cached Budgets or Schedules page.
+  revalidateDivisionPaths();
+  return { ok: true };
+}
+
+// --- remove a division -----------------------------------------------------
+
+// Only a division with no teams can go, and never the last one — the app has no
+// meaningful state with zero divisions, and removing one that still has teams
+// would strand their rosters, schedules, and budgets somewhere unreachable.
+// A division's empty seasons go with it.
+export async function deleteDivisionAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session) return;
+
+  const slug = String(formData.get("slug") ?? "").trim();
+  if (!isDivisionSlugFormat(slug)) return;
+
+  await ensureTeamsSchema();
+
+  const teams = await sql()`
+    SELECT 1 FROM teams
+    WHERE company_id = ${session.companyId} AND division = ${slug}
+    LIMIT 1
+  `;
+  if (teams.length > 0) return;
+
+  const divisions = await listDivisions(session.companyId);
+  if (divisions.length <= 1) return;
+
+  await sql()`
+    DELETE FROM seasons
+    WHERE company_id = ${session.companyId} AND division = ${slug}
+  `;
+  await sql()`
+    DELETE FROM divisions
+    WHERE company_id = ${session.companyId} AND slug = ${slug}
+  `;
+
+  revalidateDivisionPaths();
+
+  // The removed division may be the one on screen; land on one that still
+  // exists rather than on a selector with nothing selected.
+  const fallback = divisions.find((d) => d.slug !== slug);
+  redirect(fallback ? `/teams?division=${fallback.slug}` : "/teams");
+}
+
+// Every tab whose division selector or filter reads the company's divisions.
+function revalidateDivisionPaths(): void {
+  for (const path of [
+    "/teams",
+    "/budgets",
+    "/schedules",
+    "/payment-tracker",
+    "/fundraiser-tracker",
+    "/hotels",
+    "/payroll-admin",
+    "/homeplate",
+  ]) {
+    revalidatePath(path);
+  }
+}
+
+/** A short, single-line cause for a failed write, for the message on screen. */
+function describeError(err: unknown): string {
+  const e = err as { code?: string; message?: string } | null;
+  const message = String(e?.message ?? "").split("\n")[0].trim();
+  if (!message) return "the database rejected the change. Please try again.";
+  const code = e?.code ? ` (${e.code})` : "";
+  return `${message.slice(0, 200)}${code}`;
+}
+
 // --- create a team ---------------------------------------------------------
 
 export async function createTeamAction(
@@ -73,12 +215,18 @@ export async function createTeamAction(
   const seasonId = Number.parseInt(String(formData.get("seasonId") ?? ""), 10);
 
   if (!name) return { error: "Enter a team name." };
-  if (!isDivisionSlug(division)) return { error: "Pick a valid division." };
+  if (!isDivisionSlugFormat(division)) return { error: "Pick a valid division." };
   if (!isSport(sport)) return { error: "Pick a sport (baseball or softball)." };
   if (!Number.isFinite(seasonId)) return { error: "Pick a season first." };
 
   try {
     await ensureTeamsSchema();
+
+    // Divisions are company rows now, so a slug being well-formed doesn't make
+    // it real — check it belongs to this company before hanging a team off it.
+    if (!(await divisionExists(session.companyId, division))) {
+      return { error: "That division no longer exists." };
+    }
 
     // The new team goes into the season being viewed. Confirm it belongs to
     // this company and division so a stale form can't drop a team into someone
@@ -116,7 +264,8 @@ export async function createSeasonAction(formData: FormData): Promise<void> {
   if (!session) redirect("/");
 
   const division = String(formData.get("division") ?? "");
-  if (!isDivisionSlug(division)) redirect("/teams");
+  if (!isDivisionSlugFormat(division)) redirect("/teams");
+  if (!(await divisionExists(session.companyId, division))) redirect("/teams");
 
   // Clamp the year to a sane range; fall back to next calendar year on garbage.
   const rawYear = Number.parseInt(String(formData.get("year") ?? ""), 10);
@@ -649,12 +798,15 @@ export async function bulkUploadRosterAction(
     revalidatePath("/teams");
     revalidatePath("/budgets");
 
+    // The company's divisions, so the summary names each team's division the
+    // way the tab does — including one added on this tab.
+    const divisions = await listDivisions(session.companyId);
     const perTeam: BulkTeamResult[] = [...perTeamTally.entries()]
       .map(([tid, t]) => {
         const info = teamById.get(tid);
         return {
           teamName: info?.name ?? `Team ${tid}`,
-          division: divisionLabel(info?.division ?? ""),
+          division: divisionLabel(info?.division ?? "", divisions),
           added: t.added,
           duplicates: t.duplicates,
         };

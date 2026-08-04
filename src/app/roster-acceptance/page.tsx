@@ -9,6 +9,8 @@ import {
   type RosterTeamOption,
 } from "@/lib/roster-submissions";
 import RosterAcceptanceForm from "./roster-form";
+import { listDivisionsSafe } from "@/app/(app)/teams/division-store";
+import { BUILTIN_DIVISIONS, type Division } from "@/app/(app)/teams/divisions";
 
 export const metadata: Metadata = {
   title: "Roster Spot — Flood City Elite",
@@ -23,6 +25,9 @@ export const dynamic = "force-dynamic";
 // an acceptance also adds the player to the chosen team's roster.
 export default async function RosterAcceptancePage() {
   let teams: RosterTeamOption[] = [];
+  // The program's divisions name the Division dropdown. Falls back to the
+  // built-ins so a load failure still renders a usable form.
+  let divisions: Division[] = BUILTIN_DIVISIONS;
 
   try {
     // Create the tables on first use so the form works even if the database
@@ -33,6 +38,7 @@ export default async function RosterAcceptancePage() {
     const companyId = await getRosterCompanyId();
     if (companyId != null) {
       teams = await listRosterTeamOptions(companyId);
+      divisions = await listDivisionsSafe(companyId);
     }
   } catch (err) {
     // A load error just leaves the team dropdown empty; the form still renders.
@@ -58,7 +64,7 @@ export default async function RosterAcceptancePage() {
           </p>
         </div>
 
-        <RosterAcceptanceForm teams={teams} />
+        <RosterAcceptanceForm teams={teams} divisions={divisions} />
 
         <p className="card-foot">
           <Link href="/" className="card-foot-link">

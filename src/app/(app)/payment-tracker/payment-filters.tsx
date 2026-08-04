@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import ExportButtons from "../export-buttons";
-import { DIVISIONS } from "../teams/divisions";
+import { type Division } from "../teams/divisions";
 import {
   NO_PAYMENT_FILTERS,
   PAYMENT_TYPES,
@@ -32,11 +32,14 @@ import {
 // file or PDF holds exactly the rows on screen.
 export default function PaymentFilters({
   payments,
+  divisions: allDivisions,
   filters,
   onChange,
   shownCount,
 }: {
   payments: PaymentRow[];
+  /** The company's divisions; the dropdown offers the ones in the ledger. */
+  divisions: Division[];
   /** Normalized by the caller (see normalizePaymentFilters). */
   filters: Filters;
   onChange: (next: Filters) => void;
@@ -45,8 +48,8 @@ export default function PaymentFilters({
 }) {
   const divisions = useMemo(() => {
     const used = new Set(payments.map((p) => p.division));
-    return DIVISIONS.filter((d) => used.has(d.slug));
-  }, [payments]);
+    return allDivisions.filter((d) => used.has(d.slug));
+  }, [payments, allDivisions]);
 
   const types = useMemo(() => {
     const used = new Set(payments.map((p) => p.payment_type));

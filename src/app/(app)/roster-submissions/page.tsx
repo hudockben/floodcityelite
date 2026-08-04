@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { ensureTeamsSchema } from "../teams/schema";
+import { listDivisionsSafe } from "../teams/division-store";
+import type { Division } from "../teams/divisions";
 import {
   ensureRosterSubmissionsSchema,
   listRosterSubmissions,
@@ -15,6 +17,9 @@ export default async function RosterSubmissionsPage() {
   const session = await getSession();
   if (!session) redirect("/");
 
+  // The company's divisions, so a submission names its division the way the
+  // Teams tab does.
+  const divisions: Division[] = await listDivisionsSafe(session.companyId);
   let submissions: RosterSubmissionRow[] = [];
   let loadError = false;
 
@@ -80,6 +85,7 @@ export default async function RosterSubmissionsPage() {
       ) : (
         <SubmissionsList
           submissions={submissions}
+          divisions={divisions}
           deleteAction={deleteRosterSubmissionAction}
         />
       )}

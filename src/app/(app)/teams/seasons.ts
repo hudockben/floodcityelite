@@ -14,7 +14,11 @@
 // ---------------------------------------------------------------------------
 
 import { sql } from "@/lib/db";
-import { divisionLabel, type DivisionSlug } from "./divisions";
+import {
+  divisionLabel,
+  type Division,
+  type DivisionSlug,
+} from "./divisions";
 
 export type Season = {
   id: number;
@@ -28,9 +32,10 @@ export type Season = {
 // year plus the division (e.g. "2026 Spring/Summer Baseball").
 export function seasonLabel(
   s: Pick<Season, "year" | "label" | "division">,
+  divisions: Division[] = [],
 ): string {
   const custom = s.label?.trim();
-  return custom ? custom : `${s.year} ${divisionLabel(s.division)}`;
+  return custom ? custom : `${s.year} ${divisionLabel(s.division, divisions)}`;
 }
 
 // All of a division's seasons, newest year first (drives the year picker).

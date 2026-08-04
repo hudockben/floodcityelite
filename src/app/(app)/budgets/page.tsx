@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { DIVISIONS, resolveDivision } from "../teams/divisions";
+import { resolveDivision, type Division } from "../teams/divisions";
+import { listDivisions } from "../teams/division-store";
 import { resolveSeason, type Season } from "../teams/seasons";
 import SeasonBar from "../teams/season-bar";
 import { ensureTeamsSchema } from "../teams/schema";
@@ -33,10 +34,11 @@ export default async function BudgetsPage({
   if (!session) redirect("/");
 
   const params = await searchParams;
-  const division = resolveDivision(firstParam(params.division));
   const yearRaw = firstParam(params.year);
   const yearParam = yearRaw ? Number.parseInt(yearRaw, 10) : null;
 
+  let divisions: Division[] = [];
+  let division: Division | null = null;
   let rows: TeamBudgetRow[] = [];
   let expenses: ExpenseRow[] = [];
   let tournaments: TournamentRow[] = [];
@@ -57,6 +59,11 @@ export default async function BudgetsPage({
     await ensureBudgetsSchema();
     await ensureSchedulesSchema();
     await ensureFundraisersSchema();
+
+    // The company's divisions drive the selector and which one ?division= means.
+    divisions = await listDivisions(session.companyId);
+    division = resolveDivision(firstParam(params.division), divisions);
+    if (!division) throw new Error("no divisions for company");
 
     // Budgets are per team, so scoping the teams to the selected season scopes
     // the whole tab (expenses and tournaments hang off those teams).
@@ -229,8 +236,8 @@ export default async function BudgetsPage({
 
         {/* Division selector */}
         <nav className="subtabs" aria-label="Division">
-          {DIVISIONS.map((d) => {
-            const active = d.slug === division.slug;
+          {divisions.map((d) => {
+            const active = d.slug === division?.slug;
             return (
               <Link
                 key={d.slug}
@@ -245,7 +252,7 @@ export default async function BudgetsPage({
         </nav>
 
         {/* Season (year) selector for this division. */}
-        {season ? (
+        {season && division ? (
           <SeasonBar
             basePath="/budgets"
             division={division.slug}
@@ -255,7 +262,7 @@ export default async function BudgetsPage({
         ) : null}
       </section>
 
-      {loadError || !season ? (
+      {loadError || !season || !division ? (
         <section className="panel">
           <div className="empty">
             <div className="empty-icon" aria-hidden="true">

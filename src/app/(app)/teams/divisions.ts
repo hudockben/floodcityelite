@@ -9,10 +9,16 @@
 
 export type Sport = "baseball" | "softball";
 
-export type DivisionSlug =
-  | "spring-summer-baseball"
-  | "softball"
-  | "fall-baseball";
+/**
+ * A division's stable identifier — what's stored in `teams.division` /
+ * `seasons.division` and put in the ?division= query param.
+ *
+ * This used to be a union of the three divisions the program shipped with.
+ * Divisions are user-created now (the Teams tab's "Add a division"), so the
+ * set isn't knowable at compile time and the slug is just a string. The shape
+ * is still constrained — see `slugifyDivision` / `isDivisionSlugFormat`.
+ */
+export type DivisionSlug = string;
 
 export type Division = {
   slug: DivisionSlug;
@@ -21,9 +27,17 @@ export type Division = {
   defaultSport: Sport;
 };
 
-// The division selector, in display order. Slugs are what we store in the DB
-// and put in the ?division= query param.
-export const DIVISIONS: Division[] = [
+/**
+ * The divisions every company starts with, in display order. These are seeded
+ * into the `divisions` table on first use (see listDivisions) rather than being
+ * the whole story — a company can add its own and remove any of these it
+ * doesn't run.
+ *
+ * They stay here as well so `divisionLabel` can name them without a database
+ * round trip, which keeps labels right in the few client components that render
+ * a slug without being handed the company's list.
+ */
+export const BUILTIN_DIVISIONS: Division[] = [
   {
     slug: "spring-summer-baseball",
     label: "Spring/Summer Baseball",
@@ -33,26 +47,50 @@ export const DIVISIONS: Division[] = [
   { slug: "fall-baseball", label: "Fall Baseball", defaultSport: "baseball" },
 ];
 
-export const DEFAULT_DIVISION: DivisionSlug = DIVISIONS[0].slug;
-
 /**
  * Max length of a team name. Mirrors the teams.name VARCHAR(120) column so the
  * form's maxLength and the server-side check stay in step with the database.
  */
 export const TEAM_NAME_MAX = 120;
 
+/** Mirrors divisions.label VARCHAR(60). */
+export const DIVISION_LABEL_MAX = 60;
+
+/** Mirrors divisions.slug / teams.division / seasons.division VARCHAR(32). */
+export const DIVISION_SLUG_MAX = 32;
+
 export const SPORTS: { value: Sport; label: string }[] = [
   { value: "baseball", label: "Baseball" },
   { value: "softball", label: "Softball" },
 ];
 
-/** Resolve a slug (from the URL) to a division, or fall back to the default. */
-export function resolveDivision(slug: string | undefined | null): Division {
-  return DIVISIONS.find((d) => d.slug === slug) ?? DIVISIONS[0];
+/**
+ * Turn a typed division name into a slug: lowercase, non-alphanumerics folded
+ * to single dashes, trimmed to the column width. "18U Fall Showcase" →
+ * "18u-fall-showcase". Returns "" when nothing usable survives, which the
+ * caller treats as an invalid name.
+ */
+export function slugifyDivision(label: string): DivisionSlug {
+  return label
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, DIVISION_SLUG_MAX)
+    .replace(/-+$/, "");
 }
 
-export function isDivisionSlug(value: string): value is DivisionSlug {
-  return DIVISIONS.some((d) => d.slug === value);
+/**
+ * Whether a value has the *shape* of a division slug. This is a format check,
+ * not a membership check — divisions are per-company rows now, so proving a
+ * slug exists means asking the database (see listDivisions / divisionExists).
+ *
+ * Use it to sanitize a value bound for an optional display column that was
+ * chosen from a select we rendered; use a real lookup before writing a row that
+ * hangs off the division.
+ */
+export function isDivisionSlugFormat(value: string): boolean {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) && value.length <= DIVISION_SLUG_MAX;
 }
 
 export function isSport(value: string): value is Sport {
@@ -63,8 +101,52 @@ export function sportLabel(value: string): string {
   return SPORTS.find((s) => s.value === value)?.label ?? value;
 }
 
-export function divisionLabel(value: string): string {
-  return DIVISIONS.find((d) => d.slug === value)?.label ?? value;
+/**
+ * Resolve a slug (from the URL) to one of `divisions`, falling back to the
+ * first. Callers pass the company's divisions, loaded by listDivisions.
+ *
+ * Returns null only when the company has no divisions at all, which
+ * listDivisions prevents by seeding the built-ins.
+ */
+export function resolveDivision(
+  slug: string | undefined | null,
+  divisions: Division[],
+): Division | null {
+  return divisions.find((d) => d.slug === slug) ?? divisions[0] ?? null;
+}
+
+/**
+ * Name a division for display.
+ *
+ * Pass the company's divisions whenever they're to hand — that's the only
+ * source that knows a user-created division's exact name. Without them this
+ * falls back to the built-in names and then to de-slugifying, so a slug never
+ * leaks to the screen raw.
+ */
+export function divisionLabel(value: string, divisions?: Division[]): string {
+  const found =
+    divisions?.find((d) => d.slug === value) ??
+    BUILTIN_DIVISIONS.find((d) => d.slug === value);
+  if (found) return found.label;
+  return deslugifyDivision(value);
+}
+
+/**
+ * Best-effort name for a slug with no division row behind it — a division
+ * removed after the rows referencing it were written, say. "18u-fall-showcase"
+ * → "18U Fall Showcase": each word capitalized, with age brackets ("18u", "10U")
+ * uppercased the way everyone writes them.
+ */
+function deslugifyDivision(slug: string): string {
+  if (slug === "") return "";
+  return slug
+    .split("-")
+    .map((word) =>
+      /^\d+u$/i.test(word)
+        ? word.toUpperCase()
+        : word.charAt(0).toUpperCase() + word.slice(1),
+    )
+    .join(" ");
 }
 
 // Common baseball/softball positions offered as a datalist. Free text is still

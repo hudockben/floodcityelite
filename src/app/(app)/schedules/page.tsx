@@ -3,10 +3,11 @@ import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import {
-  DIVISIONS,
   resolveDivision,
   sportLabel,
+  type Division,
 } from "../teams/divisions";
+import { listDivisions } from "../teams/division-store";
 import { resolveSeason, type Season } from "../teams/seasons";
 import SeasonBar from "../teams/season-bar";
 import { ensureSchedulesSchema } from "./schema";
@@ -43,10 +44,11 @@ export default async function SchedulesPage({
   if (!session) redirect("/");
 
   const params = await searchParams;
-  const division = resolveDivision(firstParam(params.division));
   const yearRaw = firstParam(params.year);
   const yearParam = yearRaw ? Number.parseInt(yearRaw, 10) : null;
 
+  let divisions: Division[] = [];
+  let division: Division | null = null;
   let teams: ScheduleTeamRow[] = [];
   let events: ScheduleEventRow[] = [];
   let roster: GroupPlayer[] = [];
@@ -60,6 +62,11 @@ export default async function SchedulesPage({
     // Create the schedule_events table on first use so the tab works even if
     // the database predates this feature. Idempotent and memoized.
     await ensureSchedulesSchema();
+
+    // The company's divisions drive the selector and which one ?division= means.
+    divisions = await listDivisions(session.companyId);
+    division = resolveDivision(firstParam(params.division), divisions);
+    if (!division) throw new Error("no divisions for company");
 
     // Scope everything to the selected season (its teams and their events).
     const resolved = await resolveSeason(
@@ -208,8 +215,8 @@ export default async function SchedulesPage({
 
         {/* Division selector */}
         <nav className="subtabs" aria-label="Division">
-          {DIVISIONS.map((d) => {
-            const active = d.slug === division.slug;
+          {divisions.map((d) => {
+            const active = d.slug === division?.slug;
             return (
               <Link
                 key={d.slug}
@@ -224,7 +231,7 @@ export default async function SchedulesPage({
         </nav>
 
         {/* Season (year) selector for this division. */}
-        {season ? (
+        {season && division ? (
           <SeasonBar
             basePath="/schedules"
             division={division.slug}
@@ -234,7 +241,7 @@ export default async function SchedulesPage({
         ) : null}
       </section>
 
-      {loadError || !season ? (
+      {loadError || !season || !division ? (
         <section className="panel">
           <div className="empty">
             <div className="empty-icon" aria-hidden="true">

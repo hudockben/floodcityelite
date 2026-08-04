@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DIVISIONS } from "../teams/divisions";
+import { divisionLabel, type Division } from "../teams/divisions";
 import type { PlayerOption, TeamOption } from "./payments";
 
 // A player joined with its team and division label, plus the lowercased text we
@@ -12,9 +12,7 @@ export type PlayerMatch = {
   divisionLabel: string;
 };
 
-function divisionLabel(slug: string): string {
-  return DIVISIONS.find((d) => d.slug === slug)?.label ?? slug;
-}
+
 
 // Cap the dropdown so a broad query (e.g. a whole division) stays scannable.
 const MAX_RESULTS = 8;
@@ -22,10 +20,13 @@ const MAX_RESULTS = 8;
 export default function PaymentSearch({
   teams,
   players,
+  divisions,
   onPick,
 }: {
   teams: TeamOption[];
   players: PlayerOption[];
+  /** The company's divisions, so a division name matches what the tab shows. */
+  divisions: Division[];
   onPick: (match: PlayerMatch) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -41,10 +42,14 @@ export default function PaymentSearch({
     for (const player of players) {
       const team = teamById.get(player.team_id);
       if (!team) continue;
-      out.push({ player, team, divisionLabel: divisionLabel(team.division) });
+      out.push({
+        player,
+        team,
+        divisionLabel: divisionLabel(team.division, divisions),
+      });
     }
     return out;
-  }, [teams, players]);
+  }, [teams, players, divisions]);
 
   // Match on player name, team name, or division label so typing any of the
   // three narrows to the right people.

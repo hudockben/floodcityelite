@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import ConfirmButton from "../teams/confirm-button";
-import { divisionLabel } from "../teams/divisions";
+import { divisionLabel, type Division } from "../teams/divisions";
 import { deletePaymentAction } from "./actions";
 import PaymentDraftRow, { type DraftInitial } from "./payment-draft-row";
 import PaymentFilters from "./payment-filters";
@@ -36,10 +36,13 @@ export default function PaymentTracker({
   teams,
   players,
   payments,
+  divisions,
 }: {
   teams: TeamOption[];
   players: PlayerOption[];
   payments: PaymentRow[];
+  /** The company's divisions, for the Division dropdown, filter, and labels. */
+  divisions: Division[];
 }) {
   // Draft (unsaved) rows added by "Add Payment" or the search bar, each with a
   // stable key.
@@ -84,8 +87,8 @@ export default function PaymentTracker({
   // Everything on a payment, lowercased, memoized so the search box doesn't
   // rebuild every haystack on each keystroke.
   const searchText = useMemo(
-    () => new Map(payments.map((p) => [p.id, paymentSearchText(p)])),
-    [payments],
+    () => new Map(payments.map((p) => [p.id, paymentSearchText(p, divisions)])),
+    [payments, divisions],
   );
 
   const filtered = useMemo(
@@ -145,12 +148,14 @@ export default function PaymentTracker({
           <PaymentSearch
             teams={teams}
             players={players}
+            divisions={divisions}
             onPick={handlePick}
           />
 
           {payments.length > 0 ? (
             <PaymentFilters
               payments={payments}
+              divisions={divisions}
               filters={filters}
               onChange={setFilters}
               shownCount={filtered.length}
@@ -210,8 +215,11 @@ export default function PaymentTracker({
                 {savedRows.map(({ payment, runningTotal }) => (
                   <tr key={payment.id}>
                     <td className="pay-nowrap">{formatDate(payment.paid_on)}</td>
-                    <td className="pay-trunc" title={divisionLabel(payment.division)}>
-                      {divisionLabel(payment.division)}
+                    <td
+                      className="pay-trunc"
+                      title={divisionLabel(payment.division, divisions)}
+                    >
+                      {divisionLabel(payment.division, divisions)}
                     </td>
                     <td className="pay-trunc" title={payment.team_name}>
                       {payment.team_name}
@@ -260,6 +268,7 @@ export default function PaymentTracker({
                     id={draft.id}
                     teams={teams}
                     players={players}
+                    divisions={divisions}
                     initial={draft.initial}
                     onRemove={removeDraft}
                     onSaved={handleSaved}

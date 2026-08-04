@@ -1,6 +1,6 @@
 "use client";
 
-import { DIVISIONS, divisionLabel } from "../teams/divisions";
+import { type Division } from "../teams/divisions";
 import {
   HOTEL_FIELDS,
   KEEP_EVENT,
@@ -77,17 +77,20 @@ export default function HotelFields({
   idPrefix,
   hotel,
   tournaments,
+  divisions,
 }: {
   idPrefix: string;
   hotel?: HotelRow;
   tournaments: TournamentOption[];
+  /** The company's divisions, for the Division select and tournament groups. */
+  divisions: Division[];
 }) {
   const [nameField, ...restFields] = HOTEL_FIELDS;
   const value = (key: string) => (hotel ? (hotelValue(hotel, key) ?? "") : "");
 
   // Group the dropdown by division so a long list of tournaments stays
-  // scannable, keeping DIVISIONS' display order.
-  const byDivision = DIVISIONS.map((d) => ({
+  // scannable, keeping the divisions' display order.
+  const byDivision = divisions.map((d) => ({
     label: d.label,
     events: tournaments.filter((t) => t.division === d.slug),
   })).filter((g) => g.events.length > 0);
@@ -152,9 +155,9 @@ export default function HotelFields({
           defaultValue={hotel?.division ?? ""}
         >
           <option value="">No division</option>
-          {DIVISIONS.map((d) => (
+          {divisions.map((d) => (
             <option key={d.slug} value={d.slug}>
-              {divisionLabel(d.slug)}
+              {d.label}
             </option>
           ))}
         </select>

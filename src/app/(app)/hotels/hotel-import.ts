@@ -22,12 +22,7 @@ import {
   unusedHeaders,
 } from "@/lib/sheet-import";
 import { MAX_WARNINGS } from "../bulk-import";
-import {
-  DIVISIONS,
-  divisionLabel,
-  isDivisionSlug,
-  type DivisionSlug,
-} from "../teams/divisions";
+import { type Division, type DivisionSlug } from "../teams/divisions";
 import {
   formatShortDate,
   HOTEL_FIELDS,
@@ -160,23 +155,36 @@ export function parseRate(raw: string): string | null {
 }
 
 /**
- * A division cell → a division slug, or null. Accepts the slug itself and the
- * label as the app shows it ("Spring/Summer Baseball"), plus anything that
- * normalizes to either.
+ * A division cell → one of the company's division slugs, or null. Accepts the
+ * slug itself and the label as the app shows it ("Spring/Summer Baseball"),
+ * plus anything that normalizes to either.
+ *
+ * Matching is against the company's own divisions, so a spreadsheet naming a
+ * division somebody added on the Teams tab imports as readily as a built-in
+ * one — and a name from another program's spreadsheet still comes back null.
  */
-export function parseDivision(raw: string): DivisionSlug | null {
+export function parseDivision(
+  raw: string,
+  divisions: Division[],
+): DivisionSlug | null {
   const s = raw.trim();
   if (s === "") return null;
-  if (isDivisionSlug(s)) return s;
   const key = matchKey(s).replace(/[^a-z0-9]/g, "");
-  for (const d of DIVISIONS) {
+  for (const d of divisions) {
+    if (d.slug === s) return d.slug;
     if (matchKey(d.slug).replace(/[^a-z0-9]/g, "") === key) return d.slug;
     if (matchKey(d.label).replace(/[^a-z0-9]/g, "") === key) return d.slug;
   }
+  // Anything else is a division this company doesn't run. Returning null leaves
+  // the cell blank and warns the row, rather than filing the hotel under a
+  // division that isn't there.
   return null;
 }
 
-export function mapHotelRows(rows: string[][]): HotelMapResult {
+export function mapHotelRows(
+  rows: string[][],
+  divisions: Division[],
+): HotelMapResult {
   const warnings: string[] = [];
   const addWarn = (msg: string) => {
     if (warnings.length < MAX_WARNINGS) warnings.push(msg);
@@ -237,7 +245,7 @@ export function mapHotelRows(rows: string[][]): HotelMapResult {
     }
 
     const divisionRaw = cell(divisionIdx);
-    const division = parseDivision(divisionRaw);
+    const division = parseDivision(divisionRaw, divisions);
     if (divisionRaw && division == null) {
       addWarn(
         `Row ${rowNum}: "${divisionRaw}" isn't one of the divisions — left blank.`,

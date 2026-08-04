@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { DIVISIONS, type DivisionSlug } from "../teams/divisions";
+import { type Division, type DivisionSlug } from "../teams/divisions";
 import { addFundraiserEntryAction } from "./actions";
 import type { FundraiserOption, PlayerOption, TeamOption } from "./fundraisers";
 
@@ -31,6 +31,7 @@ export default function EntryDraftRow({
   teams,
   players,
   fundraisers,
+  divisions,
   initial,
   onRemove,
   onSaved,
@@ -39,6 +40,8 @@ export default function EntryDraftRow({
   teams: TeamOption[];
   players: PlayerOption[];
   fundraisers: FundraiserOption[];
+  /** The company's divisions, offered in this row's Division dropdown. */
+  divisions: Division[];
   initial?: DraftInitial;
   onRemove: (id: number) => void;
   onSaved: (id: number) => void;
@@ -132,7 +135,7 @@ export default function EntryDraftRow({
             <option value="" disabled>
               Division…
             </option>
-            {DIVISIONS.map((d) => (
+            {divisions.map((d) => (
               <option key={d.slug} value={d.slug}>
                 {d.label}
               </option>

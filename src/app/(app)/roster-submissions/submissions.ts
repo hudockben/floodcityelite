@@ -8,7 +8,7 @@
 // screen was showing — without either side reimplementing the other.
 // ---------------------------------------------------------------------------
 
-import { divisionLabel } from "../teams/divisions";
+import { divisionLabel, type Division } from "../teams/divisions";
 import { formatRosterDate } from "@/lib/roster-format";
 import type { RosterSubmissionRow } from "@/lib/roster-submissions";
 
@@ -48,7 +48,10 @@ export function teamKeyOf(s: RosterSubmissionRow): string | null {
  * The lowercased text a submission is matched against — every field a user
  * might reasonably type. Built once per submission so keystrokes stay cheap.
  */
-export function haystackOf(s: RosterSubmissionRow): string {
+export function haystackOf(
+  s: RosterSubmissionRow,
+  divisions: Division[] = [],
+): string {
   const parts: (string | number | null)[] = [
     s.player_name,
     s.email,
@@ -69,8 +72,8 @@ export function haystackOf(s: RosterSubmissionRow): string {
     handednessLabel(s.bats),
     handednessLabel(s.throws),
     teamNameOf(s),
-    s.current_division ? divisionLabel(s.current_division) : null,
-    s.division ? divisionLabel(s.division) : null,
+    s.current_division ? divisionLabel(s.current_division, divisions) : null,
+    s.division ? divisionLabel(s.division, divisions) : null,
   ];
   return parts
     .filter((p) => p != null && p !== "")
@@ -109,12 +112,15 @@ export function matchesStatus(accepted: boolean, status: StatusFilter): boolean 
  * the export carries every column, blank where unanswered, so the sheet stays
  * rectangular and sortable.
  */
-export const EXPORT_COLUMNS: {
+// Built per request rather than declared once: the Division column names the
+// company's own divisions, which are rows now, not a constant.
+export function exportColumns(divisions: Division[]): {
   header: string;
   /** Column width in characters, for the Excel sheet. */
   width: number;
   value: (s: RosterSubmissionRow) => string;
-}[] = [
+}[] {
+  return [
   { header: "Status", width: 10, value: (s) => (s.accepted ? "Accepted" : "Declined") },
   { header: "Player", width: 22, value: (s) => s.player_name },
   { header: "Team", width: 28, value: (s) => teamNameOf(s) ?? "" },
@@ -123,7 +129,7 @@ export const EXPORT_COLUMNS: {
     width: 20,
     value: (s) => {
       const slug = s.current_division ?? s.division;
-      return slug ? divisionLabel(slug) : "";
+      return slug ? divisionLabel(slug, divisions) : "";
     },
   },
   {
@@ -158,7 +164,8 @@ export const EXPORT_COLUMNS: {
     value: (s) => (s.played_fce_2026 == null ? "" : s.played_fce_2026 ? "Yes" : "No"),
   },
   { header: "Hat size", width: 12, value: (s) => s.hat_size ?? "" },
-];
+  ];
+}
 
 /**
  * Escape one CSV field.
@@ -176,10 +183,14 @@ function csvField(value: string): string {
 }
 
 /** The whole export as CSV text, CRLF-delimited the way spreadsheets expect. */
-export function toCsv(rows: RosterSubmissionRow[]): string {
-  const lines = [EXPORT_COLUMNS.map((c) => csvField(c.header)).join(",")];
+export function toCsv(
+  rows: RosterSubmissionRow[],
+  divisions: Division[],
+): string {
+  const columns = exportColumns(divisions);
+  const lines = [columns.map((c) => csvField(c.header)).join(",")];
   for (const row of rows) {
-    lines.push(EXPORT_COLUMNS.map((c) => csvField(c.value(row))).join(","));
+    lines.push(columns.map((c) => csvField(c.value(row))).join(","));
   }
   return lines.join("\r\n");
 }

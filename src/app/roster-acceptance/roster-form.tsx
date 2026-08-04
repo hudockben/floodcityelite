@@ -19,6 +19,7 @@ import {
   sportLabel,
 } from "@/app/(app)/teams/divisions";
 import type { RosterTeamOption } from "@/lib/roster-submissions";
+import type { Division } from "@/app/(app)/teams/divisions";
 
 const initialState: RosterFormState = {};
 
@@ -97,8 +98,11 @@ function PositionField({ name, label }: { name: string; label: string }) {
 // roster.
 export default function RosterAcceptanceForm({
   teams,
+  divisions,
 }: {
   teams: RosterTeamOption[];
+  /** The program's divisions, so the Division dropdown names them properly. */
+  divisions: Division[];
 }) {
   const [state, formAction, pending] = useActionState(
     submitRosterAcceptanceAction,
@@ -305,7 +309,7 @@ export default function RosterAcceptanceForm({
               </option>
               {teamsByDivision.map(([div]) => (
                 <option key={div} value={div}>
-                  {divisionLabel(div)}
+                  {divisionLabel(div, divisions)}
                 </option>
               ))}
             </select>

@@ -2,13 +2,13 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { submitPayrollAction, type PayrollFormState } from "./actions";
-import { DIVISIONS } from "@/app/(app)/teams/divisions";
+import type { Division } from "@/app/(app)/teams/divisions";
 
 const initialState: PayrollFormState = {};
 
 // The public employee payroll form. On success it shows a confirmation banner
 // and resets so the employee (or the next one) can log another entry.
-export default function PayrollForm() {
+export default function PayrollForm({ divisions }: { divisions: Division[] }) {
   const [state, formAction, pending] = useActionState(
     submitPayrollAction,
     initialState,
@@ -54,7 +54,7 @@ export default function PayrollForm() {
         <label htmlFor="division">Division</label>
         <select id="division" name="division" defaultValue="">
           <option value="">Not division-specific</option>
-          {DIVISIONS.map((d) => (
+          {divisions.map((d) => (
             <option key={d.slug} value={d.slug}>
               {d.label}
             </option>

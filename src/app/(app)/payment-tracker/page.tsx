@@ -4,6 +4,8 @@ import { getSession } from "@/lib/session";
 import { listPayments } from "./load-payments";
 import PaymentTracker from "./payment-tracker";
 import { ensurePaymentsSchema } from "./schema";
+import { listDivisionsSafe } from "../teams/division-store";
+import type { Division } from "../teams/divisions";
 import type { PaymentRow, PlayerOption, TeamOption } from "./payments";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +17,9 @@ export default async function PaymentTrackerPage() {
   let teams: TeamOption[] = [];
   let players: PlayerOption[] = [];
   let payments: PaymentRow[] = [];
+  // The company's divisions, so the Division dropdown offers every division the
+  // program runs and a division name reads the same here as on the Teams tab.
+  const divisions: Division[] = await listDivisionsSafe(session.companyId);
   let loadError = false;
 
   try {
@@ -72,6 +77,11 @@ export default async function PaymentTrackerPage() {
   }
 
   return (
-    <PaymentTracker teams={teams} players={players} payments={payments} />
+    <PaymentTracker
+      teams={teams}
+      players={players}
+      payments={payments}
+      divisions={divisions}
+    />
   );
 }

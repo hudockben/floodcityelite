@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import ConfirmButton from "../teams/confirm-button";
-import { divisionLabel } from "../teams/divisions";
+import { divisionLabel, type Division } from "../teams/divisions";
+import { listDivisionsSafe } from "../teams/division-store";
 import {
   ensurePayrollSchema,
   listPayrollSubmissions,
@@ -19,6 +20,9 @@ export default async function PayrollAdminPage() {
   const session = await getSession();
   if (!session) redirect("/");
 
+  // The company's divisions, so a submission's division reads the way the
+  // Teams tab names it.
+  const divisions: Division[] = await listDivisionsSafe(session.companyId);
   let submissions: PayrollSubmissionRow[] = [];
   let loadError = false;
 
@@ -104,7 +108,7 @@ export default async function PayrollAdminPage() {
                     <td>{s.role ?? <span className="cell-empty">—</span>}</td>
                     <td>
                       {s.division ? (
-                        divisionLabel(s.division)
+                        divisionLabel(s.division, divisions)
                       ) : (
                         <span className="cell-empty">—</span>
                       )}

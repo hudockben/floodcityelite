@@ -11,7 +11,7 @@
 // ---------------------------------------------------------------------------
 
 import type { ExportColumn } from "@/lib/sheet-export";
-import { divisionLabel } from "../teams/divisions";
+import { divisionLabel, type Division } from "../teams/divisions";
 import {
   formatShortDate,
   HOTEL_FIELDS,
@@ -27,7 +27,12 @@ import {
  * The tournament is written as its name — the same text an upload matches on —
  * so a downloaded file can be edited and uploaded straight back.
  */
-export const HOTEL_EXPORT_COLUMNS: ExportColumn<HotelRow>[] = [
+// Built per request rather than declared once: the Division column names the
+// company's own divisions, which are rows now, not a constant.
+export function hotelExportColumns(
+  divisions: Division[],
+): ExportColumn<HotelRow>[] {
+  return [
   ...HOTEL_FIELDS.map((f) => ({
     header: f.label,
     width: f.type === "notes" ? 40 : f.max > 160 ? 32 : 20,
@@ -36,7 +41,7 @@ export const HOTEL_EXPORT_COLUMNS: ExportColumn<HotelRow>[] = [
   {
     header: "Division",
     width: 22,
-    value: (h) => (h.division ? divisionLabel(h.division) : ""),
+    value: (h) => (h.division ? divisionLabel(h.division, divisions) : ""),
   },
   { header: "Tournament", width: 26, value: (h) => h.event_name ?? "" },
   {
@@ -44,13 +49,16 @@ export const HOTEL_EXPORT_COLUMNS: ExportColumn<HotelRow>[] = [
     width: 16,
     value: (h) => formatShortDate(h.event_date),
   },
-];
+  ];
+}
 
 /**
  * The header row of the downloadable template. The tournament *date* is left
  * off: it's read from the Schedules tab, not from the file, so offering a
  * column nothing reads would only mislead.
  */
-export const HOTEL_TEMPLATE_HEADERS = HOTEL_EXPORT_COLUMNS.filter(
-  (c) => c.header !== "Tournament Date",
-).map((c) => c.header);
+// Only the header names are wanted, and those don't vary by division, so the
+// column list is built with an empty one.
+export const HOTEL_TEMPLATE_HEADERS = hotelExportColumns([])
+  .filter((c) => c.header !== "Tournament Date")
+  .map((c) => c.header);

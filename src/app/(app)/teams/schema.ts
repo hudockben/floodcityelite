@@ -23,13 +23,42 @@ export function ensureTeamsSchema(): Promise<void> {
 async function provision(): Promise<void> {
   const db = sql();
 
+  // -------------------------------------------------------------------------
+  // Divisions
+  //
+  // A division is a run of the program a team can sit in — Spring/Summer
+  // Baseball, Fall Baseball, an 18U showcase circuit. These were three
+  // hardcoded slugs with a CHECK constraint behind them; they're company-owned
+  // rows now so a user can add the divisions they actually run (Teams tab →
+  // "Add a division"). The three originals are seeded per company on first use,
+  // so nothing that referenced them changes meaning.
+  //
+  // `slug` is the stable identifier stored in teams.division / seasons.division
+  // and put in ?division=; `label` is what's shown.
+  // -------------------------------------------------------------------------
+  await db`
+    CREATE TABLE IF NOT EXISTS divisions (
+      id             SERIAL PRIMARY KEY,
+      company_id     INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      slug           VARCHAR(32)  NOT NULL,
+      label          VARCHAR(60)  NOT NULL,
+      default_sport  VARCHAR(16)  NOT NULL DEFAULT 'baseball'
+                       CHECK (default_sport IN ('baseball', 'softball')),
+      sort_order     INTEGER      NOT NULL DEFAULT 100,
+      created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+      updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+      UNIQUE (company_id, slug)
+    )
+  `;
+
+  await db`CREATE INDEX IF NOT EXISTS idx_divisions_company_id ON divisions (company_id)`;
+
   await db`
     CREATE TABLE IF NOT EXISTS teams (
       id          SERIAL PRIMARY KEY,
       company_id  INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       name        VARCHAR(120) NOT NULL,
-      division    VARCHAR(32)  NOT NULL
-                    CHECK (division IN ('spring-summer-baseball', 'softball', 'fall-baseball')),
+      division    VARCHAR(32)  NOT NULL,
       sport       VARCHAR(16)  NOT NULL DEFAULT 'baseball'
                     CHECK (sport IN ('baseball', 'softball')),
       created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
@@ -38,6 +67,14 @@ async function provision(): Promise<void> {
   `;
 
   await db`CREATE INDEX IF NOT EXISTS idx_teams_company_division ON teams (company_id, division)`;
+
+  // A database created before divisions were user-owned pins teams.division to
+  // the original three slugs, which would reject the first team created in a
+  // new division. Postgres names an inline column CHECK "<table>_<column>_check",
+  // and both db/schema.sql and db/setup.mjs created it that way, so the name is
+  // deterministic. Idempotent — a no-op once dropped, and on a fresh database
+  // that never had it. (The seasons constraint is dropped with its table below.)
+  await db`ALTER TABLE teams DROP CONSTRAINT IF EXISTS teams_division_check`;
 
   await db`
     CREATE TABLE IF NOT EXISTS players (
@@ -112,8 +149,7 @@ async function provision(): Promise<void> {
     CREATE TABLE IF NOT EXISTS seasons (
       id          SERIAL PRIMARY KEY,
       company_id  INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-      division    VARCHAR(32)  NOT NULL
-                    CHECK (division IN ('spring-summer-baseball', 'softball', 'fall-baseball')),
+      division    VARCHAR(32)  NOT NULL,
       year        SMALLINT     NOT NULL,
       label       VARCHAR(120),
       is_active   BOOLEAN      NOT NULL DEFAULT true,
@@ -121,6 +157,10 @@ async function provision(): Promise<void> {
       UNIQUE (company_id, division, year)
     )
   `;
+
+  // Same story as teams_division_check above: a user-created division needs a
+  // season, and the old CHECK would refuse to make one.
+  await db`ALTER TABLE seasons DROP CONSTRAINT IF EXISTS seasons_division_check`;
 
   await db`CREATE INDEX IF NOT EXISTS idx_seasons_company_division ON seasons (company_id, division)`;
 

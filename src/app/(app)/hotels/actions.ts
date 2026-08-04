@@ -12,7 +12,8 @@ import {
   type BulkImportState,
   type UnmatchedValue,
 } from "../bulk-import";
-import { isDivisionSlug } from "../teams/divisions";
+import { isDivisionSlugFormat } from "../teams/divisions";
+import { listDivisions } from "../teams/division-store";
 import { HOTEL_FIELDS, KEEP_EVENT } from "./hotels";
 import {
   hotelDisplayName,
@@ -47,10 +48,19 @@ function money(raw: unknown): string | null {
   return n.toFixed(2);
 }
 
-// The optional division dropdown: a teams division slug, or null.
-function division(formData: FormData): string | null {
+// The optional division dropdown: one of this company's division slugs, or
+// null. Divisions are company rows now, so the slug is checked against the list
+// rather than against a hardcoded set — a stale form or a hand-rolled POST
+// naming a division that isn't there leaves the column blank instead of
+// stamping the hotel with a division nobody runs.
+async function division(
+  companyId: number,
+  formData: FormData,
+): Promise<string | null> {
   const value = String(formData.get("division") ?? "").trim();
-  return value !== "" && isDivisionSlug(value) ? value : null;
+  if (value === "" || !isDivisionSlugFormat(value)) return null;
+  const divisions = await listDivisions(companyId);
+  return divisions.some((d) => d.slug === value) ? value : null;
 }
 
 /**
@@ -136,7 +146,7 @@ export async function addHotelAction(
         ${field(formData, "address")},
         ${field(formData, "city")},
         ${field(formData, "state")},
-        ${division(formData)},
+        ${await division(session.companyId, formData)},
         ${eventId},
         ${eventName},
         ${cost},
@@ -192,7 +202,7 @@ export async function updateHotelAction(
         address            = ${field(formData, "address")},
         city               = ${field(formData, "city")},
         state              = ${field(formData, "state")},
-        division           = ${division(formData)},
+        division           = ${await division(session.companyId, formData)},
         event_id           = CASE WHEN ${keep} THEN event_id ELSE ${eventId} END,
         event_name         = CASE WHEN ${keep} THEN event_name ELSE ${eventName} END,
         avg_cost_per_night = ${cost},
@@ -258,7 +268,9 @@ export async function bulkUploadHotelsAction(
   }
 
   // 2) Match its columns onto the hotel fields.
-  const mapped = mapHotelRows(rows);
+  // Division cells are matched against the company's own divisions, so a
+  // spreadsheet can name one added on the Teams tab.
+  const mapped = mapHotelRows(rows, await listDivisions(session.companyId));
   if (!mapped.hasNameColumn) {
     return {
       error:

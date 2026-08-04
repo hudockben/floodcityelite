@@ -8,7 +8,8 @@
 
 import {
   divisionLabel,
-  isDivisionSlug,
+  isDivisionSlugFormat,
+  type Division,
   type DivisionSlug,
 } from "../teams/divisions";
 
@@ -113,11 +114,14 @@ export function isoDateOrBlank(value: string | null | undefined): string {
  * comes to mind first. Both the raw and formatted amount/date are included so
  * "1950", "1,950", "2026-08-03" and "Aug 3" all find the same row.
  */
-export function paymentSearchText(row: PaymentRow): string {
+export function paymentSearchText(
+  row: PaymentRow,
+  divisions: Division[] = [],
+): string {
   return [
     row.player_name,
     row.team_name,
-    divisionLabel(row.division),
+    divisionLabel(row.division, divisions),
     paymentTypeLabel(row.payment_type),
     row.check_number ?? "",
     row.amount,
@@ -232,7 +236,7 @@ export function readPaymentFilters(params: URLSearchParams): PaymentFilters {
   const type = params.get("type") ?? "";
   return {
     query: params.get("q") ?? "",
-    division: isDivisionSlug(division) ? division : "",
+    division: isDivisionSlugFormat(division) ? division : "",
     paymentType: isPaymentType(type) ? type : "",
     checkNumber: params.get("check") ?? "",
     from: isoDateOrBlank(params.get("from")),
@@ -252,9 +256,14 @@ export function describeDateRange(from: string, to: string): string {
  * A human summary of what's being shown, for the printed report's scope line —
  * so a PDF handed to someone else says which slice of the ledger it holds.
  */
-export function describePaymentFilters(filters: PaymentFilters): string {
+export function describePaymentFilters(
+  filters: PaymentFilters,
+  divisions: Division[] = [],
+): string {
   const parts: string[] = [];
-  if (filters.division !== "") parts.push(divisionLabel(filters.division));
+  if (filters.division !== "") {
+    parts.push(divisionLabel(filters.division, divisions));
+  }
   if (filters.paymentType !== "") {
     parts.push(`${paymentTypeLabel(filters.paymentType)} only`);
   }

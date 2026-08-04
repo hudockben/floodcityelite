@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
-import { divisionLabel } from "../teams/divisions";
+import { divisionLabel, type Division } from "../teams/divisions";
 import { formatRosterDate } from "@/lib/roster-format";
 import type { RosterSubmissionRow } from "@/lib/roster-submissions";
 import ConfirmButton from "../teams/confirm-button";
@@ -60,9 +60,12 @@ type TeamOption = { key: string; name: string; division: string | null; removed:
 
 export default function SubmissionsList({
   submissions,
+  divisions,
   deleteAction,
 }: {
   submissions: RosterSubmissionRow[];
+  /** The company's divisions, for the group headings, sort, and search. */
+  divisions: Division[];
   deleteAction: (formData: FormData) => void | Promise<void>;
 }) {
   const [query, setQuery] = useState("");
@@ -77,7 +80,7 @@ export default function SubmissionsList({
     () =>
       submissions.map((s) => ({
         s,
-        haystack: haystackOf(s),
+        haystack: haystackOf(s, divisions),
         teamKey: teamKeyOf(s),
       })),
     [submissions],
@@ -101,8 +104,8 @@ export default function SubmissionsList({
       });
     }
     return [...map.values()].sort((a, b) => {
-      const da = a.division ? divisionLabel(a.division) : "";
-      const db = b.division ? divisionLabel(b.division) : "";
+      const da = a.division ? divisionLabel(a.division, divisions) : "";
+      const db = b.division ? divisionLabel(b.division, divisions) : "";
       return da.localeCompare(db) || a.name.localeCompare(b.name);
     });
   }, [submissions]);
@@ -154,7 +157,7 @@ export default function SubmissionsList({
   const grouped = useMemo(() => {
     const groups: { label: string; options: TeamOption[] }[] = [];
     for (const opt of teamOptions) {
-      const label = opt.division ? divisionLabel(opt.division) : "Other";
+      const label = opt.division ? divisionLabel(opt.division, divisions) : "Other";
       let group = groups.find((g) => g.label === label);
       if (!group) {
         group = { label, options: [] };
@@ -383,7 +386,11 @@ export default function SubmissionsList({
                     {s.division ? (
                       <span className="sub-team-div">
                         {" "}
-                        · {divisionLabel(s.current_division ?? s.division)}
+                        ·{" "}
+                        {divisionLabel(
+                          s.current_division ?? s.division,
+                          divisions,
+                        )}
                       </span>
                     ) : null}
                     {!teamLink && teamName ? (

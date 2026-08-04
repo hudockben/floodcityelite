@@ -5,11 +5,13 @@ import { getSession } from "@/lib/session";
 import {
   PLAYER_FIELDS,
   rosterStatus,
+  BUILTIN_DIVISIONS,
   resolveDivision,
   sportLabel,
   type PlayerRow,
   type TeamRow,
 } from "../divisions";
+import { listDivisionsSafe } from "../division-store";
 import { ensureTeamsSchema } from "../schema";
 import { ensureRosterSubmissionsSchema } from "@/lib/roster-submissions";
 import { resolveSeason, type Season } from "../seasons";
@@ -133,7 +135,12 @@ export default async function TeamsPrintPage({
   if (!session) redirect("/");
 
   const params = await searchParams;
-  const division = resolveDivision(firstParam(params.division));
+  // The company's divisions name the report and link back to the right tab.
+  // Falls back to the built-ins if the lookup fails, so a database blip shows
+  // the report's own "couldn't load" note rather than replacing the page.
+  const divisions = await listDivisionsSafe(session.companyId);
+  const division =
+    resolveDivision(firstParam(params.division), divisions) ?? BUILTIN_DIVISIONS[0];
   const teamParam = firstParam(params.team);
   const teamId = teamParam ? Number.parseInt(teamParam, 10) : null;
   const yearRaw = firstParam(params.year);

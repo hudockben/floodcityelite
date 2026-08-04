@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import ConfirmButton from "../teams/confirm-button";
-import { DIVISIONS } from "../teams/divisions";
+import { divisionLabel, type Division } from "../teams/divisions";
 import {
   deleteFundraiserAction,
   deleteFundraiserEntryAction,
@@ -27,20 +27,21 @@ type Draft = { id: number; initial?: DraftInitial };
 // Date, Division, Team, Player, Fundraiser, Amount, Total, Actions.
 const COL_COUNT = 8;
 
-function divisionLabel(slug: string): string {
-  return DIVISIONS.find((d) => d.slug === slug)?.label ?? slug;
-}
+
 
 export default function FundraiserTracker({
   teams,
   players,
   fundraisers,
   entries,
+  divisions,
 }: {
   teams: TeamOption[];
   players: PlayerOption[];
   fundraisers: FundraiserOption[];
   entries: FundraiserEntryRow[];
+  /** The company's divisions, for the Division dropdown and labels. */
+  divisions: Division[];
 }) {
   // Draft (unsaved) rows added by "Add Entry" or the search bar, each with a
   // stable key.
@@ -211,6 +212,7 @@ export default function FundraiserTracker({
             <FundraiserSearch
               teams={teams}
               players={players}
+              divisions={divisions}
               onPick={handlePick}
             />
 
@@ -254,9 +256,9 @@ export default function FundraiserTracker({
                       <td className="pay-nowrap">{formatDate(entry.raised_on)}</td>
                       <td
                         className="pay-trunc"
-                        title={divisionLabel(entry.division)}
+                        title={divisionLabel(entry.division, divisions)}
                       >
-                        {divisionLabel(entry.division)}
+                        {divisionLabel(entry.division, divisions)}
                       </td>
                       <td className="pay-trunc" title={entry.team_name}>
                         {entry.team_name}
@@ -298,6 +300,7 @@ export default function FundraiserTracker({
                       teams={teams}
                       players={players}
                       fundraisers={fundraisers}
+                      divisions={divisions}
                       initial={draft.initial}
                       onRemove={removeDraft}
                       onSaved={removeDraft}

@@ -75,14 +75,35 @@ async function main() {
 
   await sql`CREATE INDEX IF NOT EXISTS idx_users_company_id ON users (company_id)`;
 
+  // Divisions a team can sit in. These were three hardcoded slugs with a CHECK
+  // constraint behind them; they're company-owned rows now so a user can add
+  // the divisions they actually run (Teams tab). The originals are seeded per
+  // company by the app on first use. `slug` is the identifier stored in
+  // teams.division / seasons.division; `label` is what's shown.
+  await sql`
+    CREATE TABLE IF NOT EXISTS divisions (
+      id             SERIAL PRIMARY KEY,
+      company_id     INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      slug           VARCHAR(32)  NOT NULL,
+      label          VARCHAR(60)  NOT NULL,
+      default_sport  VARCHAR(16)  NOT NULL DEFAULT 'baseball'
+                       CHECK (default_sport IN ('baseball', 'softball')),
+      sort_order     INTEGER      NOT NULL DEFAULT 100,
+      created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+      updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+      UNIQUE (company_id, slug)
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_divisions_company_id ON divisions (company_id)`;
+
   // Teams belong to a company, live in a division, and are assigned a sport.
   await sql`
     CREATE TABLE IF NOT EXISTS teams (
       id          SERIAL PRIMARY KEY,
       company_id  INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       name        VARCHAR(120) NOT NULL,
-      division    VARCHAR(32)  NOT NULL
-                    CHECK (division IN ('spring-summer-baseball', 'softball', 'fall-baseball')),
+      division    VARCHAR(32)  NOT NULL,
       sport       VARCHAR(16)  NOT NULL DEFAULT 'baseball'
                     CHECK (sport IN ('baseball', 'softball')),
       created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
@@ -91,6 +112,12 @@ async function main() {
   `;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_teams_company_division ON teams (company_id, division)`;
+
+  // Databases created before divisions were user-owned pin teams.division to
+  // the original three slugs, which would reject a team in a new division.
+  // Postgres names an inline column CHECK "<table>_<column>_check", so the name
+  // is deterministic; idempotent, and a no-op on a fresh database.
+  await sql`ALTER TABLE teams DROP CONSTRAINT IF EXISTS teams_division_check`;
 
   // Seasons: one division's run in a given year (Spring/Summer Baseball 2026,
   // Softball 2027, …). Each division rolls over on its own calendar, so a season
@@ -102,8 +129,7 @@ async function main() {
     CREATE TABLE IF NOT EXISTS seasons (
       id          SERIAL PRIMARY KEY,
       company_id  INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-      division    VARCHAR(32)  NOT NULL
-                    CHECK (division IN ('spring-summer-baseball', 'softball', 'fall-baseball')),
+      division    VARCHAR(32)  NOT NULL,
       year        SMALLINT     NOT NULL,
       label       VARCHAR(120),
       is_active   BOOLEAN      NOT NULL DEFAULT true,
@@ -111,6 +137,10 @@ async function main() {
       UNIQUE (company_id, division, year)
     )
   `;
+
+  // Same story as teams_division_check above: a user-created division needs a
+  // season, and the old CHECK would refuse to make one.
+  await sql`ALTER TABLE seasons DROP CONSTRAINT IF EXISTS seasons_division_check`;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_seasons_company_division ON seasons (company_id, division)`;
 

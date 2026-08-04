@@ -5,8 +5,10 @@ import {
   type RosterSubmissionRow,
 } from "@/lib/roster-submissions";
 import { ensureTeamsSchema } from "../../teams/schema";
+import { listDivisionsSafe } from "../../teams/division-store";
+import type { Division } from "../../teams/divisions";
 import {
-  EXPORT_COLUMNS,
+  exportColumns,
   haystackOf,
   isStatusFilter,
   matchesSearchAndTeam,
@@ -30,7 +32,10 @@ function todayStamp(): string {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
 
-async function toXlsx(rows: RosterSubmissionRow[]): Promise<ArrayBuffer> {
+async function toXlsx(
+  rows: RosterSubmissionRow[],
+  columns: ReturnType<typeof exportColumns>,
+): Promise<ArrayBuffer> {
   // Loaded dynamically, the way the roster bulk-upload does, so exceljs stays
   // out of the bundle until a download is actually asked for.
   const ExcelJS = (await import("exceljs")).default;
@@ -39,7 +44,7 @@ async function toXlsx(rows: RosterSubmissionRow[]): Promise<ArrayBuffer> {
   workbook.created = new Date();
   const sheet = workbook.addWorksheet("Roster Submissions");
 
-  sheet.columns = EXPORT_COLUMNS.map((c) => ({
+  sheet.columns = columns.map((c) => ({
     header: c.header,
     key: c.header,
     width: c.width,
@@ -48,7 +53,7 @@ async function toXlsx(rows: RosterSubmissionRow[]): Promise<ArrayBuffer> {
   for (const row of rows) {
     // Written as plain strings: nothing here is ever a formula, whatever a
     // parent typed into the public form.
-    sheet.addRow(EXPORT_COLUMNS.map((c) => c.value(row)));
+    sheet.addRow(columns.map((c) => c.value(row)));
   }
 
   const header = sheet.getRow(1);
@@ -58,7 +63,7 @@ async function toXlsx(rows: RosterSubmissionRow[]): Promise<ArrayBuffer> {
   sheet.views = [{ state: "frozen", ySplit: 1 }];
   sheet.autoFilter = {
     from: { row: 1, column: 1 },
-    to: { row: 1, column: EXPORT_COLUMNS.length },
+    to: { row: 1, column: columns.length },
   };
 
   return workbook.xlsx.writeBuffer() as Promise<ArrayBuffer>;
@@ -76,13 +81,22 @@ export async function GET(request: Request): Promise<Response> {
   const teamFilter = params.get("team") ?? "";
 
   let rows: RosterSubmissionRow[];
+  // The company's divisions, so the Division column and the search this export
+  // re-applies name a division the way the tab does.
+  let divisions: Division[] = [];
   try {
     await ensureTeamsSchema();
     await ensureRosterSubmissionsSchema();
+    divisions = await listDivisionsSafe(session.companyId);
     const all = await listRosterSubmissions(session.companyId);
     rows = all.filter(
       (s) =>
-        matchesSearchAndTeam(query, teamFilter, haystackOf(s), teamKeyOf(s)) &&
+        matchesSearchAndTeam(
+          query,
+          teamFilter,
+          haystackOf(s, divisions),
+          teamKeyOf(s),
+        ) &&
         matchesStatus(s.accepted, status),
     );
   } catch (err) {
@@ -104,7 +118,7 @@ export async function GET(request: Request): Promise<Response> {
   };
 
   if (format === "xlsx") {
-    return new Response(await toXlsx(rows), {
+    return new Response(await toXlsx(rows, exportColumns(divisions)), {
       headers: {
         ...headers,
         "Content-Type":
@@ -114,7 +128,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   // A UTF-8 BOM so Excel reads accented names correctly instead of mojibake.
-  return new Response(`﻿${toCsv(rows)}`, {
+  return new Response(`﻿${toCsv(rows, divisions)}`, {
     headers: { ...headers, "Content-Type": "text/csv; charset=utf-8" },
   });
 }

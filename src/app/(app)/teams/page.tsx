@@ -8,19 +8,21 @@ import { ensureRosterSubmissionsSchema } from "@/lib/roster-submissions";
 import AddPlayerForm from "./add-player-form";
 import BulkUploadForm from "./bulk-upload-form";
 import CreateTeamForm from "./create-team-form";
+import DivisionManager from "./division-manager";
 import ExpandOnHash from "./expand-on-hash";
 import FieldView from "./field-view";
 import NewSeasonForm from "./new-season-form";
 import PlayerRowItem from "./player-row";
 import SeasonBar from "./season-bar";
 import TeamChip from "./team-chip";
+import { listDivisions } from "./division-store";
 import { resolveSeason, seasonLabel, type Season } from "./seasons";
 import {
-  DIVISIONS,
   PLAYER_FIELDS,
   ROSTER_STATUS_HEADER,
   resolveDivision,
   sportLabel,
+  type Division,
   type PlayerRow,
   type TeamRow,
 } from "./divisions";
@@ -40,12 +42,14 @@ export default async function TeamsPage({
   if (!session) redirect("/");
 
   const params = await searchParams;
-  const division = resolveDivision(firstParam(params.division));
   const yearRaw = firstParam(params.year);
   const yearParam = yearRaw ? Number.parseInt(yearRaw, 10) : null;
 
+  let divisions: Division[] = [];
+  let division: Division | null = null;
   let teams: TeamRow[] = [];
   let players: PlayerRow[] = [];
+  let teamCounts: Record<string, number> = {};
   let companyHasActiveTeams = false;
   let seasons: Season[] = [];
   let season: Season | null = null;
@@ -61,6 +65,13 @@ export default async function TeamsPage({
     // predates the acceptance form. Idempotent and memoized.
     await ensureRosterSubmissionsSchema();
 
+    // The company's divisions drive the selector, and which one the ?division=
+    // param resolves to. Seeded with the built-in three on first use, so a
+    // company that predates user-created divisions sees no change.
+    divisions = await listDivisions(session.companyId);
+    division = resolveDivision(firstParam(params.division), divisions);
+    if (!division) throw new Error("no divisions for company");
+
     // Pick the season to show (the ?year=, else the active/latest one) and load
     // the divisions's seasons for the year picker. Teams — and therefore their
     // rosters — are scoped to this one season.
@@ -73,7 +84,8 @@ export default async function TeamsPage({
     seasons = resolved.seasons;
     const seasonId = resolved.current.id;
 
-    const [teamRows, playerRows, companyTeamRows] = await Promise.all([
+    const [teamRows, playerRows, companyTeamRows, divisionCountRows] =
+      await Promise.all([
       sql()`
         SELECT
           t.id,
@@ -134,11 +146,26 @@ export default async function TeamsPage({
           WHERE t.company_id = ${session.companyId} AND s.is_active
         ) AS has
       `,
+      // Teams per division across *every* season, not just the one on screen —
+      // that's what decides whether a division can be removed without stranding
+      // a roster in an archived season.
+      sql()`
+        SELECT division, count(*)::int AS teams
+        FROM teams
+        WHERE company_id = ${session.companyId}
+        GROUP BY division
+      `,
     ]);
 
     teams = teamRows as TeamRow[];
     players = playerRows as PlayerRow[];
     companyHasActiveTeams = Boolean((companyTeamRows[0] as { has?: boolean })?.has);
+    teamCounts = Object.fromEntries(
+      (divisionCountRows as { division: string; teams: number }[]).map((r) => [
+        r.division,
+        r.teams,
+      ]),
+    );
   } catch (err) {
     console.error("Teams page load error:", err);
     loadError = true;
@@ -178,8 +205,8 @@ export default async function TeamsPage({
 
         {/* Division selector */}
         <nav className="subtabs" aria-label="Division">
-          {DIVISIONS.map((d) => {
-            const active = d.slug === division.slug;
+          {divisions.map((d) => {
+            const active = d.slug === division?.slug;
             return (
               <Link
                 key={d.slug}
@@ -193,8 +220,13 @@ export default async function TeamsPage({
           })}
         </nav>
 
+        {/* Add a division of your own, or drop one you don't run. */}
+        {divisions.length > 0 ? (
+          <DivisionManager divisions={divisions} teamCounts={teamCounts} />
+        ) : null}
+
         {/* Season (year) selector for this division, plus "start new season". */}
-        {season ? (
+        {season && division ? (
           <SeasonBar
             basePath="/teams"
             division={division.slug}
@@ -210,7 +242,7 @@ export default async function TeamsPage({
         ) : null}
       </section>
 
-      {loadError || !season ? (
+      {loadError || !season || !division ? (
         <section className="panel">
           <div className="empty">
             <div className="empty-icon" aria-hidden="true">
@@ -232,7 +264,9 @@ export default async function TeamsPage({
           <h2 className="step-title">
             <span className="step-num">1</span> Create a team
           </h2>
-          <p>New teams are added to the {seasonLabel(season)} season.</p>
+          <p>
+            New teams are added to the {seasonLabel(season, divisions)} season.
+          </p>
         </div>
 
         <CreateTeamForm

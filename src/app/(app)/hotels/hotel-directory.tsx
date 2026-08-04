@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import ExportButtons from "../export-buttons";
-import { DIVISIONS, divisionLabel } from "../teams/divisions";
+import { divisionLabel, type Division } from "../teams/divisions";
 import { formatMoney } from "../schedules/events";
 import HotelRowItem from "./hotel-row";
 import {
@@ -24,10 +24,13 @@ import {
 export default function HotelDirectory({
   hotels,
   tournaments,
+  divisions: allDivisions,
 }: {
   hotels: HotelRow[];
   /** Every schedulable tournament — the row editor's dropdown offers these. */
   tournaments: TournamentOption[];
+  /** The company's divisions; the filter offers the ones the list uses. */
+  divisions: Division[];
 }) {
   const [query, setQuery] = useState("");
   const [division, setDivision] = useState("");
@@ -35,8 +38,8 @@ export default function HotelDirectory({
 
   const divisions = useMemo(() => {
     const used = new Set(hotels.map((h) => h.division).filter(Boolean));
-    return DIVISIONS.filter((d) => used.has(d.slug));
-  }, [hotels]);
+    return allDivisions.filter((d) => used.has(d.slug));
+  }, [hotels, allDivisions]);
 
   // Keyed by event id as a string (the <select> value); a stay whose tournament
   // was deleted keeps its snapshot name but can't be filtered on.
@@ -62,10 +65,13 @@ export default function HotelDirectory({
       new Map(
         hotels.map((h) => [
           h.id,
-          hotelSearchText(h, h.division ? divisionLabel(h.division) : ""),
+          hotelSearchText(
+            h,
+            h.division ? divisionLabel(h.division, allDivisions) : "",
+          ),
         ]),
       ),
-    [hotels],
+    [hotels, allDivisions],
   );
 
   const filtered = useMemo(
@@ -267,6 +273,7 @@ export default function HotelDirectory({
                   key={hotel.id}
                   hotel={hotel}
                   tournaments={tournaments}
+                  divisions={allDivisions}
                 />
               ))
             )}

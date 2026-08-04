@@ -32,6 +32,34 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_company_id ON users (company_id);
 
 -- ---------------------------------------------------------------------------
+-- Divisions
+--
+-- A division is a run of the program a team can sit in — Spring/Summer
+-- Baseball, Fall Baseball, an 18U showcase circuit. These were three hardcoded
+-- slugs with a CHECK constraint behind them; they're company-owned rows now so
+-- a user can add the divisions they actually run (Teams tab → "Add or remove a
+-- division"). The three originals are seeded per company on first use, so
+-- nothing that referenced them changes meaning.
+--
+-- `slug` is the stable identifier stored in teams.division / seasons.division
+-- and put in the ?division= query param; `label` is what's shown.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS divisions (
+    id             SERIAL PRIMARY KEY,
+    company_id     INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    slug           VARCHAR(32)  NOT NULL,
+    label          VARCHAR(60)  NOT NULL,
+    default_sport  VARCHAR(16)  NOT NULL DEFAULT 'baseball'
+                     CHECK (default_sport IN ('baseball', 'softball')),
+    sort_order     INTEGER      NOT NULL DEFAULT 100,
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    UNIQUE (company_id, slug)
+);
+
+CREATE INDEX IF NOT EXISTS idx_divisions_company_id ON divisions (company_id);
+
+-- ---------------------------------------------------------------------------
 -- Seasons
 --
 -- A season is one division's run in a given year (Spring/Summer Baseball 2026,
@@ -45,8 +73,10 @@ CREATE INDEX IF NOT EXISTS idx_users_company_id ON users (company_id);
 CREATE TABLE IF NOT EXISTS seasons (
     id          SERIAL PRIMARY KEY,
     company_id  INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-    division    VARCHAR(32)  NOT NULL
-                  CHECK (division IN ('spring-summer-baseball', 'softball', 'fall-baseball')),
+    -- A divisions.slug. Deliberately not a foreign key: a season outlives the
+    -- division row it names, and the app resolves an unknown slug to a readable
+    -- label rather than failing.
+    division    VARCHAR(32)  NOT NULL,
     year        SMALLINT     NOT NULL,
     label       VARCHAR(120),
     is_active   BOOLEAN      NOT NULL DEFAULT true,
@@ -62,20 +92,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_seasons_one_active ON seasons (company_id, 
 -- ---------------------------------------------------------------------------
 -- Teams & rosters
 --
--- Top-down organization: a team belongs to a company, sits in a division
--- (Spring/Summer Baseball, Softball, or Fall Baseball), is assigned a sport
--- (baseball or softball), and belongs to a season (its division's run for a
--- year). Players (roster rows) belong to a team.
+-- Top-down organization: a team belongs to a company, sits in a division (one
+-- of the company's `divisions` rows), is assigned a sport (baseball or
+-- softball), and belongs to a season (its division's run for a year). Players
+-- (roster rows) belong to a team.
 -- ---------------------------------------------------------------------------
 
--- A team belongs to a company. Divisions and sports are constrained to the
--- values the Teams tab offers.
+-- A team belongs to a company. The sport is constrained to the values the Teams
+-- tab offers; the division names a divisions.slug the user can add to.
 CREATE TABLE IF NOT EXISTS teams (
     id          SERIAL PRIMARY KEY,
     company_id  INTEGER      NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
     name        VARCHAR(120) NOT NULL,
-    division    VARCHAR(32)  NOT NULL
-                  CHECK (division IN ('spring-summer-baseball', 'softball', 'fall-baseball')),
+    division    VARCHAR(32)  NOT NULL,
     sport       VARCHAR(16)  NOT NULL DEFAULT 'baseball'
                   CHECK (sport IN ('baseball', 'softball')),
     -- The season (division + year) this team belongs to. Rosters, schedules,

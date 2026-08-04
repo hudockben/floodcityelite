@@ -2,7 +2,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { DIVISIONS, sportLabel, type DivisionSlug, type Sport } from "../teams/divisions";
+import {
+  divisionLabel,
+  sportLabel,
+  type Division,
+  type DivisionSlug,
+  type Sport,
+} from "../teams/divisions";
+import { listDivisionsSafe } from "../teams/division-store";
 import { ensurePaymentsSchema } from "../payment-tracker/schema";
 import { ensureSchedulesSchema } from "../schedules/schema";
 import { ensureFundraisersSchema } from "../fundraiser-tracker/schema";
@@ -130,10 +137,6 @@ function dateRangeText(start: string, end: string | null): string | null {
   return `${sMon} ${sDay}, ${s[1]} – ${eMon} ${eDay}, ${e[1]}`;
 }
 
-function divisionLabel(slug: DivisionSlug): string {
-  return DIVISIONS.find((d) => d.slug === slug)?.label ?? slug;
-}
-
 export default async function HomeplatePage() {
   const session = await getSession();
   if (!session) redirect("/");
@@ -143,6 +146,9 @@ export default async function HomeplatePage() {
   let events: UpcomingEventRow[] = [];
   let payments: RecentPaymentRow[] = [];
   let budgetRows: BudgetRow[] = [];
+  // The company's divisions, so a budget row names its division the same way the
+  // Teams and Budgets tabs do.
+  const divisions: Division[] = await listDivisionsSafe(session.companyId);
   let loadError = false;
 
   try {
@@ -466,7 +472,7 @@ export default async function HomeplatePage() {
                             </span>
                           </div>
                           <div className="hp-row-sub">
-                            {divisionLabel(b.division)}
+                            {divisionLabel(b.division, divisions)}
                             <span className="hp-dot">·</span>
                             {b.starting > 0
                               ? `${pct}% of ${formatMoney(b.starting)} used`

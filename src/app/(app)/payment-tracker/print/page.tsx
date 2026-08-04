@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { divisionLabel } from "../../teams/divisions";
+import { listDivisionsSafe } from "../../teams/division-store";
 import { listPayments } from "../load-payments";
 import {
   amountToCents,
@@ -83,7 +84,10 @@ export default async function PaymentTrackerPrintPage({
     return { payment, runningTotal: running };
   });
 
-  const scope = describePaymentFilters(filters) || "All payments";
+  // The company's divisions, so the report's scope line and Division column
+  // name a division the way the tab does.
+  const divisions = await listDivisionsSafe(session.companyId);
+  const scope = describePaymentFilters(filters, divisions) || "All payments";
   // Plain, with no filters appended: the tab holds them in client state and
   // doesn't read them off the URL, so a link carrying them would land on an
   // unfiltered ledger under an address claiming otherwise. The report opens in
@@ -167,7 +171,7 @@ export default async function PaymentTrackerPrintPage({
                   {rows.map(({ payment, runningTotal }) => (
                     <tr key={payment.id}>
                       <td className="col-date">{formatDate(payment.paid_on)}</td>
-                      <td>{divisionLabel(payment.division)}</td>
+                      <td>{divisionLabel(payment.division, divisions)}</td>
                       <td>{payment.team_name}</td>
                       <td className="col-name">{payment.player_name}</td>
                       <td>{paymentTypeLabel(payment.payment_type)}</td>

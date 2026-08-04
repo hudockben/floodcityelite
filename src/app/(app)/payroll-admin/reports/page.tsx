@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { DIVISIONS, divisionLabel, isDivisionSlug } from "../../teams/divisions";
+import {
+  divisionLabel,
+  isDivisionSlugFormat,
+  type Division,
+} from "../../teams/divisions";
+import { listDivisionsSafe } from "../../teams/division-store";
 import {
   ensurePayrollSchema,
   listPayrollSubmissionsFiltered,
@@ -29,7 +34,7 @@ function isoDate(raw: string | undefined): string | null {
 // The division filter is "all" (default), "none" (unassigned), or a slug.
 function divisionMode(raw: string | undefined): string {
   const s = (raw ?? "").trim();
-  if (s === "none" || isDivisionSlug(s)) return s;
+  if (s === "none" || isDivisionSlugFormat(s)) return s;
   return "all";
 }
 
@@ -39,10 +44,10 @@ function statusMode(raw: string | undefined): string {
   return isPayrollStatus(s) ? s : "all";
 }
 
-function divisionModeLabel(mode: string): string {
+function divisionModeLabel(mode: string, divisions: Division[]): string {
   if (mode === "all") return "All divisions";
   if (mode === "none") return "Unassigned";
-  return divisionLabel(mode);
+  return divisionLabel(mode, divisions);
 }
 
 function statusModeLabel(mode: string): string {
@@ -58,10 +63,10 @@ function rangeLabel(from: string | null, to: string | null): string {
 
 // Order divisions by the selector order, with Unassigned (null) last and any
 // unrecognized slug just before it.
-function divisionRank(key: string | null): number {
-  if (key === null) return DIVISIONS.length + 1;
-  const i = DIVISIONS.findIndex((d) => d.slug === key);
-  return i === -1 ? DIVISIONS.length : i;
+function divisionRank(key: string | null, divisions: Division[]): number {
+  if (key === null) return divisions.length + 1;
+  const i = divisions.findIndex((d) => d.slug === key);
+  return i === -1 ? divisions.length : i;
 }
 
 export default async function PayrollReportsPage({
@@ -80,6 +85,9 @@ export default async function PayrollReportsPage({
   const params = await searchParams;
   const from = isoDate(firstParam(params.from));
   const to = isoDate(firstParam(params.to));
+  // The company's divisions drive the filter dropdown and the report's
+  // grouping order, so a division added on the Teams tab reports like any other.
+  const divisions = await listDivisionsSafe(session.companyId);
   const mode = divisionMode(firstParam(params.division));
   const sMode = statusMode(firstParam(params.status));
 
@@ -125,12 +133,12 @@ export default async function PayrollReportsPage({
     emap.set(r.employee_name, e);
   }
   const employeeGroups = [...empByDivision.entries()]
-    .sort((a, b) => divisionRank(a[0]) - divisionRank(b[0]))
+    .sort((a, b) => divisionRank(a[0], divisions) - divisionRank(b[0], divisions))
     .map(([key, emap]) => {
       const emps = [...emap.values()].sort((a, b) => b.hours - a.hours);
       return {
         key,
-        label: key ? divisionLabel(key) : "Unassigned",
+        label: key ? divisionLabel(key, divisions) : "Unassigned",
         hours: emps.reduce((s, e) => s + e.hours, 0),
         emps,
       };
@@ -145,10 +153,10 @@ export default async function PayrollReportsPage({
     else byDivision.set(key, [r]);
   }
   const submissionGroups = [...byDivision.entries()]
-    .sort((a, b) => divisionRank(a[0]) - divisionRank(b[0]))
+    .sort((a, b) => divisionRank(a[0], divisions) - divisionRank(b[0], divisions))
     .map(([key, items]) => ({
       key,
-      label: key ? divisionLabel(key) : "Unassigned",
+      label: key ? divisionLabel(key, divisions) : "Unassigned",
       hours: items.reduce((s, r) => s + (Number(r.hours) || 0), 0),
       items,
     }));
@@ -179,7 +187,7 @@ export default async function PayrollReportsPage({
           <label htmlFor="division">Division</label>
           <select id="division" name="division" defaultValue={mode}>
             <option value="all">All divisions</option>
-            {DIVISIONS.map((d) => (
+            {divisions.map((d) => (
               <option key={d.slug} value={d.slug}>
                 {d.label}
               </option>
@@ -223,7 +231,7 @@ export default async function PayrollReportsPage({
       ) : (
         <>
           <p className="muted-note payroll-report-scope">
-            {rangeLabel(from, to)} · {divisionModeLabel(mode)} ·{" "}
+            {rangeLabel(from, to)} · {divisionModeLabel(mode, divisions)} ·{" "}
             {statusModeLabel(sMode)}
           </p>
 

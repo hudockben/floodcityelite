@@ -5,7 +5,8 @@ import {
   getPayrollCompanyId,
   insertPayrollSubmission,
 } from "@/lib/payroll";
-import { isDivisionSlug } from "@/app/(app)/teams/divisions";
+import { isDivisionSlugFormat } from "@/app/(app)/teams/divisions";
+import { listDivisions } from "@/app/(app)/teams/division-store";
 
 export type PayrollFormState = { ok?: boolean; error?: string };
 
@@ -42,9 +43,9 @@ export async function submitPayrollAction(
   if (hoursNum > 9_999.99) return { error: "That's more hours than we can record." };
   const hours = hoursNum.toFixed(2);
 
-  // Division is optional; keep it only when it's a real division slug.
+  // Division is optional. Checked against the program's own divisions below,
+  // once the company is known — they're rows now, not a fixed set.
   const rawDivision = String(formData.get("division") ?? "").trim();
-  const division = isDivisionSlug(rawDivision) ? rawDivision : null;
 
   try {
     await ensurePayrollSchema();
@@ -54,6 +55,16 @@ export async function submitPayrollAction(
       // The company row is missing (database hasn't been set up yet).
       return { error: "Payroll isn't set up yet. Please check back soon." };
     }
+
+    // A division this program doesn't run is dropped rather than recorded: this
+    // form is public, so the value can't be trusted to have come from the
+    // dropdown we rendered.
+    const divisions = isDivisionSlugFormat(rawDivision)
+      ? await listDivisions(companyId)
+      : [];
+    const division = divisions.some((d) => d.slug === rawDivision)
+      ? rawDivision
+      : null;
 
     await insertPayrollSubmission({
       companyId,

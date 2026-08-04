@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { telHref, websiteHref, websiteLabel } from "@/lib/links";
 import ConfirmButton from "../teams/confirm-button";
-import { divisionLabel } from "../teams/divisions";
+import { divisionLabel, type Division } from "../teams/divisions";
 import { formatMoney } from "../schedules/events";
 import { deleteHotelAction, updateHotelAction, type FormState } from "./actions";
 import HotelFields from "./hotel-fields";
@@ -96,9 +96,12 @@ function HotelCell({ field, value }: { field: HotelField; value: string | null }
 export default function HotelRow({
   hotel,
   tournaments,
+  divisions,
 }: {
   hotel: HotelRowData;
   tournaments: TournamentOption[];
+  /** The company's divisions, for this row's badge and its inline editor. */
+  divisions: Division[];
 }) {
   const [editing, setEditing] = useState(false);
   const [state, formAction, pending] = useActionState(
@@ -124,6 +127,7 @@ export default function HotelRow({
             </div>
 
             <HotelFields
+              divisions={divisions}
               idPrefix={`hotel-edit-${hotel.id}`}
               hotel={hotel}
               tournaments={tournaments}
@@ -167,7 +171,9 @@ export default function HotelRow({
 
       <td>
         {hotel.division ? (
-          <span className="dir-badge">{divisionLabel(hotel.division)}</span>
+          <span className="dir-badge">
+            {divisionLabel(hotel.division, divisions)}
+          </span>
         ) : (
           <span className="cell-empty">—</span>
         )}

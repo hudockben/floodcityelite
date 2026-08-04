@@ -1,8 +1,9 @@
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { resolveFormat, sheetResponse } from "@/lib/sheet-export";
-import { isDivisionSlug } from "../../teams/divisions";
-import { HOTEL_EXPORT_COLUMNS } from "../hotel-export";
+import { isDivisionSlugFormat } from "../../teams/divisions";
+import { listDivisionsSafe } from "../../teams/division-store";
+import { hotelExportColumns } from "../hotel-export";
 import { matchesHotelFilters, type HotelRow } from "../hotels";
 import { ensureHotelsSchema } from "../schema";
 
@@ -22,7 +23,7 @@ export async function GET(request: Request): Promise<Response> {
   const format = resolveFormat(params.get("format"));
   const query = params.get("q") ?? "";
   const divisionRaw = params.get("division") ?? "";
-  const division = isDivisionSlug(divisionRaw) ? divisionRaw : "";
+  const division = isDivisionSlugFormat(divisionRaw) ? divisionRaw : "";
   // The tournament filter is an event id as a string, matching the <select>.
   const tournamentRaw = params.get("tournament") ?? "";
   const tournament = /^\d+$/.test(tournamentRaw) ? tournamentRaw : "";
@@ -70,7 +71,7 @@ export async function GET(request: Request): Promise<Response> {
     format,
     baseName: "hotels",
     sheetName: "Hotels",
-    columns: HOTEL_EXPORT_COLUMNS,
+    columns: hotelExportColumns(await listDivisionsSafe(session.companyId)),
     rows,
   });
 }
