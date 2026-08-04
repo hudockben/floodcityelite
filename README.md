@@ -24,25 +24,118 @@ with a **company code**, **username**, and **password**.
 - Auth — passwords are hashed with **bcrypt**; the session is a signed
   (JWT, HS256) **httpOnly** cookie.
 
+## Organizations (multi-tenant)
+
+The portal runs the same software for more than one organization. Each one is a
+**tenant**: its own login company code, its own branding, and — the point of the
+whole arrangement — **its own Postgres database**. Nothing is shared between
+tenants at the storage layer, so there is no query, however wrong, that can
+return one organization's rows to another's screen.
+
+| Organization       | Company code | Connection string      |
+| ------------------ | ------------ | ---------------------- |
+| Flood City Elite   | `fce`        | `DATABASE_URL`         |
+| Fennell Bros.      | `fennell`    | `FENNELL_DATABASE_URL` |
+
+The registry is [`src/lib/tenants.ts`](src/lib/tenants.ts) — each organization's
+code, display name, theme, brand mark, and the environment variable holding its
+database URL. Those two variables must name **different** databases:
+[`src/lib/db.ts`](src/lib/db.ts) refuses to serve a tenant whose connection
+string matches another's, and `npm run db:setup` refuses to seed one, so a
+copy-paste in `.env.local` fails loudly instead of quietly merging two
+organizations into one set of tables.
+
+**Which organization a request belongs to** is resolved most-trustworthy-source
+first, in [`src/middleware.ts`](src/middleware.ts):
+
+1. the **signed session cookie** — for anyone logged in this settles it, since
+   their company code was checked against a password;
+2. the **hostname**, so each organization can have its own domain. Configure it
+   with `TENANT_HOSTS`, a comma-separated list of `code=hostname` pairs
+   (`fennell=portal.fennellbros.com,fce=portal.floodcityelite.com`). Left unset,
+   a hostname still matches an organization whose code appears as one of its
+   labels (`fennell.example.com`), which covers preview deployments;
+3. **`?c=<code>`** in the URL — how a public link names its organization;
+4. the **tenant cookie**, which remembers 2 or 3 across a form's POST;
+5. failing all of that, the default: `fce`.
+
+Nothing in that chain reads a request body, so a visitor cannot post their way
+onto another organization's database.
+
+**Public form links.** The two login-free forms carry the organization in the
+query string:
+
+| Organization     | Payroll              | Roster spot                    |
+| ---------------- | -------------------- | ------------------------------ |
+| Flood City Elite | `/payroll`           | `/roster-acceptance`           |
+| Fennell Bros.    | `/payroll?c=fennell` | `/roster-acceptance?c=fennell` |
+
+Once an organization has its own hostname the parameter becomes unnecessary —
+`portal.fennellbros.com/roster-acceptance` resolves on the host alone.
+
+### Setting up Fennell Bros.
+
+1. **Create a second database.** In the Neon console, a *new database* inside the
+   same project is enough (**Databases** → **New database**) — it is a separate
+   set of tables, which is the whole of what the separation depends on. A
+   separate Neon project works just as well.
+
+2. **Point the app at it** in `.env.local`:
+
+   ```bash
+   FENNELL_DATABASE_URL=postgresql://…   # must not equal DATABASE_URL
+   ```
+
+3. **Create the tables and seed the admin user** in that database:
+
+   ```bash
+   npm run db:setup -- --tenant fennell
+   ```
+
+   It prints the organization and the variable it read the connection string
+   from, so running it once per organization visibly goes to two different
+   places, and it prints the generated admin password once.
+
+4. **Sign in** with company code `fennell` and the credentials it printed.
+
+### Adding a third organization
+
+The three steps from [`src/lib/tenants.ts`](src/lib/tenants.ts)'s header comment:
+
+1. create a database for them and put its connection string in a new env var,
+2. add an entry to `TENANTS` — code, name, theme, `databaseUrlEnv`, branding,
+3. run `npm run db:setup -- --tenant <code>` against the new database.
+
+> [`db/setup.mjs`](db/setup.mjs) keeps its own small copy of that registry, since
+> a plain `.mjs` script can't import the TypeScript module — add the new code,
+> name, and env var there too, or `--tenant <code>` won't resolve.
+
 ## Login credentials
 
 | Field        | Value                                                            |
 | ------------ | ---------------------------------------------------------------- |
-| Company code | `fce`                                                            |
+| Company code | your organization's — `fce` (Flood City Elite) or `fennell` (Fennell Bros.) |
 | Username     | `admin` (default seed username)                                  |
 | Password     | your `SEED_ADMIN_PASSWORD`, or a strong random one generated and printed once by `npm run db:setup` |
 
-> The company code for Flood City Elite is always `fce`. The admin password is
-> never hardcoded — set your own via `SEED_ADMIN_PASSWORD` or use the one the
-> seed step prints, and change it after first login.
+> The company code is what picks the database the sign-in is checked against, so
+> it is per organization — see [Organizations](#organizations-multi-tenant) for
+> the current list. Each organization has its own admin user, seeded by its own
+> `npm run db:setup -- --tenant <code>` run. The admin password is never
+> hardcoded — set your own via `SEED_ADMIN_PASSWORD` or use the one the seed step
+> prints, and change it after first login.
 
 ## Database tables
 
-Several tables back the app (see [`db/schema.sql`](db/schema.sql)); the core
-ones are:
+Several tables back the app (see [`db/schema.sql`](db/schema.sql)). They exist
+**once per organization, in that organization's own database** — the schema is
+applied to each one separately, so every table below is really a set of tables
+per tenant and none of them is shared. The core ones are:
 
-- **`companies`** — one row per organization. Login matches on `code`
-  (e.g. `fce`).
+- **`companies`** — the organization this database belongs to. Login matches on
+  `code` (`fce`, `fennell`), and since a database holds one organization it
+  holds one row: the code identifies which database to check the sign-in
+  against, not which subset of a shared table to read.
 - **`users`** — belongs to a company via `company_id`. A username is unique
   *within* a company. Stores `password_hash`, `role`, `is_active`, and
   `last_login_at`.
@@ -251,9 +344,11 @@ ones are:
    cp .env.example .env.local
    ```
 
-   - `DATABASE_URL` — your Neon connection string (Neon console → **Connect** →
-     pooled connection string).
+   - `DATABASE_URL` — Flood City Elite's Neon connection string (Neon console →
+     **Connect** → pooled connection string).
    - `SESSION_SECRET` — a random secret: `openssl rand -base64 32`.
+   - `FENNELL_DATABASE_URL` — only if you're running Fennell Bros. too; it is a
+     *different* database (see [Organizations](#organizations-multi-tenant)).
 
 3. **Create the tables and seed the admin user**
 
@@ -264,8 +359,13 @@ ones are:
    This creates the tables, ensures the `fce` company exists, and creates the
    default admin user. It prints the credentials when it finishes.
 
+   Each organization has its own database, so this is run once per organization,
+   naming the one it targets — `npm run db:setup -- --tenant fennell` does the
+   same against `FENNELL_DATABASE_URL`. With no `--tenant` it targets `fce`.
+
    > Prefer to do it by hand? Paste [`db/schema.sql`](db/schema.sql) into the
-   > Neon **SQL Editor** instead — then create a user with a bcrypt hash.
+   > Neon **SQL Editor** instead, connected to that organization's database —
+   > then insert its `companies` row and a user with a bcrypt hash.
 
 4. **Run the app**
 
@@ -277,7 +377,9 @@ ones are:
 
 ## Adding more users
 
-Each user belongs to the `fce` company. To add one, insert a row into `users`
+Each user belongs to a company, in that organization's own database — so run the
+insert against the database of the organization the user is joining, matching on
+its code (`fce` below, `fennell` for Fennell Bros.). Insert a row into `users`
 with a bcrypt-hashed password. The quickest way is to reuse the seed pattern in
 [`db/setup.mjs`](db/setup.mjs), or generate a hash:
 

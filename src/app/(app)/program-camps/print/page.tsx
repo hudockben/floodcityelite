@@ -76,7 +76,9 @@ export default async function ProgramCampsPrintPage({
       <article className="print-doc">
         <header className="print-doc-head">
           <div>
-            <p className="print-brand">Flood City Elite</p>
+            {/* The organization the signed-in user belongs to, not a
+                hard-coded club — the portal serves more than one. */}
+            <p className="print-brand">{session.companyName}</p>
             <h1 className="print-doc-title">Camp Report</h1>
             {/* No scope line when the load failed — it could only name a camp
                 this page never managed to read. */}

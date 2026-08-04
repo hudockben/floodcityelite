@@ -246,7 +246,9 @@ export default async function SchedulesPrintPage({
       <article className="print-doc">
         <header className="print-doc-head">
           <div>
-            <p className="print-brand">Flood City Elite</p>
+            {/* The organization the signed-in user belongs to, not a
+                hard-coded club — the portal serves more than one. */}
+            <p className="print-brand">{session.companyName}</p>
             <h1 className="print-doc-title">Tournament Schedule</h1>
             <p className="print-doc-scope">{scopeLabel}</p>
           </div>

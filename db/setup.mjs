@@ -1,11 +1,18 @@
 // ---------------------------------------------------------------------------
-// Flood City Elite — database setup & seed
+// Portal — database setup & seed, one organization at a time
 //
-//   npm run db:setup
+//   npm run db:setup                       → Flood City Elite (the default)
+//   npm run db:setup -- --tenant fennell   → Fennell Bros.
 //
-// Creates the `companies` and `users` tables (if needed), ensures the Flood
-// City Elite company exists (code: fce), and creates a default admin user
-// with a bcrypt-hashed password. Safe to run more than once.
+// Creates the portal's tables (if needed), ensures the chosen organization's
+// company row exists, and creates a default admin user with a bcrypt-hashed
+// password. Safe to run more than once.
+//
+// Every organization has its *own* database, so this is run once per
+// organization against that organization's connection string — the tenant
+// argument picks which env var to read and which company row to seed. Running
+// it twice, once per tenant, is what stands up two portals; the isolation check
+// below makes sure those two runs actually went to two different databases.
 // ---------------------------------------------------------------------------
 
 import { neon } from "@neondatabase/serverless";
@@ -22,17 +29,81 @@ for (const file of [".env.local", ".env"]) {
   }
 }
 
-const DATABASE_URL = process.env.DATABASE_URL;
-if (!DATABASE_URL) {
+// A mirror of the tenant registry in `src/lib/tenants.ts`, which is the source
+// of truth. This is a plain .mjs script run by node directly, so it cannot
+// import the TypeScript module; adding an organization there means adding its
+// code, name, and env var here too, or `--tenant <new-code>` won't resolve.
+const TENANTS = {
+  fce: { name: "Flood City Elite", databaseUrlEnv: "DATABASE_URL" },
+  fennell: { name: "Fennell Bros.", databaseUrlEnv: "FENNELL_DATABASE_URL" },
+};
+
+const DEFAULT_TENANT_CODE = "fce";
+
+/**
+ * Which organization this run targets: `--tenant <code>`, `--tenant=<code>`, or
+ * the TENANT env var, falling back to Flood City Elite so an existing bare
+ * `npm run db:setup` keeps doing exactly what it always did.
+ *
+ * `--tenant` with nothing after it returns "" rather than falling through to
+ * the default — someone who typed the flag meant to choose, and quietly seeding
+ * the wrong organization's database is the one outcome worth failing over.
+ */
+function parseTenantCode(argv) {
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--tenant") {
+      const value = argv[i + 1];
+      return value && !value.startsWith("--") ? value : "";
+    }
+    if (arg.startsWith("--tenant=")) return arg.slice("--tenant=".length);
+  }
+  return process.env.TENANT || DEFAULT_TENANT_CODE;
+}
+
+const TENANT_CODE = parseTenantCode(process.argv.slice(2)).trim().toLowerCase();
+const TENANT = TENANTS[TENANT_CODE];
+if (!TENANT) {
   console.error(
-    "\n✖  DATABASE_URL is not set.\n" +
-      "   Copy .env.example to .env.local and paste your Neon connection string.\n",
+    `\n✖  Unknown organization ${JSON.stringify(TENANT_CODE)}.\n` +
+      `   Known codes: ${Object.keys(TENANTS).join(", ")}.\n` +
+      "   Usage:  npm run db:setup -- --tenant <code>\n",
   );
   process.exit(1);
 }
 
-const COMPANY_CODE = "fce";
-const COMPANY_NAME = "Flood City Elite";
+const DATABASE_URL = process.env[TENANT.databaseUrlEnv]?.trim();
+if (!DATABASE_URL) {
+  console.error(
+    `\n✖  ${TENANT.databaseUrlEnv} is not set, so ${TENANT.name} has no database.\n` +
+      "   Copy .env.example to .env.local and paste that organization's own Neon\n" +
+      `   connection string into ${TENANT.databaseUrlEnv}.\n`,
+  );
+  process.exit(1);
+}
+
+// Refuse to seed one organization into another's database. The whole point of
+// giving each tenant its own connection string is that no query can cross
+// between them; pointing two of them at the same database would put their rows
+// back into one set of tables, and it would do so silently, because every
+// statement below would still succeed. `src/lib/db.ts` makes this same check at
+// request time — this one catches the mistake before anything is written.
+for (const [code, other] of Object.entries(TENANTS)) {
+  if (code === TENANT_CODE) continue;
+  const otherUrl = process.env[other.databaseUrlEnv]?.trim();
+  if (otherUrl && otherUrl === DATABASE_URL) {
+    console.error(
+      `\n✖  ${TENANT.databaseUrlEnv} and ${other.databaseUrlEnv} point at the same database.\n` +
+        `   ${TENANT.name} and ${other.name} must each have their own, or their data\n` +
+        `   would share tables. Create a separate database for ${TENANT.name} in Neon\n` +
+        `   and set ${TENANT.databaseUrlEnv} to that database's connection string.\n`,
+    );
+    process.exit(1);
+  }
+}
+
+const COMPANY_CODE = TENANT_CODE;
+const COMPANY_NAME = TENANT.name;
 const ADMIN_USERNAME = process.env.SEED_ADMIN_USERNAME || "admin";
 
 // No hardcoded default password. Use SEED_ADMIN_PASSWORD if provided,
@@ -46,6 +117,12 @@ if (ADMIN_PASSWORD_GENERATED) {
 const sql = neon(DATABASE_URL);
 
 async function main() {
+  // Name the organization and the variable its connection string came from, so
+  // an operator setting up a second portal can see at a glance that the two
+  // runs went to two different places rather than twice to the same one.
+  console.log(`\n→ Organization:  ${COMPANY_NAME} (company code: ${COMPANY_CODE})`);
+  console.log(`→ Database from: ${TENANT.databaseUrlEnv}`);
+
   console.log("→ Creating tables…");
 
   await sql`
@@ -785,12 +862,12 @@ async function main() {
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
   const insertedUser = await sql`
     INSERT INTO users (company_id, username, password_hash, full_name, role)
-    VALUES (${companyId}, ${ADMIN_USERNAME}, ${passwordHash}, 'Flood City Elite Admin', 'admin')
+    VALUES (${companyId}, ${ADMIN_USERNAME}, ${passwordHash}, ${`${COMPANY_NAME} Admin`}, 'admin')
     ON CONFLICT (company_id, username) DO NOTHING
     RETURNING id
   `;
 
-  console.log("\n✔  Database ready.\n");
+  console.log(`\n✔  ${COMPANY_NAME} database ready (${TENANT.databaseUrlEnv}).\n`);
   if (insertedUser.length > 0) {
     console.log("   Created the admin account. Log in with:");
     console.log(`     Company code:  ${COMPANY_CODE}`);

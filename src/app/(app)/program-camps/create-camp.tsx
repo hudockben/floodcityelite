@@ -40,7 +40,7 @@ export default function CreateCamp() {
             name="location"
             type="text"
             autoComplete="off"
-            placeholder="e.g. Flood City Fieldhouse"
+            placeholder="e.g. Riverside Fieldhouse"
           />
         </div>
 

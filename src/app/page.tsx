@@ -1,21 +1,29 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { currentTenant } from "@/lib/tenant";
+import { TENANT_QUERY_PARAM } from "@/lib/tenants";
 import LoginForm from "./login-form";
-import FloodCityLogo from "./logo";
+import BrandLogo from "./logo";
 
 export default async function HomePage() {
   const session = await getSession();
   if (session) redirect("/homeplate");
+
+  const tenant = await currentTenant();
+  // Payroll and roster acceptance are login-free, so a visitor arriving there has
+  // no session to say which organization they belong to. Naming the tenant in the
+  // link keeps them on the same one whose sign-in screen they started from.
+  const tenantQuery = `?${TENANT_QUERY_PARAM}=${tenant.code}`;
 
   return (
     <main className="page">
       <div className="login-layout">
         <div className="brand">
           <h1 className="logo">
-            <FloodCityLogo />
+            <BrandLogo />
           </h1>
-          <p className="tagline">Member Portal</p>
+          <p className="tagline">{tenant.brand.tagline}</p>
         </div>
 
         <div className="divisions">
@@ -60,7 +68,7 @@ export default async function HomePage() {
                 <li>The date you worked</li>
                 <li>Hours worked</li>
               </ul>
-              <Link href="/payroll" className="btn btn-block">
+              <Link href={`/payroll${tenantQuery}`} className="btn btn-block">
                 Open payroll form
               </Link>
             </div>
@@ -90,7 +98,10 @@ export default async function HomePage() {
                 <li>Player &amp; parent details</li>
                 <li>Team, positions, jersey &amp; more</li>
               </ul>
-              <Link href="/roster-acceptance" className="btn btn-block">
+              <Link
+                href={`/roster-acceptance${tenantQuery}`}
+                className="btn btn-block"
+              >
                 Open acceptance form
               </Link>
             </div>

@@ -20,16 +20,12 @@
 // ---------------------------------------------------------------------------
 
 import { sql } from "@/lib/db";
+import { currentTenant } from "@/lib/tenant";
 
 // Re-exported so existing importers keep resolving `formatRosterDate` from this
 // module. The implementation lives in the DB-free `roster-format` module so
 // client components can use it without bundling the Neon client.
 export { formatRosterDate } from "@/lib/roster-format";
-
-// Parents submit against the Flood City Elite company (the login company code is
-// always "fce"). The public form has no session, so it resolves the company by
-// this code — mirrors the payroll form.
-export const ROSTER_COMPANY_CODE = "fce";
 
 // A team offered in the public form's dropdown. `division` is the slug so the
 // admin tab can link a submission back to the right Teams-tab division.
@@ -274,11 +270,20 @@ async function provision(): Promise<void> {
   `;
 }
 
-// Resolve the company id parents submit against (code: "fce"). Returns null when
-// the company row doesn't exist yet (before db:setup has been run).
+// Resolve the company id parents submit against. The public form has no
+// session, so the organization is the tenant the request resolved to (its
+// hostname, its `?c=` link, or the tenant cookie) — see lib/tenant. Mirrors the
+// payroll form.
+//
+// Each organization has its own database, so `sql()` is already pointed at
+// theirs and this is really "the company row in *this* database"; matching on
+// the tenant's code keeps it exact rather than assuming the database holds
+// exactly one company. Returns null when that row doesn't exist yet (before
+// db:setup has been run against the database).
 export async function getRosterCompanyId(): Promise<number | null> {
+  const tenant = await currentTenant();
   const rows = await sql()`
-    SELECT id FROM companies WHERE code = ${ROSTER_COMPANY_CODE} LIMIT 1
+    SELECT id FROM companies WHERE code = ${tenant.code} LIMIT 1
   `;
   return rows.length > 0 ? (rows[0].id as number) : null;
 }
@@ -491,10 +496,11 @@ export async function listRosterSubmissions(
       rs.jersey_option_3,
       rs.played_fce_2026,
       rs.hat_size,
-      -- created_at is TIMESTAMPTZ (stored UTC); convert to the club's local zone
-      -- (Flood City Elite is in Johnstown, PA — Eastern) so the admin tab shows
-      -- the correct calendar day. Without this an evening submission would slice
-      -- to the next day's UTC date.
+      -- created_at is TIMESTAMPTZ (stored UTC); convert to Eastern so the admin
+      -- tab shows the correct calendar day. Without this an evening submission
+      -- would slice to the next day's UTC date. The zone is fixed rather than
+      -- per-tenant because Flood City Elite is in Johnstown, PA — onboarding an
+      -- organization outside Eastern is what would make it worth varying.
       (rs.created_at AT TIME ZONE 'America/New_York')::text AS created_at
     FROM roster_submissions rs
     LEFT JOIN teams t ON t.id = rs.team_id AND t.company_id = rs.company_id

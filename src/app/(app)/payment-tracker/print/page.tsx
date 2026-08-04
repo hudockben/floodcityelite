@@ -101,7 +101,9 @@ export default async function PaymentTrackerPrintPage({
       <article className="print-doc">
         <header className="print-doc-head">
           <div>
-            <p className="print-brand">Flood City Elite</p>
+            {/* The organization the signed-in user belongs to, not a
+                hard-coded club — the portal serves more than one. */}
+            <p className="print-brand">{session.companyName}</p>
             <h1 className="print-doc-title">Payment Report</h1>
             <p className="print-doc-scope">{scope}</p>
           </div>

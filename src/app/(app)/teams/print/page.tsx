@@ -251,7 +251,9 @@ export default async function TeamsPrintPage({
       <article className="print-doc print-doc-wide">
         <header className="print-doc-head">
           <div>
-            <p className="print-brand">Flood City Elite</p>
+            {/* The organization the signed-in user belongs to, not a
+                hard-coded club — the portal serves more than one. */}
+            <p className="print-brand">{session.companyName}</p>
             <h1 className="print-doc-title">Team Roster</h1>
             <p className="print-doc-scope">{scopeLabel}</p>
           </div>

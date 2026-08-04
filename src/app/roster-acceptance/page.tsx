@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import FloodCityLogo from "../logo";
+import BrandLogo from "../logo";
 import { ensureTeamsSchema } from "../(app)/teams/schema";
 import {
   ensureRosterSubmissionsSchema,
@@ -8,12 +8,19 @@ import {
   listRosterTeamOptions,
   type RosterTeamOption,
 } from "@/lib/roster-submissions";
+import { currentTenant } from "@/lib/tenant";
 import RosterAcceptanceForm from "./roster-form";
 
-export const metadata: Metadata = {
-  title: "Roster Spot — Flood City Elite",
-  description: "Accept or decline your Flood City Elite roster spot.",
-};
+// A parent is accepting a spot with a particular organization, so the tab title
+// and description have to name that one. Which it is depends on the request, so
+// the metadata is generated per request rather than fixed at build time.
+export async function generateMetadata(): Promise<Metadata> {
+  const tenant = await currentTenant();
+  return {
+    title: `Roster Spot — ${tenant.name}`,
+    description: `Accept or decline your ${tenant.name} roster spot.`,
+  };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +29,11 @@ export const dynamic = "force-dynamic";
 // the auth middleware. Responses land in the admin "Roster Submissions" tab, and
 // an acceptance also adds the player to the chosen team's roster.
 export default async function RosterAcceptancePage() {
+  // Resolved here rather than inside the form because the form is a client
+  // component: it can't ask which organization the request belongs to, so the
+  // name is handed down for the copy that addresses the parent by it.
+  const tenant = await currentTenant();
+
   let teams: RosterTeamOption[] = [];
 
   try {
@@ -44,7 +56,7 @@ export default async function RosterAcceptancePage() {
       <div className="card card-wide">
         <div className="brand">
           <h1 className="logo">
-            <FloodCityLogo />
+            <BrandLogo />
           </h1>
           <p className="tagline">Roster Spot</p>
         </div>
@@ -58,7 +70,7 @@ export default async function RosterAcceptancePage() {
           </p>
         </div>
 
-        <RosterAcceptanceForm teams={teams} />
+        <RosterAcceptanceForm teams={teams} orgName={tenant.name} />
 
         <p className="card-foot">
           <Link href="/" className="card-foot-link">

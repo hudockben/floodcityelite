@@ -19,7 +19,7 @@ const TEMPLATE_SAMPLE = [
   "129.00",
   "(814) 555-0110",
   "hilton.com/johnstown",
-  "Team rate code FCE, breakfast included",
+  "Ask for the team rate, breakfast included",
   "Fall Baseball",
   "Keystone Classic",
 ];
