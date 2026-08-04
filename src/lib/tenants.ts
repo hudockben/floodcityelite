@@ -53,6 +53,13 @@ export type Tenant = {
    * whose URL matches another's.
    */
   databaseUrlEnv: string;
+  /**
+   * Hostnames that belong to this organization. A request arriving on one of
+   * them is theirs — see `tenantForHost`. Add production domains here, or set
+   * them at deploy time with TENANT_HOSTS; both are read, and both are exact
+   * matches. There is deliberately no pattern matching (see `tenantForHost`).
+   */
+  hosts: string[];
   brand: TenantBrand;
 };
 
@@ -62,6 +69,7 @@ export const TENANTS: Record<string, Tenant> = {
     name: "Flood City Elite",
     theme: "flood-city",
     databaseUrlEnv: "DATABASE_URL",
+    hosts: [],
     brand: {
       wordmark: "Flood City Elite",
       mark: null,
@@ -75,6 +83,7 @@ export const TENANTS: Record<string, Tenant> = {
     name: "Fennell Bros.",
     theme: "fennell",
     databaseUrlEnv: "FENNELL_DATABASE_URL",
+    hosts: [],
     brand: {
       wordmark: "Fennell Bros.",
       mark: {
@@ -119,6 +128,18 @@ export function tenantList(): Tenant[] {
 }
 
 /**
+ * The tenants this deployment can actually serve — the ones whose database
+ * connection string is set. A registry entry with no database behind it is not
+ * something this deployment can be, which is what makes "is it obvious which
+ * organization this request is for?" answerable (see `tenantIsAmbiguous`).
+ */
+export function configuredTenants(): Tenant[] {
+  return tenantList().filter(
+    (tenant) => (process.env[tenant.databaseUrlEnv] ?? "").trim() !== "",
+  );
+}
+
+/**
  * The tenant this whole deployment is dedicated to, set with the PORTAL_TENANT
  * environment variable, or null when the deployment serves every organization.
  *
@@ -160,16 +181,24 @@ export function requireTenant(code: string | null | undefined): Tenant {
 
 /**
  * Map a request hostname to a tenant, so each organization can have its own
- * domain.
+ * domain. Returns null for any hostname that was not explicitly configured.
  *
- * Hosts are configured with the TENANT_HOSTS environment variable, a
- * comma-separated list of `code=hostname` pairs:
+ * Hosts come from each tenant's `hosts` list and from the TENANT_HOSTS
+ * environment variable, a comma-separated list of `code=hostname` pairs:
  *
  *   TENANT_HOSTS="fennell=portal.fennellbros.com,fce=portal.floodcityelite.com"
  *
- * With nothing configured we fall back to matching the tenant code against the
- * hostname's own labels (`fennell.example.com`, `fennell-portal.vercel.app`),
- * which covers preview deployments without any extra setup.
+ * **Exact matches only, by design.** An earlier version also matched a tenant's
+ * code against the hostname's dot/dash-separated labels, to save configuring
+ * preview deployments. Guessing turned out to be wrong in both directions:
+ * `portal.fennellbros.com` does *not* contain the label `fennell`, so the
+ * organization's real domain silently fell through to the default tenant and
+ * would have filed their families' data under another club — while a Vercel
+ * preview URL built from a branch named `…-fennell-bros-…` *does* contain it,
+ * so Flood City Elite's own preview would have resolved to Fennell and opened
+ * their database. Any hostname an attacker controls matched just as readily.
+ * A hostname is a boundary between two organizations' data; it is not somewhere
+ * to be clever.
  */
 export function tenantForHost(host: string | null | undefined): Tenant | null {
   if (!host) return null;
@@ -186,12 +215,10 @@ export function tenantForHost(host: string | null | undefined): Tenant | null {
     }
   }
 
-  // Fall back to the hostname's labels, e.g. "fennell.example.com" or
-  // "fennell-portal.vercel.app". Matching whole dash/dot-separated words only,
-  // so a code never matches a fragment of an unrelated domain.
-  const labels = new Set(hostname.split(/[.-]/).filter(Boolean));
   for (const tenant of tenantList()) {
-    if (labels.has(tenant.code)) return tenant;
+    if (tenant.hosts.some((h) => h.trim().toLowerCase() === hostname)) {
+      return tenant;
+    }
   }
 
   return null;

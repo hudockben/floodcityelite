@@ -109,19 +109,32 @@ export type RosterSubmissionInput = {
 // predates it without a separate migration step. The DDL mirrors db/schema.sql
 // and db/setup.mjs and is idempotent.
 //
-// Memoized per server instance: the DDL runs once per cold start. If it fails
-// (e.g. a transient connection error) the memo is cleared so a later request
-// can retry.
-let ensured: Promise<void> | null = null;
+// Memoized per server instance *per organization*: the DDL runs once per cold
+// start for each tenant. It has to be keyed by tenant code, because each
+// organization has its own database and `sql()` points at whichever one the
+// request resolved to. A single shared promise would provision only the
+// organization that happened to warm the instance and hand every later request
+// from the other one an already-resolved promise, so its database would never
+// see the table — nor the played_fce_2025 rename, the high_school/parent_name
+// backfills, or fce_recompute_team_jerseys, which the accept path calls. It
+// surfaces as an intermittent "column does not exist" that depends on who hit
+// the instance first.
+//
+// If a provision fails (e.g. a transient connection error) that organization's
+// entry is dropped so a later request can retry, leaving the other's intact.
+const ensured = new Map<string, Promise<void>>();
 
-export function ensureRosterSubmissionsSchema(): Promise<void> {
-  if (!ensured) {
-    ensured = provision().catch((err) => {
-      ensured = null;
+export async function ensureRosterSubmissionsSchema(): Promise<void> {
+  const { code } = await currentTenant();
+  let pending = ensured.get(code);
+  if (!pending) {
+    pending = provision().catch((err) => {
+      ensured.delete(code);
       throw err;
     });
+    ensured.set(code, pending);
   }
-  return ensured;
+  return pending;
 }
 
 async function provision(): Promise<void> {

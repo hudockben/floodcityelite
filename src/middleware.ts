@@ -33,6 +33,17 @@ const PROTECTED_PREFIXES = [
   "/inventory",
 ];
 
+// The two login-free forms. They are the only pages that may be steered by a
+// link parameter or a remembered cookie, since they are the only ones a visitor
+// reaches with no session to say who they are.
+const PUBLIC_FORM_PREFIXES = ["/payroll", "/roster-acceptance"];
+
+function isPublicForm(pathname: string): boolean {
+  return PUBLIC_FORM_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+  );
+}
+
 type SessionClaims = { user?: { companyCode?: string } };
 
 async function readSession(
@@ -93,11 +104,28 @@ function resolveTenant(
   const fromSession = getTenant(session?.user?.companyCode);
   if (fromSession) return { tenant: fromSession, locked: false, persist: false };
 
+  // `?c=` names the organization in a link. It is per-request and sits in plain
+  // sight in the address bar, so it may be honoured anywhere.
   const fromQuery = getTenant(req.nextUrl.searchParams.get(TENANT_QUERY_PARAM));
-  if (fromQuery) return { tenant: fromQuery, locked: false, persist: true };
+  if (fromQuery) {
+    return {
+      tenant: fromQuery,
+      locked: false,
+      persist: isPublicForm(req.nextUrl.pathname),
+    };
+  }
 
-  const fromCookie = getTenant(req.cookies.get(TENANT_COOKIE)?.value);
-  if (fromCookie) return { tenant: fromCookie, locked: false, persist: false };
+  // The cookie is different: it is remembered, so it decides requests that came
+  // with nothing. It exists for exactly one job — keeping a form's POST on the
+  // organization its GET was rendered for — so it is written and read only on
+  // the two login-free forms. Consulted site-wide it was a hijack waiting to
+  // happen: one visit to `/payroll?c=fennell`, which an image tag on any page
+  // could cause, left a cookie that redirected the *next* family's submission
+  // into the other club's database.
+  if (isPublicForm(req.nextUrl.pathname)) {
+    const fromCookie = getTenant(req.cookies.get(TENANT_COOKIE)?.value);
+    if (fromCookie) return { tenant: fromCookie, locked: false, persist: false };
+  }
 
   return { tenant: null, locked: false, persist: false };
 }
@@ -106,13 +134,22 @@ export async function middleware(req: NextRequest) {
   const session = await readSession(req.cookies.get(COOKIE_NAME)?.value);
   const { tenant, locked, persist } = resolveTenant(req, session);
 
-  // A session only counts here if it belongs to the organization this request is
-  // for. On a dedicated deployment or domain that is a real check: a Flood City
-  // Elite cookie presented at Fennell's address is not a login, it is somebody
-  // else's session, and it is dropped rather than followed to another portal.
+  // A session counts only if it names an organization we still serve, and that
+  // organization is the one this request resolved to.
+  //
+  // Both halves matter. The second is what makes a dedicated deployment or
+  // domain a real boundary: a Flood City Elite cookie presented at Fennell's
+  // address is not a login, it is somebody else's session, and it is dropped
+  // rather than followed through to another club's portal. The first closes the
+  // case of a session naming an organization that has since been removed from
+  // the registry — those used to be treated as valid, which let one add
+  // `?c=<other club>` to any page and browse that club's data behind a session
+  // that no longer belonged anywhere.
+  const sessionTenant = getTenant(session?.user?.companyCode);
   const sessionBelongs =
     session != null &&
-    (!locked || session.user?.companyCode === tenant?.code);
+    sessionTenant != null &&
+    (tenant == null || sessionTenant.code === tenant.code);
 
   const { pathname } = req.nextUrl;
   const isProtected = PROTECTED_PREFIXES.some(
@@ -146,12 +183,15 @@ export async function middleware(req: NextRequest) {
   if (session && !sessionBelongs) res.cookies.delete(COOKIE_NAME);
 
   if (tenant && persist) {
+    // No `maxAge`: a session cookie, gone when the browser closes. It only has
+    // to survive the few seconds between a form rendering and being submitted,
+    // and the longer it lives the longer it can point somebody's submission at
+    // the wrong organization.
     res.cookies.set(TENANT_COOKIE, tenant.code, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 30,
     });
   }
 

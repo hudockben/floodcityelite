@@ -88,10 +88,33 @@ if (!DATABASE_URL) {
 // back into one set of tables, and it would do so silently, because every
 // statement below would still succeed. `src/lib/db.ts` makes this same check at
 // request time — this one catches the mistake before anything is written.
+// Two connection strings can differ by a word and still reach one database —
+// `…/neondb?sslmode=require` against `…/neondb` being the obvious pair, and the
+// setup instructions have both databases living in the same Neon project, so
+// the two strings are near-identical by construction. Compare where each one
+// actually lands (host plus database name) rather than how it is spelled.
+function databaseIdentity(url) {
+  try {
+    const parsed = new URL(url);
+    const database = parsed.pathname.replace(/^\/+/, "").toLowerCase();
+    return database ? `${parsed.hostname.toLowerCase()}/${database}` : null;
+  } catch {
+    return null;
+  }
+}
+
+const THIS_IDENTITY = databaseIdentity(DATABASE_URL);
+
 for (const [code, other] of Object.entries(TENANTS)) {
   if (code === TENANT_CODE) continue;
   const otherUrl = process.env[other.databaseUrlEnv]?.trim();
-  if (otherUrl && otherUrl === DATABASE_URL) {
+  if (!otherUrl) continue;
+  const otherIdentity = databaseIdentity(otherUrl);
+  const collides =
+    THIS_IDENTITY && otherIdentity
+      ? THIS_IDENTITY === otherIdentity
+      : otherUrl === DATABASE_URL;
+  if (collides) {
     console.error(
       `\n✖  ${TENANT.databaseUrlEnv} and ${other.databaseUrlEnv} point at the same database.\n` +
         `   ${TENANT.name} and ${other.name} must each have their own, or their data\n` +

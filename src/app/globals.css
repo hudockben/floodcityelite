@@ -132,6 +132,9 @@
   --chip-neutral-bg: rgba(148, 187, 233, 0.1);
   --count-chip-bg: rgba(148, 163, 184, 0.18);
   --meter-track-bg: rgba(148, 187, 233, 0.14);
+  /* The browser draws the date field's picker icon itself and only a filter can
+     recolour it, so the muted chrome tone is expressed as one here too. */
+  --date-picker-filter: invert(72%) sepia(16%) saturate(560%) hue-rotate(175deg);
 
   /* -- Semantic status --------------------------------------------------
      Green = paid / returning / money in, red = unpaid / danger / money out,
@@ -325,10 +328,10 @@
   --gold-bright: #e2bb5c;
   --gold-soft: #f0dba6;
   --gold-deep: #8a6a1c;
-  /* The low-alpha fills below are these two at a few percent — the cream
-     (240, 219, 166) where a surface should read warm, the gold (201, 153, 46)
-     where it should read as accent. Written out because a custom property
-     can't be interpolated into rgba()'s channel list. */
+  /* The low-alpha fills further down are two of these at a few percent —
+     --gold-soft (240, 219, 166) where a surface should read warm, --gold
+     (201, 153, 46) where it should read as accent — spelled out channel by
+     channel because a custom property can't be interpolated into rgba(). */
 
   /* -- Page -------------------------------------------------------------
      Near-black, with the two brand glows turned down to a suggestion of warmth
@@ -431,17 +434,29 @@
   --chip-neutral-bg: rgba(246, 243, 236, 0.07);
   --count-chip-bg: rgba(246, 243, 236, 0.1);
   --meter-track-bg: rgba(246, 243, 236, 0.1);
+  /* Lands on roughly #b6a993 — the same warm stone as --text-muted, where the
+     other theme's chain rotates the same grey to its muted blue. */
+  --date-picker-filter: invert(64%) sepia(20%) saturate(260%);
 
   /* -- Field diagram ----------------------------------------------------
      The diamond keeps its grass and dirt; only the card chrome around it and
-     the "deep" (accent) state follow the theme. */
+     the "deep" (accent) state follow the theme. The covered state signals with
+     a gold rim on near-black rather than a gold fill, because it sits inches
+     from the amber "backup" card and two warm fills would read alike. */
   --field-base: #f2ece0;
   --field-outline: rgba(201, 153, 46, 0.3);
   --field-pod-bg: rgba(10, 10, 10, 0.88);
-  --field-pod-deep-bg: rgba(34, 26, 8, 0.88);
+  --field-pod-deep-bg: rgba(20, 17, 8, 0.9);
   --field-pod-deep-border: rgba(201, 153, 46, 0.55);
   --field-flag-ok-bg: rgba(201, 153, 46, 0.14);
   --field-flag-ok-border: rgba(201, 153, 46, 0.4);
+  /* And the backup state moves off amber onto orange — the one place a status
+     colour has to move, since gold already means "covered" on this diagram. */
+  --depth-backup-text: #fdba74;
+  --depth-backup-bg: rgba(154, 52, 18, 0.26);
+  --depth-backup-border: rgba(251, 146, 60, 0.42);
+  --field-pod-backup-bg: rgba(58, 30, 8, 0.86);
+  --field-pod-backup-border: rgba(251, 146, 60, 0.45);
 
   /* -- Print ------------------------------------------------------------
      Paper stays paper. Only the brand line and the accent trim move to gold,
@@ -539,15 +554,26 @@ body {
 }
 
 /* The lockup wrapping the wordmark, and the mark beside it when the tenant has
-   one (see logo.tsx). Block-level rather than inline-flex so a wordmark that
-   wraps to two lines keeps sitting on the placement's own baseline instead of
-   hanging below it — Flood City Elite, which has no mark, renders exactly the
-   lone centered wordmark it always did. */
+   one (see logo.tsx).
+
+   With no mark the wrapper generates no box at all. That matters more than it
+   looks: making it a flex container would blockify .wordmark, and .wordmark
+   clips a gradient to its own text. An inline box paints that gradient once per
+   line; a block box stretches it across all of them, so a wordmark wrapping to
+   two lines on a narrow card would come out pale on the first line and dark on
+   the second. `display: contents` keeps the inherited font sizing flowing
+   through to the wordmark while leaving it the plain inline span it has always
+   been. */
 .brand-lockup {
+  display: contents;
+}
+
+.brand-lockup.has-mark {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.42em;
+  flex-wrap: wrap;
 }
 
 /* Sized from the placement's font-size, so the two placements that set one
@@ -6875,7 +6901,7 @@ body {
 
 .dir-date::-webkit-calendar-picker-indicator {
   cursor: pointer;
-  filter: invert(72%) sepia(16%) saturate(560%) hue-rotate(175deg);
+  filter: var(--date-picker-filter);
 }
 
 .dir-range-sep {

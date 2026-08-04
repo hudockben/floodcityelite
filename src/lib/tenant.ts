@@ -4,6 +4,7 @@ import {
   DEFAULT_TENANT,
   TENANT_HEADER,
   TENANT_LOCK_HEADER,
+  configuredTenants,
   getTenant,
   pinnedTenant,
   requireTenant,
@@ -37,19 +38,62 @@ export async function currentTenant(): Promise<Tenant> {
   const pinned = pinnedTenant();
   if (pinned) return pinned;
 
+  // `headers()` is unavailable outside a request scope. Note what is *not*
+  // caught here: when Next calls this during a static render, `headers()`
+  // throws a bailout error that Next itself needs to see in order to mark the
+  // route dynamic. Swallowing it would bake one organization's identity into a
+  // page served to all of them, so anything with a `digest` — Next's marker for
+  // its own control-flow errors — is rethrown.
+  let store: Awaited<ReturnType<typeof headers>> | null = null;
   try {
-    const store = await headers();
+    store = await headers();
+  } catch (err) {
+    if (err && typeof err === "object" && "digest" in err) throw err;
+  }
+
+  if (store) {
     const fromHeader = getTenant(store.get(TENANT_HEADER));
     if (fromHeader) return fromHeader;
-  } catch {
-    // `headers()` is unavailable outside a request scope (e.g. during static
-    // prerendering). Fall through to the session.
   }
 
   const session = await getSession();
   if (session) return requireTenant(session.companyCode);
 
   return DEFAULT_TENANT;
+}
+
+/**
+ * Did this request arrive with nothing at all to say which organization it is
+ * for, on a deployment serving more than one?
+ *
+ * `currentTenant()` answers that case with the default tenant, which is right
+ * for the original single-organization deployment and wrong the moment there
+ * are two: a hostname somebody forgot to put in TENANT_HOSTS would quietly hand
+ * a family the default club's form, and their child's details would be filed
+ * under a club they have never heard of. Nobody would notice — the submission
+ * succeeds, it just lands in the wrong database.
+ *
+ * So the login-free forms ask instead of guessing (see `OrganizationPicker`).
+ * A signed-in user is never ambiguous, a dedicated deployment or domain is
+ * never ambiguous, and a link carrying `?c=` is never ambiguous — this fires
+ * only when a shared deployment genuinely cannot tell, which in a correct
+ * configuration is never.
+ */
+export async function tenantIsAmbiguous(): Promise<boolean> {
+  if (pinnedTenant()) return false;
+  if (configuredTenants().length < 2) return false;
+
+  // The middleware sets the header whenever it resolved a tenant from anything
+  // at all, and deletes it otherwise — so its absence *is* "we do not know".
+  try {
+    const store = await headers();
+    if (getTenant(store.get(TENANT_HEADER))) return false;
+  } catch (err) {
+    if (err && typeof err === "object" && "digest" in err) throw err;
+    return false;
+  }
+
+  return (await getSession()) == null;
 }
 
 /**
@@ -66,7 +110,9 @@ export async function isTenantLocked(): Promise<boolean> {
   try {
     const store = await headers();
     return store.get(TENANT_LOCK_HEADER) === "1";
-  } catch {
+  } catch (err) {
+    // As above: Next's own bailout errors carry a `digest` and must reach it.
+    if (err && typeof err === "object" && "digest" in err) throw err;
     return false;
   }
 }

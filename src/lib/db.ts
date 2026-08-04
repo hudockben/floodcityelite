@@ -20,19 +20,52 @@ function connectionStringFor(tenant: Tenant): string {
 }
 
 /**
+ * Which database a connection string actually reaches: host plus database name,
+ * ignoring credentials, port spelling, and query parameters.
+ *
+ * Comparing the raw strings is not enough. The setup instructions have both
+ * organizations' databases living in the same Neon project, so their connection
+ * strings differ by a word — which is exactly when a copy-paste-and-edit slip
+ * produces two strings that are not equal but reach the same place:
+ * `…/neondb?sslmode=require` and `…/neondb` being the obvious pair. Reduced to
+ * host and database name, those compare equal and get caught.
+ */
+function databaseIdentity(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const database = parsed.pathname.replace(/^\/+/, "").toLowerCase();
+    if (!database) return null;
+    return `${parsed.hostname.toLowerCase()}/${database}`;
+  } catch {
+    // Not a URL we can parse — fall back to the raw string comparison.
+    return null;
+  }
+}
+
+/**
  * Refuse to serve a tenant whose database is another tenant's database.
  *
  * Every organization on this portal gets its own set of tables. Pointing two of
- * them at one connection string would put their rows back together — the exact
- * blending the split exists to prevent — and it would do so silently, because
- * every query would still "work". A misconfigured environment has to be a hard
- * error, not a data leak.
+ * them at one database would put their rows back together — the exact blending
+ * the split exists to prevent — and it would do so silently, because every query
+ * would still "work". A misconfigured environment has to be a hard error, not a
+ * data leak.
  */
 function assertIsolated(tenant: Tenant, url: string): void {
+  const identity = databaseIdentity(url);
+
   for (const other of tenantList()) {
     if (other.code === tenant.code) continue;
     const otherUrl = process.env[other.databaseUrlEnv]?.trim();
-    if (otherUrl && otherUrl === url) {
+    if (!otherUrl) continue;
+
+    const otherIdentity = databaseIdentity(otherUrl);
+    const collides =
+      identity != null && otherIdentity != null
+        ? identity === otherIdentity
+        : otherUrl === url;
+
+    if (collides) {
       throw new Error(
         `${tenant.databaseUrlEnv} and ${other.databaseUrlEnv} point at the same database. ` +
           `${tenant.name} and ${other.name} must each have their own, or their data would share tables.`,

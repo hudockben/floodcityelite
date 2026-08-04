@@ -53,9 +53,21 @@ rather than of the visitor:
 1. **`PORTAL_TENANT`** — this deployment serves one organization and no other.
 2. The **hostname**, configured with `TENANT_HOSTS`: a comma-separated list of
    `code=hostname` pairs
-   (`fennell=portal.fennellbros.com,fce=portal.floodcityelite.com`). Left unset,
-   a hostname still matches an organization whose code appears as one of its
-   labels (`fennell.example.com`), which covers preview deployments.
+   (`fennell=portal.fennellbros.com,fce=portal.floodcityelite.com`), or the
+   `hosts` array on a tenant in [`src/lib/tenants.ts`](src/lib/tenants.ts).
+   Matching is **exact** — list every hostname each organization answers on,
+   apex and `www.` alike. An unlisted hostname matches nothing and falls through
+   to the default organization, which for a public form means filing a visitor's
+   submission under the wrong club, so this is worth getting right.
+
+   > Earlier this guessed, matching a tenant's code against the hostname's
+   > dot/dash-separated labels so previews would work unconfigured. It guessed
+   > wrong in both directions: `portal.fennellbros.com` contains no `fennell`
+   > label, so Fennell's real domain resolved to Flood City Elite — while a
+   > Vercel preview URL for a branch named `…fennell-bros…` *did* match, so Flood
+   > City Elite's own preview resolved to Fennell and opened their database. A
+   > hostname is the boundary between two organizations' data; it is configured,
+   > not inferred.
 
 A boundary outranks the session. Somebody arriving at Fennell's address carrying
 a Flood City Elite cookie is shown Fennell's sign-in screen and their session is
@@ -67,8 +79,16 @@ is whatever the visitor is already associated with:
 
 3. the **signed session cookie**, since their company code was checked against a
    password;
-4. **`?c=<code>`** in the URL — how a public link names its organization;
-5. the **tenant cookie**, which remembers 4 across a form's POST;
+4. **`?c=<code>`** in the URL — how a public link names its organization. It is
+   per-request and visible in the address bar, and it cannot override a valid
+   session;
+5. the **tenant cookie**, which carries 4 across a form's POST. It is
+   session-scoped and is both written and read only on `/payroll` and
+   `/roster-acceptance`, since keeping a form's POST with its GET is the only
+   thing it is for. Consulted site-wide it was a hijack waiting to happen: one
+   visit to `/payroll?c=fennell`, which an image tag on any page could cause,
+   left a cookie that redirected the *next* family's submission into the other
+   club's database;
 6. failing all of that, the default: `fce`.
 
 Nothing in that chain reads a request body, so a visitor cannot post their way

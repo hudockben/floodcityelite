@@ -8,7 +8,8 @@ import {
   listRosterTeamOptions,
   type RosterTeamOption,
 } from "@/lib/roster-submissions";
-import { currentTenant } from "@/lib/tenant";
+import { currentTenant, tenantIsAmbiguous } from "@/lib/tenant";
+import OrganizationPicker from "../organization-picker";
 import RosterAcceptanceForm from "./roster-form";
 
 // A parent is accepting a spot with a particular organization, so the tab title
@@ -33,6 +34,34 @@ export default async function RosterAcceptancePage() {
   // component: it can't ask which organization the request belongs to, so the
   // name is handed down for the copy that addresses the parent by it.
   const tenant = await currentTenant();
+
+  // This form carries a child's name, date of birth, school, and both parents'
+  // phone numbers, and an acceptance writes them straight onto a roster. If
+  // nothing about the request says which organization it is for, that data must
+  // not be filed by guesswork — ask first.
+  const ambiguous = await tenantIsAmbiguous();
+  if (ambiguous) {
+    return (
+      <main className="page">
+        <div className="card">
+          <div className="brand">
+            <h1 className="logo">
+              <BrandLogo />
+            </h1>
+            <p className="tagline">Roster Spot</p>
+          </div>
+
+          <OrganizationPicker title="Which club is this for?" />
+
+          <p className="card-foot">
+            <Link href="/" className="card-foot-link">
+              ← Back to sign in
+            </Link>
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   let teams: RosterTeamOption[] = [];
 

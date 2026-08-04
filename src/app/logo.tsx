@@ -19,8 +19,17 @@ export function BrandLockup({
 }) {
   const { mark, wordmark } = tenant.brand;
 
+  // Only a tenant with a mark needs the lockup to be a flex row. Without one it
+  // stays `display: contents` (see globals.css) so the wordmark is still the
+  // plain inline span it has always been — the gradient clipped to that text
+  // paints per line, and wrapping it on a narrow card looks the way it did
+  // before there was ever a second tenant.
+  const classes = ["brand-lockup"];
+  if (mark) classes.push("has-mark");
+  if (className) classes.push(className);
+
   return (
-    <span className={className ? `brand-lockup ${className}` : "brand-lockup"}>
+    <span className={classes.join(" ")}>
       {mark ? (
         // Decorative: the wordmark beside it already names the brand, so the
         // image is hidden from screen readers rather than read out twice.
