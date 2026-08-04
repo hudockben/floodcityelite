@@ -474,6 +474,27 @@
      other theme's chain rotates the same grey to its muted blue. */
   --date-picker-filter: invert(64%) sepia(20%) saturate(260%);
 
+  /* -- Semantic status ---------------------------------------------------
+     Green, red, amber and violet mean what they mean and stay put. The
+     informational blue could not: it was #38bdf8 exactly — Flood City's
+     --accent — and it painted the status select on every row of every roster
+     (.status-registered) plus .sport-baseball, .pay-type-check,
+     .hp-pill-registered and .rs-new. Five components in the other brand's hue,
+     on the screen this tenant looks at all day.
+
+     "Informational / new" still shouldn't be gold — gold is the accent here and
+     these are not accents — so it moves to a desaturated cool grey-blue that
+     keeps the semantic without borrowing anybody's brand. Text measures
+     9.9-12.6:1 on the filled pill across every surface it lands on (page, card,
+     roster row, roster hover row); the "new" tone stays a step brighter than
+     "info" so the two remain distinguishable side by side. */
+  --status-info-text: #cfe0ef;
+  --status-info-bg: rgba(125, 170, 205, 0.13);
+  --status-info-border: rgba(125, 170, 205, 0.38);
+  --status-new-text: #dbe8f4;
+  --status-new-bg: rgba(125, 170, 205, 0.16);
+  --status-new-border: rgba(125, 170, 205, 0.45);
+
   /* -- Field diagram ----------------------------------------------------
      The diamond keeps its grass and dirt; only the card chrome around it and
      the "deep" (accent) state follow the theme. The covered state signals with
@@ -504,6 +525,42 @@
   --print-accent-bg: #faf3e0;
   --print-accent-border: #e6d29a;
   --print-accent-dot: #a8811f;
+
+  /* The secondary inks, rules and bands. These were still the slate greys of
+     the other theme, so a warm gold heading sat directly above a blue-grey
+     rule on every report. Each one is the same tone rotated warm at matched
+     luminance, so nothing on the page gets heavier or lighter than it was —
+     the numbers in the comments are contrast against white paper, before and
+     after. The one deliberate exception is --print-ink-muted: it draws the
+     column headers and the small labels at 0.7-0.8rem, where 4.76:1 was closer
+     to the line than small type on paper wants to be, so it goes darker rather
+     than merely warmer. */
+  --print-ink-mid: #464035; /* 10.31 -> 10.27 */
+  --print-ink-body: #5c5345; /* 7.56 -> 7.56 */
+  --print-ink-head: #5c5344; /* 7.58 -> 7.57 */
+  --print-ink-muted: #6b6152; /* 4.76 -> 6.07, see above */
+  --print-ink-soft: #797161; /* 4.83 -> 4.83 */
+  --print-ink-faint: #aaa293; /* 2.54 -> 2.53 */
+  --print-rule: #d9d0bd; /* 1.48 -> 1.53 */
+  --print-rule-soft: #ece5d7; /* 1.24 -> 1.25 */
+  --print-rule-light: #f3f0eb; /* 1.13 -> 1.14 */
+  --print-rule-faint: #e8e2d5; /* 1.23 -> 1.26 */
+  --print-band: #fbfaf6; /* 1.05 -> 1.04 */
+  --print-band-strong: #f8f4ee; /* 1.10 -> 1.10 */
+  --print-field-outline: #aba08f; /* 2.56 -> 2.57 */
+
+  /* The printed diamond. --print-accent-* above already moved the report's
+     accent trim to gold, which left the position cards half-converted: a coach
+     saw a gold "deep" card on screen and printed a pale blue one off the same
+     diagram. Paper now matches, using the same cream and gold as the accent
+     panels so the two agree on what gold means. Body ink reads 16.0:1 on the
+     cream, unchanged from the blue it replaces. */
+  --print-pod-deep-bg: #faf3e0;
+  --print-pod-deep-border: #d8bf7e;
+  /* And the same move the screen theme made for "backup": off amber, onto a
+     light orange, because gold is "covered" on this diagram now and two warm
+     cards inches apart would read alike. */
+  --print-pod-backup-bg: #fff1e6;
 }
 
 * {
