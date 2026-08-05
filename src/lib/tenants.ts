@@ -169,7 +169,22 @@ export function getSuppliedTenant(code: string | null | undefined): Tenant | nul
  * pinned to its own tenant and its own database.
  */
 export function pinnedTenant(): Tenant | null {
-  return getTenant(process.env.PORTAL_TENANT);
+  const code = process.env.PORTAL_TENANT?.trim();
+  if (!code) return null;
+
+  const tenant = getTenant(code);
+  if (!tenant) {
+    // A misspelled PORTAL_TENANT used to read as "not pinned", which meant the
+    // deployment quietly came up as the *default* organization — the wrong
+    // club's name, colours, and sign-in screen, with nothing to say why. That is
+    // the failure this whole arrangement is supposed to make impossible, so a
+    // value we do not recognise stops the deployment instead of guessing past it.
+    throw new Error(
+      `PORTAL_TENANT is set to ${JSON.stringify(code)}, which is not an organization ` +
+        `this portal knows. Known codes: ${Object.keys(TENANTS).join(", ")}.`,
+    );
+  }
+  return tenant;
 }
 
 /** Look a tenant up by company code. Returns null for anything unrecognised. */
