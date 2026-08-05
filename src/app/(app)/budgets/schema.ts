@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db";
+import { currentTenant } from "@/lib/tenant";
 
 // Ensure the `team_budgets` table exists before the Budgets tab reads or writes
 // it. Like the Teams tab's ensureTeamsSchema, this lets the feature work on a
@@ -6,19 +7,29 @@ import { sql } from "@/lib/db";
 // migration step. The DDL mirrors db/schema.sql and db/setup.mjs and is
 // idempotent.
 //
-// Memoized per server instance: the DDL runs once per cold start. If it fails
-// (e.g. a transient connection error), the memo is cleared so a later request
-// can retry.
-let ensured: Promise<void> | null = null;
+// Memoized per server instance and per organization: the DDL runs once per cold
+// start per organization. The key matters because each organization has its own
+// database — provision() runs against whichever one the request belongs to, so a
+// single shared memo would let the organization that happened to warm the
+// instance provision itself and hand every later request from the other one an
+// already-resolved promise, skipping its DDL (and the portion_to_team_budget
+// relaxation below, which budgets/actions.ts depends on) entirely. If a
+// provision fails (e.g. a transient connection error), only that organization's
+// memo is cleared, so it can retry on a later request without re-running the
+// other's.
+const ensured = new Map<string, Promise<void>>();
 
-export function ensureBudgetsSchema(): Promise<void> {
-  if (!ensured) {
-    ensured = provision().catch((err) => {
-      ensured = null;
+export async function ensureBudgetsSchema(): Promise<void> {
+  const { code } = await currentTenant();
+  let pending = ensured.get(code);
+  if (!pending) {
+    pending = provision().catch((err) => {
+      ensured.delete(code);
       throw err;
     });
+    ensured.set(code, pending);
   }
-  return ensured;
+  return pending;
 }
 
 async function provision(): Promise<void> {

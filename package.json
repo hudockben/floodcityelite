@@ -2,13 +2,14 @@
   "name": "floodcityelite",
   "version": "1.0.0",
   "private": true,
-  "description": "Flood City Elite — member portal with company-code login.",
+  "description": "Flood City Elite \u2014 member portal with company-code login.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:setup": "node db/setup.mjs"
+    "db:setup": "node db/setup.mjs",
+    "db:tables": "node db/tables.mjs"
   },
   "engines": {
     "node": "22.x"

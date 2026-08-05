@@ -1,8 +1,14 @@
 -- ---------------------------------------------------------------------------
--- Flood City Elite — database schema
+-- Portal — database schema
 --
--- You can run this file directly in the Neon SQL Editor, or let the app do it
--- for you with:  npm run db:setup
+-- Applied once per organization, to that organization's own database. Every
+-- organization on this portal is a tenant with its own database, so each one
+-- gets its own copy of these tables — that separation is what makes it
+-- impossible for a query to return one organization's rows to another's screen.
+--
+-- You can run this file directly in the Neon SQL Editor (connected to the
+-- database of the organization you are setting up), or let the app do it for
+-- you with:  npm run db:setup -- --tenant <code>
 -- ---------------------------------------------------------------------------
 
 -- Companies (tenants). Login requires a company code, e.g. "fce".
@@ -675,7 +681,23 @@ BEGIN
 END;
 $fn$;
 
--- Seed the Flood City Elite company (code: fce). Idempotent.
-INSERT INTO companies (code, name)
-VALUES ('fce', 'Flood City Elite')
-ON CONFLICT (code) DO NOTHING;
+-- ---------------------------------------------------------------------------
+-- The company row is deliberately NOT seeded here.
+--
+-- This file is applied to whichever organization's database is being set up,
+-- and it has no way of knowing which one that is. A hardcoded company would
+-- therefore create the *wrong* organization in someone else's database — and
+-- silently, since every login and every query would still work, just against a
+-- company nobody meant to create.
+--
+-- The row is seeded per database by the setup script instead, which takes the
+-- code and name from the tenant registry in `src/lib/tenants.ts`:
+--
+--   npm run db:setup                       -- Flood City Elite (code: fce)
+--   npm run db:setup -- --tenant fennell   -- Fennell Bros. (code: fennell)
+--
+-- Applying this schema by hand in the Neon SQL Editor? Insert the one row for
+-- the organization *this* database belongs to, e.g.:
+--
+--   INSERT INTO companies (code, name) VALUES ('fennell', 'Fennell Bros.') ON CONFLICT (code) DO NOTHING;
+-- ---------------------------------------------------------------------------

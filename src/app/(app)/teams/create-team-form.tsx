@@ -37,7 +37,7 @@ export default function CreateTeamForm({
           id="team-name"
           name="name"
           type="text"
-          placeholder="e.g. 14U Flood City Elite"
+          placeholder="e.g. 14U Wildcats"
           autoComplete="off"
           required
         />

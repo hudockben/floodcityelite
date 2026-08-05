@@ -16,11 +16,7 @@
 // ---------------------------------------------------------------------------
 
 import { sql } from "@/lib/db";
-
-// Employees submit against the Flood City Elite company (the login company code
-// is always "fce"). The public form has no session, so it resolves the company
-// by this code.
-export const PAYROLL_COMPANY_CODE = "fce";
+import { currentTenant } from "@/lib/tenant";
 
 // The approval status lives in lib/payroll-status.ts — plain data with no
 // database import, so a client component can have the options without pulling
@@ -79,19 +75,31 @@ export type PayrollReportFilters = {
 // that predates it without a separate migration step. The DDL mirrors
 // db/schema.sql and db/setup.mjs and is idempotent.
 //
-// Memoized per server instance: the DDL runs once per cold start. If it fails
-// (e.g. a transient connection error) the memo is cleared so a later request
-// can retry.
-let ensured: Promise<void> | null = null;
+// Memoized per server instance *per organization*: the DDL runs once per cold
+// start for each tenant. It has to be keyed by tenant code, because each
+// organization has its own database and `sql()` points at whichever one the
+// request resolved to. A single shared promise would provision only the
+// organization that happened to warm the instance and hand every later request
+// from the other one an already-resolved promise, so its database would never
+// see the table — nor the division/status backfills, which are migrations, not
+// just DDL. It surfaces as an intermittent "column does not exist" that depends
+// on who hit the instance first.
+//
+// If a provision fails (e.g. a transient connection error) that organization's
+// entry is dropped so a later request can retry, leaving the other's intact.
+const ensured = new Map<string, Promise<void>>();
 
-export function ensurePayrollSchema(): Promise<void> {
-  if (!ensured) {
-    ensured = provision().catch((err) => {
-      ensured = null;
+export async function ensurePayrollSchema(): Promise<void> {
+  const { code } = await currentTenant();
+  let pending = ensured.get(code);
+  if (!pending) {
+    pending = provision().catch((err) => {
+      ensured.delete(code);
       throw err;
     });
+    ensured.set(code, pending);
   }
-  return ensured;
+  return pending;
 }
 
 async function provision(): Promise<void> {
@@ -127,11 +135,19 @@ async function provision(): Promise<void> {
   await db`CREATE INDEX IF NOT EXISTS idx_payroll_submissions_company_id ON payroll_submissions (company_id)`;
 }
 
-// Resolve the company id employees submit against (code: "fce"). Returns null
-// when the company row doesn't exist yet (before db:setup has been run).
+// Resolve the company id employees submit against. The public form has no
+// session, so the organization is the tenant the request resolved to (its
+// hostname, its `?c=` link, or the tenant cookie) — see lib/tenant.
+//
+// Each organization has its own database, so `sql()` is already pointed at
+// theirs and this is really "the company row in *this* database"; matching on
+// the tenant's code keeps it exact rather than assuming the database holds
+// exactly one company. Returns null when that row doesn't exist yet (before
+// db:setup has been run against the database).
 export async function getPayrollCompanyId(): Promise<number | null> {
+  const tenant = await currentTenant();
   const rows = await sql()`
-    SELECT id FROM companies WHERE code = ${PAYROLL_COMPANY_CODE} LIMIT 1
+    SELECT id FROM companies WHERE code = ${tenant.code} LIMIT 1
   `;
   return rows.length > 0 ? (rows[0].id as number) : null;
 }

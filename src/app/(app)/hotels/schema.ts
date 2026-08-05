@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db";
+import { currentTenant } from "@/lib/tenant";
 import { ensureSchedulesSchema } from "../schedules/schema";
 
 // Ensure the `hotels` table exists before the Hotels tab reads or writes it.
@@ -6,19 +7,28 @@ import { ensureSchedulesSchema } from "../schedules/schema";
 // that predates it (e.g. a deployed Neon DB) without a separate migration step.
 // The DDL mirrors db/schema.sql and db/setup.mjs and is idempotent.
 //
-// Memoized per server instance: the DDL runs once per cold start. If it fails
-// (e.g. a transient connection error), the memo is cleared so a later request
-// can retry.
-let ensured: Promise<void> | null = null;
+// Memoized per server instance, keyed by organization: the DDL runs once per
+// cold start per organization. Each organization has its own database, so a
+// single shared memo would provision whichever one happened to warm this
+// instance and leave the other with nothing — it would get the already-resolved
+// promise back and run no DDL at all against its own database, which surfaces
+// later as an intermittent missing-table error rather than anything obvious. If
+// a provision fails (e.g. a transient connection error), only that
+// organization's entry is cleared, so it retries on a later request without
+// disturbing the other's.
+const ensured = new Map<string, Promise<void>>();
 
-export function ensureHotelsSchema(): Promise<void> {
-  if (!ensured) {
-    ensured = provision().catch((err) => {
-      ensured = null;
+export async function ensureHotelsSchema(): Promise<void> {
+  const { code } = await currentTenant();
+  let pending = ensured.get(code);
+  if (!pending) {
+    pending = provision().catch((err) => {
+      ensured.delete(code);
       throw err;
     });
+    ensured.set(code, pending);
   }
-  return ensured;
+  return pending;
 }
 
 async function provision(): Promise<void> {

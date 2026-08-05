@@ -97,8 +97,14 @@ function PositionField({ name, label }: { name: string; label: string }) {
 // roster.
 export default function RosterAcceptanceForm({
   teams,
+  orgName,
 }: {
   teams: RosterTeamOption[];
+  // The organization whose spot is being offered. A client component can't
+  // resolve the request's tenant itself, so the server page passes the name in
+  // — it's what the copy below addresses the parent with, and it has to match
+  // the brand lockup above the form.
+  orgName: string;
 }) {
   const [state, formAction, pending] = useActionState(
     submitRosterAcceptanceAction,
@@ -196,7 +202,7 @@ export default function RosterAcceptanceForm({
       {state?.ok ? (
         <p className="success" role="status">
           {state.accepted
-            ? "You're all set — the spot is confirmed and the coaching staff has the player's info. Welcome to Flood City Elite!"
+            ? `You're all set — the spot is confirmed and the coaching staff has the player's info. Welcome to ${orgName}!`
             : "Thanks for letting us know. We appreciate you trying out and wish the player the best of luck!"}
         </p>
       ) : null}
@@ -210,7 +216,7 @@ export default function RosterAcceptanceForm({
 
       {/* Step 1 — accept or decline */}
       <fieldset className="accept-choice">
-        <legend>Are you accepting the Flood City Elite roster spot? *</legend>
+        <legend>Are you accepting the {orgName} roster spot? *</legend>
         <div className="accept-options">
           <label
             className={`accept-option${choice === "yes" ? " selected" : ""}`}
@@ -276,7 +282,7 @@ export default function RosterAcceptanceForm({
               Sorry to hear the player won&apos;t be joining us this season.
               Please tell us which team&apos;s spot you&apos;re turning down so
               the coaching staff knows which roster to reopen. Thank you for
-              trying out with Flood City Elite — we wish you the best of luck!
+              trying out with {orgName} — we wish you the best of luck!
             </p>
           ) : null}
 

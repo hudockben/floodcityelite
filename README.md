@@ -24,25 +24,190 @@ with a **company code**, **username**, and **password**.
 - Auth — passwords are hashed with **bcrypt**; the session is a signed
   (JWT, HS256) **httpOnly** cookie.
 
+## Organizations (multi-tenant)
+
+The portal runs the same software for more than one organization. Each one is a
+**tenant**: its own login company code, its own branding, and — the point of the
+whole arrangement — **its own Postgres database**. Nothing is shared between
+tenants at the storage layer, so there is no query, however wrong, that can
+return one organization's rows to another's screen.
+
+| Organization       | Company code | Connection string      |
+| ------------------ | ------------ | ---------------------- |
+| Flood City Elite   | `fce`        | `DATABASE_URL`         |
+| Fennell Bros.      | `fennell`    | `FENNELL_DATABASE_URL` |
+
+The registry is [`src/lib/tenants.ts`](src/lib/tenants.ts) — each organization's
+code, display name, theme, brand mark, and the environment variable holding its
+database URL. Those two variables must name **different** databases:
+[`src/lib/db.ts`](src/lib/db.ts) refuses to serve a tenant whose connection
+string matches another's, and `npm run db:setup` refuses to seed one, so a
+copy-paste in `.env.local` fails loudly instead of quietly merging two
+organizations into one set of tables.
+
+**Which organization a request belongs to** is resolved in
+[`src/middleware.ts`](src/middleware.ts). Two of the sources are *boundaries* —
+they decide the answer outright, because they are properties of the address
+rather than of the visitor:
+
+1. **`PORTAL_TENANT`** — this deployment serves one organization and no other.
+2. The **hostname**, configured with `TENANT_HOSTS`: a comma-separated list of
+   `code=hostname` pairs
+   (`fennell=portal.fennellbros.com,fce=portal.floodcityelite.com`), or the
+   `hosts` array on a tenant in [`src/lib/tenants.ts`](src/lib/tenants.ts).
+   Matching is **exact** — list every hostname each organization answers on,
+   apex and `www.` alike. An unlisted hostname matches nothing and falls through
+   to the default organization, which for a public form means filing a visitor's
+   submission under the wrong club, so this is worth getting right.
+
+   > Earlier this guessed, matching a tenant's code against the hostname's
+   > dot/dash-separated labels so previews would work unconfigured. It guessed
+   > wrong in both directions: `portal.fennellbros.com` contains no `fennell`
+   > label, so Fennell's real domain resolved to Flood City Elite — while a
+   > Vercel preview URL for a branch named `…fennell-bros…` *did* match, so Flood
+   > City Elite's own preview resolved to Fennell and opened their database. A
+   > hostname is the boundary between two organizations' data; it is configured,
+   > not inferred.
+
+A boundary outranks the session. Somebody arriving at Fennell's address carrying
+a Flood City Elite cookie is shown Fennell's sign-in screen and their session is
+cleared — it is not another organization's login, so it is not followed to
+another organization's portal.
+
+Failing a boundary — a shared deployment on a shared address — the organization
+is whatever the visitor is already associated with:
+
+3. the **signed session cookie**, since their company code was checked against a
+   password;
+4. **`?c=<code>`** in the URL — how a public link names its organization. It is
+   per-request and visible in the address bar, and it cannot override a valid
+   session;
+5. the **tenant cookie**, which carries 4 across a form's POST. It is
+   session-scoped and is both written and read only on `/payroll` and
+   `/roster-acceptance`, since keeping a form's POST with its GET is the only
+   thing it is for. Consulted site-wide it was a hijack waiting to happen: one
+   visit to `/payroll?c=fennell`, which an image tag on any page could cause,
+   left a cookie that redirected the *next* family's submission into the other
+   club's database;
+6. failing all of that, the default: `fce`.
+
+Nothing in that chain reads a request body, so a visitor cannot post their way
+onto another organization's database.
+
+**Public form links.** On a shared address the two login-free forms carry the
+organization in the query string:
+
+| Organization     | Payroll              | Roster spot                    |
+| ---------------- | -------------------- | ------------------------------ |
+| Flood City Elite | `/payroll`           | `/roster-acceptance`           |
+| Fennell Bros.    | `/payroll?c=fennell` | `/roster-acceptance?c=fennell` |
+
+Once an organization has an address of its own the parameter is unnecessary and
+is dropped from the links — `portal.fennellbros.com/roster-acceptance` resolves
+on the host alone.
+
+### Giving each organization its own URL
+
+Families should see their own club's portal, not a shared platform with a
+company-code box on the front. Behind an address of its own — a `PORTAL_TENANT`
+deployment or a `TENANT_HOSTS` hostname — the portal drops the company-code
+field from the sign-in form, fills the code in server-side, and ignores whatever
+was posted, so another organization's code does not work at that address. There
+is then nothing on the site to suggest anybody else uses the software.
+
+There are two ways to arrange it:
+
+**One Vercel project, two domains.** Add both domains to the project (Vercel →
+**Settings** → **Domains**), set `TENANT_HOSTS`, and leave `PORTAL_TENANT`
+blank. One build, one deploy, one set of environment variables; a fix ships to
+both organizations at once. The deployment does hold every organization's
+connection string, and the two share a Vercel project — invisible to families,
+but true.
+
+**One Vercel project per organization.** Import the same repository twice. Each
+project gets its own domain, its own `PORTAL_TENANT`, and **only its own**
+database URL:
+
+| | Flood City Elite project | Fennell Bros. project |
+| --- | --- | --- |
+| `PORTAL_TENANT` | `fce` | `fennell` |
+| `DATABASE_URL` | Flood City's | *unset* |
+| `FENNELL_DATABASE_URL` | *unset* | Fennell's |
+| `SESSION_SECRET` | its own | its own (a different one) |
+
+Nothing about the other organization is present in either deployment: not the
+connection string, not the session secret, not the build. A session minted by
+one is not even valid at the other. The cost is deploying twice and keeping two
+sets of environment variables in step.
+
+Either way each organization needs its own `SESSION_SECRET` if you want their
+logins to be genuinely unrelated; sharing one means a cookie forged from one
+deployment's secret would verify at the other's address (where the boundary
+check would still refuse it, but there is no reason to lean on that).
+
+### Setting up Fennell Bros.
+
+1. **Create a second database.** In the Neon console, a *new database* inside the
+   same project is enough (**Databases** → **New database**) — it is a separate
+   set of tables, which is the whole of what the separation depends on. A
+   separate Neon project works just as well.
+
+2. **Point the app at it** in `.env.local`:
+
+   ```bash
+   FENNELL_DATABASE_URL=postgresql://…   # must not equal DATABASE_URL
+   ```
+
+3. **Create the tables and seed the admin user** in that database:
+
+   ```bash
+   npm run db:setup -- --tenant fennell
+   ```
+
+   It prints the organization and the variable it read the connection string
+   from, so running it once per organization visibly goes to two different
+   places, and it prints the generated admin password once.
+
+4. **Sign in** with company code `fennell` and the credentials it printed.
+
+### Adding a third organization
+
+The three steps from [`src/lib/tenants.ts`](src/lib/tenants.ts)'s header comment:
+
+1. create a database for them and put its connection string in a new env var,
+2. add an entry to `TENANTS` — code, name, theme, `databaseUrlEnv`, branding,
+3. run `npm run db:setup -- --tenant <code>` against the new database.
+
+> [`db/setup.mjs`](db/setup.mjs) keeps its own small copy of that registry, since
+> a plain `.mjs` script can't import the TypeScript module — add the new code,
+> name, and env var there too, or `--tenant <code>` won't resolve.
+
 ## Login credentials
 
 | Field        | Value                                                            |
 | ------------ | ---------------------------------------------------------------- |
-| Company code | `fce`                                                            |
+| Company code | your organization's — `fce` (Flood City Elite) or `fennell` (Fennell Bros.) |
 | Username     | `admin` (default seed username)                                  |
 | Password     | your `SEED_ADMIN_PASSWORD`, or a strong random one generated and printed once by `npm run db:setup` |
 
-> The company code for Flood City Elite is always `fce`. The admin password is
-> never hardcoded — set your own via `SEED_ADMIN_PASSWORD` or use the one the
-> seed step prints, and change it after first login.
+> The company code is what picks the database the sign-in is checked against, so
+> it is per organization — see [Organizations](#organizations-multi-tenant) for
+> the current list. Each organization has its own admin user, seeded by its own
+> `npm run db:setup -- --tenant <code>` run. The admin password is never
+> hardcoded — set your own via `SEED_ADMIN_PASSWORD` or use the one the seed step
+> prints, and change it after first login.
 
 ## Database tables
 
-Several tables back the app (see [`db/schema.sql`](db/schema.sql)); the core
-ones are:
+Several tables back the app (see [`db/schema.sql`](db/schema.sql)). They exist
+**once per organization, in that organization's own database** — the schema is
+applied to each one separately, so every table below is really a set of tables
+per tenant and none of them is shared. The core ones are:
 
-- **`companies`** — one row per organization. Login matches on `code`
-  (e.g. `fce`).
+- **`companies`** — the organization this database belongs to. Login matches on
+  `code` (`fce`, `fennell`), and since a database holds one organization it
+  holds one row: the code identifies which database to check the sign-in
+  against, not which subset of a shared table to read.
 - **`users`** — belongs to a company via `company_id`. A username is unique
   *within* a company. Stores `password_hash`, `role`, `is_active`, and
   `last_login_at`.
@@ -251,9 +416,11 @@ ones are:
    cp .env.example .env.local
    ```
 
-   - `DATABASE_URL` — your Neon connection string (Neon console → **Connect** →
-     pooled connection string).
+   - `DATABASE_URL` — Flood City Elite's Neon connection string (Neon console →
+     **Connect** → pooled connection string).
    - `SESSION_SECRET` — a random secret: `openssl rand -base64 32`.
+   - `FENNELL_DATABASE_URL` — only if you're running Fennell Bros. too; it is a
+     *different* database (see [Organizations](#organizations-multi-tenant)).
 
 3. **Create the tables and seed the admin user**
 
@@ -264,8 +431,13 @@ ones are:
    This creates the tables, ensures the `fce` company exists, and creates the
    default admin user. It prints the credentials when it finishes.
 
+   Each organization has its own database, so this is run once per organization,
+   naming the one it targets — `npm run db:setup -- --tenant fennell` does the
+   same against `FENNELL_DATABASE_URL`. With no `--tenant` it targets `fce`.
+
    > Prefer to do it by hand? Paste [`db/schema.sql`](db/schema.sql) into the
-   > Neon **SQL Editor** instead — then create a user with a bcrypt hash.
+   > Neon **SQL Editor** instead, connected to that organization's database —
+   > then insert its `companies` row and a user with a bcrypt hash.
 
 4. **Run the app**
 
@@ -277,7 +449,9 @@ ones are:
 
 ## Adding more users
 
-Each user belongs to the `fce` company. To add one, insert a row into `users`
+Each user belongs to a company, in that organization's own database — so run the
+insert against the database of the organization the user is joining, matching on
+its code (`fce` below, `fennell` for Fennell Bros.). Insert a row into `users`
 with a bcrypt-hashed password. The quickest way is to reuse the seed pattern in
 [`db/setup.mjs`](db/setup.mjs), or generate a hash:
 
