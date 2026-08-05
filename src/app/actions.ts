@@ -38,7 +38,15 @@ export async function loginAction(
   }
 
   if (!user) {
-    return { error: "Invalid company code, username, or password." };
+    // Name only the fields they can actually see. On a deployment of one
+    // organization's own the company code is filled in server-side and the form
+    // never shows it, so blaming it sends someone hunting for a field that
+    // isn't on their screen.
+    return {
+      error: locked
+        ? "Invalid username or password."
+        : "Invalid company code, username, or password.",
+    };
   }
 
   await createSession(user);
