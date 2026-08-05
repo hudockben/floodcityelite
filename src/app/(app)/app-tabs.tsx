@@ -14,6 +14,7 @@ const TABS = [
   { href: "/fundraiser-tracker", label: "Fundraiser Tracker" },
   { href: "/program-camps", label: "Program/Camps" },
   { href: "/payroll-admin", label: "Payroll" },
+  { href: "/dugout-admin", label: "Dugout" },
   { href: "/contact-info", label: "Contact Info" },
   { href: "/hotels", label: "Hotels" },
   { href: "/inventory", label: "Inventory" },

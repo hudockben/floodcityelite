@@ -814,6 +814,30 @@ async function main() {
   await sql`ALTER TABLE roster_submissions ADD COLUMN IF NOT EXISTS high_school VARCHAR(160)`;
   await sql`ALTER TABLE roster_submissions ADD COLUMN IF NOT EXISTS parent_name VARCHAR(160)`;
 
+  // One note on The Dugout — the message board parents read at the public
+  // /dugout page (no login), written from the admin "Dugout" tab. Only the
+  // title and body are required; `category` is what kind of note it is,
+  // `division` is a teams division slug (or null for the whole program),
+  // `is_pinned` holds it at the top of the board, and `is_published` is what
+  // separates a draft from something families can see.
+  await sql`
+    CREATE TABLE IF NOT EXISTS dugout_posts (
+      id            SERIAL        PRIMARY KEY,
+      company_id    INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      title         VARCHAR(160)  NOT NULL,
+      body          TEXT          NOT NULL,
+      category      VARCHAR(24)   NOT NULL DEFAULT 'announcement',
+      division      VARCHAR(32),
+      is_pinned     BOOLEAN       NOT NULL DEFAULT false,
+      is_published  BOOLEAN       NOT NULL DEFAULT true,
+      author_name   VARCHAR(160),
+      created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+      updated_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_dugout_posts_company_id ON dugout_posts (company_id)`;
+
   // Jersey-assignment automation (see db/schema.sql for the annotated version):
   // reconciles a team's submission-linked jersey numbers atomically under a
   // per-team advisory lock. Returners get priority; new players are first-come

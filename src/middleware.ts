@@ -16,8 +16,9 @@ import {
 const COOKIE_NAME = "fce_session";
 
 // Sections that require a signed-in user. Everything else the middleware sees
-// (the sign-in screen and the two public forms) is reachable logged out — it
-// runs on those routes only to work out which organization the visitor is on.
+// (the sign-in screen, the two public forms, and the parents' message board) is
+// reachable logged out — it runs on those routes only to work out which
+// organization the visitor is on.
 const PROTECTED_PREFIXES = [
   "/homeplate",
   "/teams",
@@ -28,6 +29,7 @@ const PROTECTED_PREFIXES = [
   "/fundraiser-tracker",
   "/program-camps",
   "/payroll-admin",
+  "/dugout-admin",
   "/schedules",
   "/contact-info",
   "/hotels",
@@ -35,8 +37,14 @@ const PROTECTED_PREFIXES = [
 ];
 
 // The two login-free forms. They are the only pages that may be steered by a
-// link parameter or a remembered cookie, since they are the only ones a visitor
-// reaches with no session to say who they are.
+// remembered cookie, since they are the only ones that take a submission from a
+// visitor with no session to say who they are — the cookie exists to keep a
+// form's POST on the organization its GET was rendered for.
+//
+// The public message board (/dugout) is deliberately not one of them. It writes
+// nothing, so it has no POST to keep anywhere; it carries the organization in
+// its own links instead, and a request that arrives naming nobody is asked
+// rather than steered by a cookie some other page left behind.
 const PUBLIC_FORM_PREFIXES = ["/payroll", "/roster-acceptance"];
 
 function isPublicForm(pathname: string): boolean {

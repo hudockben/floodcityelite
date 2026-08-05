@@ -869,10 +869,12 @@ body {
   text-decoration: none;
 }
 
-/* ---- Login: two division cards (Admin + Payroll) ---- */
-/* The brand sits above a row of cards. Each card is a "division": the existing
-   staff/coach sign-in, and a public Payroll form entry point. The row wraps to
-   a single stacked column on narrow screens (no media query, matching the app).*/
+/* ---- Login: the division cards ---- */
+/* The brand sits above a row of cards. Each card is a "division": the
+   staff/coach sign-in, the public Payroll and Roster Spot forms, and The Dugout
+   (the parents' message board). Four of them settle into two rows on a laptop
+   and wrap to a single stacked column on narrow screens (no media query,
+   matching the app). */
 .login-layout {
   width: 100%;
   max-width: 900px;
@@ -991,6 +993,221 @@ body {
 
 .card-foot-link:hover {
   text-decoration: underline;
+}
+
+/* ---- The Dugout (parents' message board) ----
+   Two screens share these: the public board at /dugout, which parents read
+   logged out, and the "Dugout" tab where staff write it. The post card is the
+   same object on both — a coach editing the board should be looking at what a
+   parent will — so everything from .dugout-posts down is written once and the
+   admin adds only its own controls. */
+
+/* The board is a column of notes rather than a single short form, so it takes
+   a wider card than the login/payroll ones and hangs from the top of the page
+   instead of being centred in it (a long board would otherwise start above the
+   fold and scroll off both ends). */
+.dugout-page {
+  align-items: flex-start;
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
+.dugout-card {
+  max-width: 760px;
+}
+
+/* Division filter pills. "Everything" plus one per division; a filtered board
+   still shows the whole-program notices, so these narrow rather than exclude. */
+.dugout-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.dugout-filter {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  background: var(--surface-control);
+  border: 1px solid var(--card-border);
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.dugout-filter:hover {
+  color: var(--text);
+  border-color: var(--accent-outline-hover-border-soft);
+}
+
+.dugout-filter.active {
+  color: var(--text-on-accent);
+  background: var(--accent-fill);
+  border-color: transparent;
+}
+
+.dugout-posts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dugout-post {
+  padding: 18px;
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  background: var(--surface-sunken);
+}
+
+/* A pinned note is the one the staff want read first, so it carries the accent
+   down its edge — the board is ordered pinned-first, and this is what says why
+   a three-week-old notice is sitting above today's. */
+.dugout-post.is-pinned {
+  border-color: var(--accent-panel-border);
+  background: var(--accent-panel-bg);
+  border-left: 3px solid var(--accent);
+}
+
+/* Staff-side only: a draft is on nobody's board yet, so it reads as unfinished
+   rather than as something families have seen. */
+.dugout-post.is-draft {
+  border-style: dashed;
+  background: var(--surface-empty);
+}
+
+.dugout-post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.dugout-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  background: var(--chip-neutral-bg);
+  border: 1px solid var(--card-border);
+}
+
+.dugout-tag-pinned {
+  color: var(--accent-text);
+  background: var(--accent-chip-bg);
+  border-color: var(--accent-chip-border);
+}
+
+.dugout-tag-draft {
+  color: var(--status-warn-text);
+  background: var(--status-warn-bg);
+  border-color: var(--status-warn-border);
+}
+
+.dugout-tag-scope {
+  background: transparent;
+}
+
+.dugout-post-title {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.dugout-post-meta {
+  margin: 0 0 10px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+/* The body is stored and rendered as plain text. `pre-wrap` is what keeps the
+   line breaks a coach typed — a list of call times reads as a list without any
+   markup being allowed onto a page parents load. `anywhere` stops a pasted URL
+   from pushing the card wider than the screen. */
+.dugout-post-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+/* ---- The Dugout: staff controls (admin tab only) ---- */
+.dugout-post-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--table-row-border);
+}
+
+/* The compose form sits beside the board on a wide screen and above it on a
+   narrow one, so writing a note and seeing where it lands are the same view. */
+.dugout-admin {
+  display: grid;
+  grid-template-columns: minmax(320px, 400px) 1fr;
+  gap: 26px;
+  align-items: start;
+  margin-top: 24px;
+}
+
+@media (max-width: 900px) {
+  .dugout-admin {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dugout-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+/* Type / who it's for / board status. Auto-fitting rather than fixed columns so
+   the three sit in a row beside a wide board and stack inside a post being
+   edited, where the card is much narrower. */
+.dugout-field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.dugout-pin-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.dugout-pin-toggle input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--checkbox-accent);
+  cursor: pointer;
+}
+
+.dugout-count {
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 /* Count/hours roll-up above the admin payroll table. */
@@ -1262,19 +1479,22 @@ body {
 
 .tabs-inner {
   display: flex;
-  gap: 3px;
+  gap: 2px;
   min-width: max-content;
   padding: 8px 0;
 }
 
-/* Thirteen tabs is a lot of words to fit on one line. The row scrolls when they
+/* Fourteen tabs is a lot of words to fit on one line. The row scrolls when they
    don't (see .tabs above), but the scrollbar is hidden, so a tab past the edge
    reads as *missing* rather than as further along — which is why these are sized
    to fit a normal laptop rather than sized for looks and left to overflow. The
-   larger treatment comes back on wide screens, where there is room for it. */
+   padding and gap came in a notch when the Dugout tab was added, so fourteen
+   take about the width thirteen did and the row still lands inside a 1512-wide
+   laptop. The larger treatment comes back on wide screens, where there is room
+   for it. */
 .tab {
   white-space: nowrap;
-  padding: 8px 11px;
+  padding: 8px 9px;
   border-radius: 9px;
   color: var(--text-muted);
   text-decoration: none;
@@ -1283,7 +1503,11 @@ body {
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-@media (min-width: 1600px) {
+/* The roomy treatment needs about 1800px to lay fourteen tabs out without
+   pushing the last one off the edge — which is the whole thing this row is
+   sized to avoid, so the breakpoint is set where they actually fit rather than
+   where they used to. */
+@media (min-width: 1800px) {
   .tabs-inner {
     gap: 4px;
   }

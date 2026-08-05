@@ -4,11 +4,12 @@ A [Next.js](https://nextjs.org) (App Router) app with a branded home/login
 screen backed by a [Neon](https://neon.tech) Postgres database. Members sign in
 with a **company code**, **username**, and **password**.
 
-- Home screen (`/`) — three **division cards**: **Admin** (the Flood City Elite
+- Home screen (`/`) — four **division cards**: **Admin** (the Flood City Elite
   staff/coach login), **Payroll** (a link to a public form employees use to
-  submit their hours — no account needed), and **Roster Spot** (a link to a
+  submit their hours — no account needed), **Roster Spot** (a link to a
   public form parents use to accept or decline a roster spot — no account
-  needed).
+  needed), and **The Dugout** (a link to the club's message board, which parents
+  read — no account needed).
 - Payroll form (`/payroll`) — a public, login-free page where employees log the
   hours they worked (name, role, division, date, hours, notes). Submissions feed
   the admin **Payroll** tab.
@@ -17,9 +18,14 @@ with a **company code**, **username**, and **password**.
   team are required on both answers, so a decline still shows which spot was
   turned down. Accepting also adds the player to the chosen team's roster.
   Responses feed the admin **Roster Submissions** tab.
+- The Dugout (`/dugout`) — a public, login-free **message board** parents read:
+  game-day and weather calls, practice, travel, gear, and fundraiser notices,
+  filterable by division. It is read-only, and deliberately so — there is no
+  form on it and no way for a visitor to post, reply, or edit. Everything on it
+  is written from the admin **Dugout** tab by a signed-in staff member.
 - Member area — a protected tabbed shell (Homeplate, Teams, Roster Submissions,
   Payment Tracker, Budgets, Fixed Cost, Schedules, Fundraiser Tracker,
-  Program/Camps, Payroll, Contact Info, Hotels, Inventory) shown after a
+  Program/Camps, Payroll, Dugout, Contact Info, Hotels, Inventory) shown after a
   successful login and guarded by middleware.
 - Auth — passwords are hashed with **bcrypt**; the session is a signed
   (JWT, HS256) **httpOnly** cookie.
@@ -94,13 +100,17 @@ is whatever the visitor is already associated with:
 Nothing in that chain reads a request body, so a visitor cannot post their way
 onto another organization's database.
 
-**Public form links.** On a shared address the two login-free forms carry the
+**Public links.** On a shared address the login-free pages carry the
 organization in the query string:
 
-| Organization     | Payroll              | Roster spot                    |
-| ---------------- | -------------------- | ------------------------------ |
-| Flood City Elite | `/payroll`           | `/roster-acceptance`           |
-| Fennell Bros.    | `/payroll?c=fennell` | `/roster-acceptance?c=fennell` |
+| Organization     | Payroll              | Roster spot                    | The Dugout          |
+| ---------------- | -------------------- | ------------------------------ | ------------------- |
+| Flood City Elite | `/payroll`           | `/roster-acceptance`           | `/dugout`           |
+| Fennell Bros.    | `/payroll?c=fennell` | `/roster-acceptance?c=fennell` | `/dugout?c=fennell` |
+
+The board keeps the parameter on its own division filters, so a parent who
+arrived on their club's link stays on their club's board. The admin **Dugout**
+tab shows the exact link to hand out.
 
 Once an organization has an address of its own the parameter is unnecessary and
 is dropped from the links — `portal.fennellbros.com/roster-acceptance` resolves
@@ -401,6 +411,26 @@ per tenant and none of them is shared. The core ones are:
   sets on the Teams-tab edit (which flips `players.jersey_locked`) — are treated
   as taken and never reassigned; a player whose options are all taken is left
   blank, and once the coach fills it in it stays put.
+- **`dugout_posts`** — the **Dugout** tab and the public `/dugout` board. Each
+  row is one note staff put in front of parents: a `title`, a `body` (plain
+  text — the board renders it as text, never as markup, and keeps the line
+  breaks that were typed), a `category` (`announcement`, `game-day`, `practice`,
+  `weather`, `travel`, `gear`, `fundraiser` — see
+  [`src/lib/dugout-post.ts`](src/lib/dugout-post.ts)), and a
+  `division` (a teams division slug, or null for a program-wide notice; a
+  filtered board still shows the program-wide ones). `is_pinned` holds a post at
+  the top of the board, and `is_published` is the line between a draft and
+  something families can see — the public page reads published rows only, while
+  the tab shows both. `author_name` snapshots who wrote it, so the byline
+  survives that user being removed. Belongs to a company via `company_id`.
+
+  **Who can post.** Nothing but the admin tab writes here. The public page has
+  no form and no action behind it; every write goes through a server action that
+  starts by reading the session and scopes its query to that admin's
+  `company_id`, so a post exists only because somebody signed in and wrote it.
+  Pinning and publishing are their own one-click actions rather than edits —
+  they leave `updated_at` alone, so pinning an old notice doesn't tell every
+  parent it changed.
 
 ## Getting started
 

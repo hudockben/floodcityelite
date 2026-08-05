@@ -607,6 +607,38 @@ CREATE TABLE IF NOT EXISTS roster_submissions (
 CREATE INDEX IF NOT EXISTS idx_roster_submissions_company_id ON roster_submissions (company_id);
 
 -- ---------------------------------------------------------------------------
+-- The Dugout (parents' message board)
+--
+-- One note staff put on the board parents read at the public /dugout page (no
+-- login). Only the title and body are required. `category` is what kind of note
+-- it is (announcement, game day, weather call, …; see
+-- src/lib/dugout-categories.ts), `division` is a teams division slug or null for
+-- a program-wide notice, `is_pinned` holds it at the top of the board, and
+-- `is_published` is what separates a draft from something families can see —
+-- the public page reads published rows only. `author_name` snapshots who wrote
+-- it, so the byline survives that user being removed. Belongs to a company like
+-- the rest of the app.
+--
+-- The board is write-only from the member area: parents have no form, no
+-- account, and no route that writes here.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dugout_posts (
+    id            SERIAL        PRIMARY KEY,
+    company_id    INTEGER       NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    title         VARCHAR(160)  NOT NULL,
+    body          TEXT          NOT NULL,
+    category      VARCHAR(24)   NOT NULL DEFAULT 'announcement',
+    division      VARCHAR(32),
+    is_pinned     BOOLEAN       NOT NULL DEFAULT false,
+    is_published  BOOLEAN       NOT NULL DEFAULT true,
+    author_name   VARCHAR(160),
+    created_at    TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_dugout_posts_company_id ON dugout_posts (company_id);
+
+-- ---------------------------------------------------------------------------
 -- Jersey-assignment automation
 --
 -- Reconciles a team's submission-linked jersey numbers from all of its accepted

@@ -121,6 +121,39 @@ export default async function HomePage() {
               </Link>
             </div>
           </section>
+
+          {/* The Dugout — the read-only message board parents check for news.
+              The only card here that is not a form: staff post to it from the
+              member area, families just read. */}
+          <section className="card division-card" aria-labelledby="div-dugout">
+            <div className="division-head">
+              <span className="division-icon" aria-hidden="true">
+                📣
+              </span>
+              <div>
+                <h2 id="div-dugout" className="division-title">
+                  The Dugout
+                </h2>
+                <p className="division-sub">Parents — team news &amp; notices</p>
+              </div>
+            </div>
+
+            <div className="division-body">
+              <p className="division-text">
+                The club&apos;s message board. Coaches and staff post here;
+                there&apos;s nothing to sign in to and nothing to fill out —
+                just read what&apos;s on the board.
+              </p>
+              <ul className="division-list">
+                <li>Game day &amp; weather calls</li>
+                <li>Practice, travel &amp; gear notes</li>
+                <li>Pinned notices stay up top</li>
+              </ul>
+              <Link href={`/dugout${tenantQuery}`} className="btn btn-block">
+                Open the message board
+              </Link>
+            </div>
+          </section>
         </div>
       </div>
     </main>
