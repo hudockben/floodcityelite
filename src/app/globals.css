@@ -210,6 +210,14 @@
   --meter-warn-from: #facc15;
   --meter-warn-to: #f59e0b;
   --sport-softball-border: rgba(250, 204, 21, 0.35);
+  /* The "Draft" chip on the Dugout tab. Warn-toned here: a draft is a post
+     nobody can see yet, which is worth catching the eye of the person who left
+     it that way. Tokenized because it sits beside the pinned chip, which a
+     theme paints in its accent — see the fennell block, where that accent is
+     itself gold. */
+  --dugout-draft-text: var(--status-warn-text);
+  --dugout-draft-bg: var(--status-warn-bg);
+  --dugout-draft-border: var(--status-warn-border);
   --fund-badge-text: #fde68a;
   --fund-badge-bg: rgba(234, 179, 8, 0.14);
   --fund-badge-border: rgba(234, 179, 8, 0.35);
@@ -561,6 +569,15 @@
      light orange, because gold is "covered" on this diagram now and two warm
      cards inches apart would read alike. */
   --print-pod-backup-bg: #fff1e6;
+
+  /* Same problem on the Dugout tab: "Draft" and "Pinned" sit in the same row of
+     chips, and on this theme the accent behind "Pinned" is already gold — a
+     warn-yellow chip an inch away reads as the other one rather than as its
+     own state. Ink and a firm outline instead, which is closer to what "not on
+     the board yet" wants to say. */
+  --dugout-draft-text: var(--text-muted);
+  --dugout-draft-bg: var(--chip-neutral-bg);
+  --dugout-draft-border: var(--border-strong);
 }
 
 * {
@@ -1109,9 +1126,10 @@ body {
 }
 
 .dugout-tag-draft {
-  color: var(--status-warn-text);
-  background: var(--status-warn-bg);
-  border-color: var(--status-warn-border);
+  color: var(--dugout-draft-text);
+  background: var(--dugout-draft-bg);
+  border-color: var(--dugout-draft-border);
+  border-style: dashed;
 }
 
 .dugout-tag-scope {
