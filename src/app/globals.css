@@ -1262,20 +1262,36 @@ body {
 
 .tabs-inner {
   display: flex;
-  gap: 4px;
+  gap: 3px;
   min-width: max-content;
   padding: 8px 0;
 }
 
+/* Thirteen tabs is a lot of words to fit on one line. The row scrolls when they
+   don't (see .tabs above), but the scrollbar is hidden, so a tab past the edge
+   reads as *missing* rather than as further along — which is why these are sized
+   to fit a normal laptop rather than sized for looks and left to overflow. The
+   larger treatment comes back on wide screens, where there is room for it. */
 .tab {
   white-space: nowrap;
-  padding: 9px 15px;
+  padding: 8px 11px;
   border-radius: 9px;
   color: var(--text-muted);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 600;
   transition: background 0.15s ease, color 0.15s ease;
+}
+
+@media (min-width: 1600px) {
+  .tabs-inner {
+    gap: 4px;
+  }
+
+  .tab {
+    padding: 9px 15px;
+    font-size: 0.9rem;
+  }
 }
 
 .tab:hover {
