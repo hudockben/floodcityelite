@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { currentTenant, isTenantLocked } from "@/lib/tenant";
+import { currentTenant, isTenantLocked, tenantIsAmbiguous } from "@/lib/tenant";
 import { TENANT_QUERY_PARAM } from "@/lib/tenants";
 import LoginForm from "./login-form";
 import BrandLogo from "./logo";
@@ -20,7 +20,16 @@ export default async function HomePage() {
   // Payroll and roster acceptance are login-free, so a visitor arriving there has
   // no session to say which organization they belong to. Naming the tenant in the
   // link keeps them on the same one whose sign-in screen they started from.
-  const tenantQuery = locked ? "" : `?${TENANT_QUERY_PARAM}=${tenant.code}`;
+  //
+  // Except when this page does not know either. `currentTenant()` answers with
+  // the default organization when nothing identified the request, which is fine
+  // for deciding what to *paint* — but stamping that guess into the link turns it
+  // into an explicit choice, and the forms would stop asking. Better to send them
+  // a bare link and let the form ask the question this page could not answer.
+  const tenantQuery =
+    locked || (await tenantIsAmbiguous())
+      ? ""
+      : `?${TENANT_QUERY_PARAM}=${tenant.code}`;
 
   return (
     <main className="page">

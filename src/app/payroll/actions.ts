@@ -6,6 +6,7 @@ import {
   insertPayrollSubmission,
 } from "@/lib/payroll";
 import { isDivisionSlug } from "@/app/(app)/teams/divisions";
+import { tenantIsAmbiguous } from "@/lib/tenant";
 
 export type PayrollFormState = { ok?: boolean; error?: string };
 
@@ -47,6 +48,19 @@ export async function submitPayrollAction(
   const division = isDivisionSlug(rawDivision) ? rawDivision : null;
 
   try {
+    // The page asks "who do you work for?" when nothing identifies the
+    // organization — but a POST can arrive without what its GET had: a form
+    // restored after a browser restart (the tenant cookie is session-scoped, the
+    // rendered page is not), a link pasted without the parameter, a client that
+    // strips the query string. Re-asking here is what makes the guard real; a
+    // check that only runs while rendering does not protect the write.
+    if (await tenantIsAmbiguous()) {
+      return {
+        error:
+          "We couldn't tell which organization this is for. Please reopen the link your office sent you.",
+      };
+    }
+
     await ensurePayrollSchema();
 
     const companyId = await getPayrollCompanyId();

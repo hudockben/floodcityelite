@@ -16,6 +16,10 @@ import RosterAcceptanceForm from "./roster-form";
 // and description have to name that one. Which it is depends on the request, so
 // the metadata is generated per request rather than fixed at build time.
 export async function generateMetadata(): Promise<Metadata> {
+  // See the payroll form: with no organization identified, naming one in the
+  // tab title would be a guess presented as fact.
+  if (await tenantIsAmbiguous()) return { title: "Roster Spot" };
+
   const tenant = await currentTenant();
   return {
     title: `Roster Spot — ${tenant.name}`,
@@ -44,10 +48,9 @@ export default async function RosterAcceptancePage() {
     return (
       <main className="page">
         <div className="card">
+          {/* No lockup: this page is asking which club this is for, and a logo
+              above the question would answer it for them. */}
           <div className="brand">
-            <h1 className="logo">
-              <BrandLogo />
-            </h1>
             <p className="tagline">Roster Spot</p>
           </div>
 

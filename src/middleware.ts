@@ -6,6 +6,7 @@ import {
   TENANT_HEADER,
   TENANT_LOCK_HEADER,
   TENANT_QUERY_PARAM,
+  getSuppliedTenant,
   getTenant,
   pinnedTenant,
   tenantForHost,
@@ -41,6 +42,25 @@ const PUBLIC_FORM_PREFIXES = ["/payroll", "/roster-acceptance"];
 function isPublicForm(pathname: string): boolean {
   return PUBLIC_FORM_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+  );
+}
+
+/**
+ * Is this the browser actually going to the page, rather than fetching it in
+ * the background?
+ *
+ * Only a real navigation may leave a tenant cookie behind. An `<img>` pointed
+ * at `/payroll?c=<other club>` on any page in the world gets a response, and so
+ * does one of Next's own `<Link>` prefetches — neither involves a person
+ * deciding anything, and both would otherwise plant a cookie that steers the
+ * next family's submission. `Sec-Fetch-Dest` is set by the browser and cannot
+ * be spoofed from page script; a client that omits it simply does not get the
+ * cookie, which is the safe way to be wrong.
+ */
+function isDocumentNavigation(req: NextRequest): boolean {
+  return (
+    req.headers.get("sec-fetch-dest") === "document" &&
+    req.headers.get("next-router-prefetch") == null
   );
 }
 
@@ -106,12 +126,14 @@ function resolveTenant(
 
   // `?c=` names the organization in a link. It is per-request and sits in plain
   // sight in the address bar, so it may be honoured anywhere.
-  const fromQuery = getTenant(req.nextUrl.searchParams.get(TENANT_QUERY_PARAM));
+  const fromQuery = getSuppliedTenant(
+    req.nextUrl.searchParams.get(TENANT_QUERY_PARAM),
+  );
   if (fromQuery) {
     return {
       tenant: fromQuery,
       locked: false,
-      persist: isPublicForm(req.nextUrl.pathname),
+      persist: isPublicForm(req.nextUrl.pathname) && isDocumentNavigation(req),
     };
   }
 
@@ -123,7 +145,7 @@ function resolveTenant(
   // could cause, left a cookie that redirected the *next* family's submission
   // into the other club's database.
   if (isPublicForm(req.nextUrl.pathname)) {
-    const fromCookie = getTenant(req.cookies.get(TENANT_COOKIE)?.value);
+    const fromCookie = getSuppliedTenant(req.cookies.get(TENANT_COOKIE)?.value);
     if (fromCookie) return { tenant: fromCookie, locked: false, persist: false };
   }
 
@@ -149,7 +171,7 @@ export async function middleware(req: NextRequest) {
   const sessionBelongs =
     session != null &&
     sessionTenant != null &&
-    (tenant == null || sessionTenant.code === tenant.code);
+    sessionTenant.code === tenant?.code;
 
   const { pathname } = req.nextUrl;
   const isProtected = PROTECTED_PREFIXES.some(

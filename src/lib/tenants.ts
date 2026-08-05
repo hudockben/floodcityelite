@@ -134,9 +134,27 @@ export function tenantList(): Tenant[] {
  * organization this request is for?" answerable (see `tenantIsAmbiguous`).
  */
 export function configuredTenants(): Tenant[] {
-  return tenantList().filter(
-    (tenant) => (process.env[tenant.databaseUrlEnv] ?? "").trim() !== "",
-  );
+  return tenantList().filter(isTenantConfigured);
+}
+
+/** Does this deployment have a database for this organization? */
+export function isTenantConfigured(tenant: Tenant): boolean {
+  return (process.env[tenant.databaseUrlEnv] ?? "").trim() !== "";
+}
+
+/**
+ * A tenant named by something a visitor supplied — a `?c=` link parameter or
+ * the cookie carrying it — accepted only if this deployment can actually serve
+ * them. Without the check, any hostname without a mapping would render a
+ * complete, fully branded portal for an organization whose database is not
+ * configured here: their logo, their theme, their name on the roster form,
+ * served from the other organization's origin and TLS certificate, off nothing
+ * but a URL somebody typed. It looks entirely real until the parent presses
+ * submit and gets a generic failure.
+ */
+export function getSuppliedTenant(code: string | null | undefined): Tenant | null {
+  const tenant = getTenant(code);
+  return tenant && isTenantConfigured(tenant) ? tenant : null;
 }
 
 /**

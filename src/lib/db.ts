@@ -33,9 +33,25 @@ function connectionStringFor(tenant: Tenant): string {
 function databaseIdentity(url: string): string | null {
   try {
     const parsed = new URL(url);
-    const database = parsed.pathname.replace(/^\/+/, "").toLowerCase();
+    // Postgres database names are case-sensitive, so this one is left alone.
+    const database = parsed.pathname.replace(/^\/+/, "").replace(/\/+$/, "");
     if (!database) return null;
-    return `${parsed.hostname.toLowerCase()}/${database}`;
+
+    // Neon publishes two hostnames for one database — a pooled endpoint and a
+    // direct one, differing only by "-pooler" on the first label. The setup
+    // notes tell operators to copy the pooled string, so reaching for the other
+    // one is exactly the slip that would leave two organizations sharing tables
+    // while both strings looked different.
+    const host = parsed.hostname.toLowerCase().replace(/^([^.]+)-pooler\./, "$1.");
+
+    // Some Neon setups reach the endpoint through a shared hostname and name it
+    // in `options=endpoint=<id>` instead, in which case that id — not the host —
+    // is what says which database this is.
+    const endpoint = /(?:^|[\s&])endpoint=([^\s&]+)/.exec(
+      parsed.searchParams.get("options") ?? "",
+    )?.[1];
+
+    return `${endpoint ? `${endpoint}.${host}` : host}/${database}`;
   } catch {
     // Not a URL we can parse — fall back to the raw string comparison.
     return null;

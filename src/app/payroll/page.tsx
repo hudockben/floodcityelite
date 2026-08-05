@@ -10,6 +10,10 @@ import OrganizationPicker from "../organization-picker";
 // Elite title. Static metadata can't do that — which organization this is
 // depends on the request — so it's generated per request.
 export async function generateMetadata(): Promise<Metadata> {
+  // Nothing identified the organization, so there is no name to put here that
+  // would not be a guess. A bare title is honest; a wrong one is not.
+  if (await tenantIsAmbiguous()) return { title: "Payroll" };
+
   const tenant = await currentTenant();
   return {
     title: `Payroll — ${tenant.name}`,
@@ -33,9 +37,13 @@ export default async function PayrollPage() {
     <main className="page">
       <div className="card">
         <div className="brand">
-          <h1 className="logo">
-            <BrandLogo />
-          </h1>
+          {/* No lockup while we are still asking which organization this is —
+              a logo over the question answers it for the visitor. */}
+          {ambiguous ? null : (
+            <h1 className="logo">
+              <BrandLogo />
+            </h1>
+          )}
           <p className="tagline">Payroll</p>
         </div>
 

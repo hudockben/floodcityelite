@@ -11,6 +11,10 @@ import { TENANT_QUERY_PARAM, configuredTenants } from "@/lib/tenants";
 // has its own address, or its links carry the parameter already. It is what a
 // missed hostname looks like instead of a misfiled roster form.
 export default function OrganizationPicker({ title }: { title: string }) {
+  // Deliberately no brand lockup above this: the page is asking which
+  // organization the visitor belongs to, and painting one organization's logo
+  // over the question answers it for them — an employee who reads the banner
+  // rather than the words picks whichever club the guess landed on.
   const organizations = configuredTenants();
 
   // Laid out with the existing card and form classes rather than new ones —

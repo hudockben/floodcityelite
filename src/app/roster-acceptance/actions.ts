@@ -8,6 +8,7 @@ import {
   listRosterTeamOptions,
 } from "@/lib/roster-submissions";
 import { ensureTeamsSchema } from "@/app/(app)/teams/schema";
+import { tenantIsAmbiguous } from "@/lib/tenant";
 
 // `accepted` tells the form which confirmation banner to show after a reset.
 export type RosterFormState = {
@@ -107,6 +108,15 @@ export async function submitRosterAcceptanceAction(
   if (!playerName) return fail("Enter the player's name.");
 
   try {
+    // Same guard the page renders: a POST can arrive without the query string or
+    // cookie its GET had, and a child's details must not be filed against a
+    // guessed organization. The check has to be on the side that writes.
+    if (await tenantIsAmbiguous()) {
+      return fail(
+        "We couldn't tell which club this is for. Please reopen the link your club sent you.",
+      );
+    }
+
     // roster_submissions has FKs to teams(id) and players(id), so those tables
     // must exist before its CREATE TABLE runs. Ensure them first (matching the
     // public page's ordering) so a cold serverless instance that never rendered

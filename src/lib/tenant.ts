@@ -90,7 +90,10 @@ export async function tenantIsAmbiguous(): Promise<boolean> {
     if (getTenant(store.get(TENANT_HEADER))) return false;
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err) throw err;
-    return false;
+    // Could not read the request. "Not ambiguous" would be a guess, and the
+    // whole point of this question is to stop guessing — so answer the way that
+    // asks the visitor rather than the way that files their data somewhere.
+    return true;
   }
 
   return (await getSession()) == null;
