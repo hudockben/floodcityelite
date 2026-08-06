@@ -23,7 +23,12 @@ const TABS: Tab[] = [
   { href: "/schedules", label: "Schedules" },
   { href: "/fundraiser-tracker", label: "Fundraiser Tracker" },
   { href: "/program-camps", label: "Program/Camps" },
+  { href: "/contact-info", label: "Contact Info" },
+  { href: "/hotels", label: "Hotels" },
+  { href: "/inventory", label: "Inventory" },
   {
+    // Last in the row: the back office is where you go on purpose, not
+    // somewhere you pass through on the way to the day's work.
     // The group's own href is just where the label points — its first page.
     href: "/payroll-admin",
     label: "Admin",
@@ -33,9 +38,6 @@ const TABS: Tab[] = [
       { href: "/dugout-admin", label: "Dugout" },
     ],
   },
-  { href: "/contact-info", label: "Contact Info" },
-  { href: "/hotels", label: "Hotels" },
-  { href: "/inventory", label: "Inventory" },
 ];
 
 // A route is "on" a page when it is that page or sits underneath it, so
