@@ -25,7 +25,6 @@ const TABS: Tab[] = [
   { href: "/program-camps", label: "Program/Camps" },
   { href: "/contact-info", label: "Contact Info" },
   { href: "/hotels", label: "Hotels" },
-  { href: "/inventory", label: "Inventory" },
   {
     // Last in the row: the back office is where you go on purpose, not
     // somewhere you pass through on the way to the day's work.
@@ -36,6 +35,7 @@ const TABS: Tab[] = [
       { href: "/payroll-admin", label: "Payroll" },
       { href: "/fixed-cost", label: "Fixed Cost" },
       { href: "/dugout-admin", label: "Dugout" },
+      { href: "/inventory", label: "Inventory" },
     ],
   },
 ];

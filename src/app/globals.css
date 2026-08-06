@@ -1502,16 +1502,17 @@ body {
   padding: 8px 0;
 }
 
-/* Twelve tabs is a lot of words to fit on one line. The row scrolls when they
-   don't (see .tabs above), but the scrollbar is hidden, so a tab past the edge
-   reads as *missing* rather than as further along — which is why these are sized
-   to fit a normal laptop rather than sized for looks and left to overflow. The
-   padding and gap came in a notch when the Dugout tab was added; grouping the
-   back-office pages under Admin later took the count from fourteen to twelve,
-   which buys back about 230px. These values are left where they are anyway:
-   they now clear a 1512-wide laptop with room over, and a narrower window still
-   needs every pixel of the saving (twelve want 1315px, so 1280 remains a near
-   thing). The larger treatment comes back on wide screens instead. */
+/* Eleven tabs is still a lot of words to fit on one line. The row scrolls when
+   they don't (see .tabs above), but the scrollbar is hidden, so a tab past the
+   edge reads as *missing* rather than as further along — which is why these are
+   sized to fit a normal laptop rather than sized for looks and left to
+   overflow. The padding and gap came in a notch when the Dugout tab was added,
+   back when there were fourteen; grouping the back office under Admin took the
+   count to eleven, which buys back around 360px. They are left tight anyway,
+   because that saving is what finally gets the row inside a 1280-wide window —
+   eleven want 1223px, the first time the compact row has cleared 1280 at all.
+   Loosening them would spend that straight back. The larger treatment comes
+   back on wide screens instead. */
 .tab {
   white-space: nowrap;
   padding: 8px 9px;
@@ -1523,13 +1524,16 @@ body {
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-/* The roomy treatment needs 1583px to lay twelve tabs out without pushing the
+/* The roomy treatment needs 1471px to lay eleven tabs out without pushing the
    last one off the edge — which is the whole thing this row is sized to avoid,
    so the breakpoint is set where they actually fit rather than where they used
-   to. It was 1800 when there were fourteen; the margin above 1583 is slack for
-   the fact that the same labels measure a little differently across platforms,
-   and it leaves the common 1680/1728/1792 laptops on the roomy row. */
-@media (min-width: 1650px) {
+   to. It has walked down with the tab count: 1800 at fourteen, 1650 at twelve,
+   and now this. The margin above 1471 is slack for the fact that the same
+   labels measure a little differently across platforms, and it still leaves the
+   common 1600/1680/1728/1792 screens on the roomy row. A 1512 laptop is close
+   enough to the requirement that it stays on the compact one, where eleven tabs
+   now sit with almost 300px to spare. */
+@media (min-width: 1550px) {
   .tabs-inner {
     gap: 4px;
   }
