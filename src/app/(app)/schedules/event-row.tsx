@@ -20,6 +20,7 @@ import {
   formatDate,
   formatMoney,
   groupBaseline,
+  isEventPaymentType,
   resolveAttending,
   type EventField,
   type GroupPlayer,
@@ -33,7 +34,21 @@ function displayValue(field: EventField, value: string | null): string {
   if (value == null || value === "") return "—";
   if (field.type === "date") return formatDate(value);
   if (field.type === "money") return formatMoney(value);
+  if (field.type === "select") {
+    return field.options?.find((o) => o.value === value)?.label ?? value;
+  }
   return value;
+}
+
+// Which table cell a field lands in. The money and payment columns get their
+// own so numbers line up and a check number doesn't wrap mid-digit.
+function cellClass(field: EventField): string | undefined {
+  if (field.key === "event_name") return "col-name";
+  if (field.type === "money") return "col-cost";
+  if (field.type === "select") return "col-pay";
+  if (field.key === "check_number") return "col-check";
+  if (field.key === "paid_on") return "col-paid";
+  return undefined;
 }
 
 function EditField({
@@ -54,15 +69,27 @@ function EditField({
         {field.label}
         {field.required ? " *" : ""}
       </label>
-      <input
-        id={id}
-        name={field.key}
-        type={field.type === "money" ? "number" : field.type}
-        defaultValue={defaultValue}
-        required={field.required}
-        autoComplete="off"
-        {...(field.type === "money" ? { min: 0, step: "0.01" } : {})}
-      />
+      {field.type === "select" ? (
+        <select id={id} name={field.key} defaultValue={defaultValue}>
+          {/* Optional, so a blank option means "nothing recorded yet". */}
+          <option value="">Not recorded</option>
+          {(field.options ?? []).map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          id={id}
+          name={field.key}
+          type={field.type === "money" ? "number" : field.type}
+          defaultValue={defaultValue}
+          required={field.required}
+          autoComplete="off"
+          {...(field.type === "money" ? { min: 0, step: "0.01" } : {})}
+        />
+      )}
     </div>
   );
 }
@@ -289,22 +316,23 @@ export default function EventRow({
         const raw = event[f.key as keyof ScheduleEventRow] as string | null;
         const empty = raw == null || raw === "";
         return (
-          <td
-            key={f.key}
-            className={
-              f.key === "event_name"
-                ? "col-name"
-                : f.type === "money"
-                  ? "col-cost"
-                  : undefined
-            }
-          >
+          <td key={f.key} className={cellClass(f)}>
             {empty ? (
               <span className="cell-empty">—</span>
             ) : f.type === "money" && !eventCostCounts(event.status) ? (
               <span
                 className="cost-refunded"
                 title="Refunded — credited back to the budget"
+              >
+                {displayValue(f, raw)}
+              </span>
+            ) : f.type === "select" ? (
+              // The one select column is the payment type, shown as the same
+              // badge the Payment Tracker uses for a recorded payment.
+              <span
+                className={`pay-type${
+                  isEventPaymentType(raw) ? ` pay-type-${raw}` : ""
+                }`}
               >
                 {displayValue(f, raw)}
               </span>

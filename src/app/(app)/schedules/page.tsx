@@ -96,6 +96,9 @@ export default async function SchedulesPage({
             e.event_name,
             e.location,
             e.cost::text AS cost,
+            e.payment_type,
+            e.check_number,
+            e.paid_on::text AS paid_on,
             e.status
           FROM schedule_events e
           JOIN teams t ON t.id = e.team_id

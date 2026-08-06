@@ -5,10 +5,11 @@ import { resolveDivision, sportLabel } from "../../teams/divisions";
 import { resolveSeason, type Season } from "../../teams/seasons";
 import { ensureSchedulesSchema } from "../schema";
 import {
-  EVENT_FIELDS,
+  PARENT_EVENT_FIELDS,
   formatDate,
   resolveAttending,
   type AttendanceRow,
+  type EventField,
   type EventGroupRow,
   type GroupPlayer,
   type ScheduleEventRow,
@@ -18,10 +19,11 @@ import PrintControls from "./print-controls";
 
 export const dynamic = "force-dynamic";
 
-// The printed schedule is parent-facing, so it deliberately leaves out the
-// cost column, every money total, and the registration status that the
-// on-screen Schedules tab shows.
-const PRINT_EVENT_FIELDS = EVENT_FIELDS.filter((f) => f.type !== "money");
+// The printed schedule is parent-facing, so it deliberately leaves out every
+// money total and the registration status that the on-screen Schedules tab
+// shows. PARENT_EVENT_FIELDS drops the club-internal columns along with them —
+// the cost, and how, when and by which check the entry fee was paid.
+const PRINT_EVENT_FIELDS = PARENT_EVENT_FIELDS;
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -54,7 +56,7 @@ function shortDate(iso: string | null): string {
  *  "Jul 21, 2026", everything else verbatim; empty -> em dash. The cost column
  *  is dropped from the printout entirely, so money isn't handled here. */
 function cellValue(
-  field: (typeof EVENT_FIELDS)[number],
+  field: EventField,
   event: ScheduleEventRow,
 ): string {
   const value = event[field.key as keyof ScheduleEventRow];
@@ -126,6 +128,9 @@ export default async function SchedulesPrintPage({
             e.event_name,
             e.location,
             e.cost::text AS cost,
+            e.payment_type,
+            e.check_number,
+            e.paid_on::text AS paid_on,
             e.status
           FROM schedule_events e
           JOIN teams t ON t.id = e.team_id

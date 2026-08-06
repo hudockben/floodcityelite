@@ -4941,6 +4941,19 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Payment tracking, to the right of the cost: how the entry fee was settled,
+   the check number, and the date it went out. Kept on one line each so the
+   money block reads as a block and only the table scrolls. */
+.sched .col-pay,
+.sched .col-paid {
+  white-space: nowrap;
+}
+
+.sched .col-check {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Footer total row */
 .sched-total-row td {
   padding: 12px;
@@ -6185,7 +6198,11 @@ body {
   opacity: 0.55;
 }
 
-/* Payment-type badge on saved rows */
+/* Payment-type badge on saved rows. Shared with the Schedules tab, which
+   records the same thing against a tournament's entry fee — so a payment reads
+   the same wherever it's shown. The Payment Tracker offers check and cash; the
+   Schedules tab adds the three below. Each borrows a semantic status colour
+   rather than minting its own, so both tenant themes get them for free. */
 .pay-type {
   display: inline-block;
   padding: 3px 10px;
@@ -6207,6 +6224,27 @@ body {
   color: var(--status-ok-text);
   background: var(--status-ok-bg-soft);
   border-color: var(--status-ok-border-soft);
+}
+
+/* Violet — the same tone the schedule's "refund" status uses, and the only
+   remaining semantic hue that doesn't read as check (blue) or cash (green). */
+.pay-type-venmo {
+  color: var(--status-refund-text);
+  background: var(--status-refund-bg);
+  border-color: var(--status-refund-border);
+}
+
+.pay-type-credit {
+  color: var(--status-warn-text);
+  background: var(--status-warn-bg);
+  border-color: var(--status-warn-border);
+}
+
+/* "Other" carries no meaning of its own, so it stays neutral slate. */
+.pay-type-other {
+  color: var(--status-neutral-text);
+  background: var(--status-neutral-bg);
+  border-color: var(--status-neutral-border);
 }
 
 /* Totals footer */

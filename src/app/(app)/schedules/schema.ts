@@ -49,6 +49,10 @@ async function provision(): Promise<void> {
       event_name      VARCHAR(200)  NOT NULL,
       location        VARCHAR(200),
       cost            NUMERIC(10, 2),
+      payment_type    VARCHAR(16)
+                        CHECK (payment_type IN ('cash', 'check', 'venmo', 'credit', 'other')),
+      check_number    VARCHAR(40),
+      paid_on         DATE,
       status          VARCHAR(16)   NOT NULL DEFAULT 'registered'
                         CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund')),
       created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -70,6 +74,21 @@ async function provision(): Promise<void> {
     ALTER TABLE schedule_events
       ADD CONSTRAINT schedule_events_status_check
       CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund'))
+  `;
+
+  // Payment tracking on the event row: how the entry fee was settled, the
+  // check number when it went out by check, and the date it was paid. Added
+  // here (nullable, idempotent) so a database whose schedule_events predates
+  // them picks them up on the next cold start, mirroring db/setup.mjs. The
+  // CHECK is dropped and re-added by name so this is safe to run every time.
+  await db`ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS payment_type VARCHAR(16)`;
+  await db`ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS check_number VARCHAR(40)`;
+  await db`ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS paid_on DATE`;
+  await db`ALTER TABLE schedule_events DROP CONSTRAINT IF EXISTS schedule_events_payment_type_check`;
+  await db`
+    ALTER TABLE schedule_events
+      ADD CONSTRAINT schedule_events_payment_type_check
+      CHECK (payment_type IN ('cash', 'check', 'venmo', 'credit', 'other'))
   `;
 
   // Event groups (playing-time rotation). One row per (event, player) that has

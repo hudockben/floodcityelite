@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { groupBaseline, isEventStatus, MAX_ROSTER_GROUPS } from "./events";
+import {
+  groupBaseline,
+  isEventPaymentType,
+  isEventStatus,
+  MAX_ROSTER_GROUPS,
+} from "./events";
 import { ensureSchedulesSchema } from "./schema";
 
 export type FormState = { ok?: boolean; error?: string };
@@ -44,6 +49,14 @@ function money(formData: FormData, key: string): string | null {
   return Number.isFinite(n) && n >= 0 ? n.toFixed(2) : null;
 }
 
+// The payment-type dropdown. Blank ("not recorded yet") and anything the
+// dropdown doesn't offer both store NULL, so the column can't fall outside the
+// CHECK constraint on schedule_events.payment_type.
+function paymentType(formData: FormData): string | null {
+  const raw = String(formData.get("payment_type") ?? "").trim();
+  return isEventPaymentType(raw) ? raw : null;
+}
+
 // --- add an event/tournament to a team -------------------------------------
 
 export async function addEventAction(
@@ -72,7 +85,8 @@ export async function addEventAction(
 
     await sql()`
       INSERT INTO schedule_events (
-        team_id, event_host, event_date, event_end_date, event_name, location, cost, status
+        team_id, event_host, event_date, event_end_date, event_name, location,
+        cost, payment_type, check_number, paid_on, status
       ) VALUES (
         ${teamId},
         ${text(formData, "event_host")},
@@ -81,6 +95,9 @@ export async function addEventAction(
         ${eventName},
         ${text(formData, "location")},
         ${money(formData, "cost")},
+        ${paymentType(formData)},
+        ${text(formData, "check_number")},
+        ${isoDate(formData, "paid_on")},
         ${status}
       )
     `;
@@ -122,6 +139,9 @@ export async function updateEventAction(
         event_name     = ${eventName},
         location       = ${text(formData, "location")},
         cost           = ${money(formData, "cost")},
+        payment_type   = ${paymentType(formData)},
+        check_number   = ${text(formData, "check_number")},
+        paid_on        = ${isoDate(formData, "paid_on")},
         status         = ${status},
         updated_at     = now()
       WHERE id = ${eventId}

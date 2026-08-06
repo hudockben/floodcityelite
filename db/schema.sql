@@ -221,6 +221,12 @@ CREATE INDEX IF NOT EXISTS idx_team_expenses_team_id ON team_expenses (team_id);
 -- the columns shown on the Schedules tab: host, date, name, location, cost,
 -- and a registration status. The per-team "total cost" is the sum of cost
 -- across a team's events and is computed at read time, not stored.
+--
+-- Alongside the cost, three optional columns track how the entry fee was
+-- settled: payment_type (cash / check / Venmo / credit / other), the check
+-- number when it went out by check, and the date it was paid. All three stay
+-- NULL until someone records the payment, so scheduling a tournament nobody
+-- has paid for yet needs nothing extra.
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS schedule_events (
@@ -232,6 +238,10 @@ CREATE TABLE IF NOT EXISTS schedule_events (
     event_name      VARCHAR(200)  NOT NULL,
     location        VARCHAR(200),
     cost            NUMERIC(10, 2),
+    payment_type    VARCHAR(16)
+                      CHECK (payment_type IN ('cash', 'check', 'venmo', 'credit', 'other')),
+    check_number    VARCHAR(40),
+    paid_on         DATE,
     status          VARCHAR(16)   NOT NULL DEFAULT 'registered'
                       CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund')),
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),

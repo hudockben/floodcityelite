@@ -387,7 +387,9 @@ async function main() {
   await sql`ALTER TABLE team_budgets ALTER COLUMN portion_to_team_budget DROP DEFAULT`;
 
   // Schedule events (tournaments/games) belong to a team. Only event_name is
-  // required; cost is optional and summed per team on the Schedules tab.
+  // required; cost is optional and summed per team on the Schedules tab. The
+  // payment columns beside it record how that cost was settled and stay NULL
+  // until someone does.
   await sql`
     CREATE TABLE IF NOT EXISTS schedule_events (
       id              SERIAL PRIMARY KEY,
@@ -398,6 +400,10 @@ async function main() {
       event_name      VARCHAR(200)  NOT NULL,
       location        VARCHAR(200),
       cost            NUMERIC(10, 2),
+      payment_type    VARCHAR(16)
+                        CHECK (payment_type IN ('cash', 'check', 'venmo', 'credit', 'other')),
+      check_number    VARCHAR(40),
+      paid_on         DATE,
       status          VARCHAR(16)   NOT NULL DEFAULT 'registered'
                         CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund')),
       created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -420,6 +426,21 @@ async function main() {
     ALTER TABLE schedule_events
       ADD CONSTRAINT schedule_events_status_check
       CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund'))
+  `;
+
+  // Backfill the payment-tracker columns on databases that created
+  // `schedule_events` before them. All nullable, so existing events keep
+  // working with nothing recorded. The CHECK is dropped and re-added by name
+  // rather than declared inline so re-running setup stays idempotent — a table
+  // created by the DDL above already carries it under the same generated name.
+  await sql`ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS payment_type VARCHAR(16)`;
+  await sql`ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS check_number VARCHAR(40)`;
+  await sql`ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS paid_on DATE`;
+  await sql`ALTER TABLE schedule_events DROP CONSTRAINT IF EXISTS schedule_events_payment_type_check`;
+  await sql`
+    ALTER TABLE schedule_events
+      ADD CONSTRAINT schedule_events_payment_type_check
+      CHECK (payment_type IN ('cash', 'check', 'venmo', 'credit', 'other'))
   `;
 
   // Event groups (playing-time rotation): which roster players attend a given

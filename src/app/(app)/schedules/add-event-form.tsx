@@ -17,6 +17,21 @@ function FieldInput({ field }: { field: EventField }) {
     autoComplete: "off" as const,
   };
 
+  if (field.type === "select") {
+    return (
+      <select {...common} defaultValue="">
+        {/* Optional, so a blank option means "nothing recorded yet" — most
+            tournaments get added before anyone has paid the entry fee. */}
+        <option value="">Not recorded</option>
+        {(field.options ?? []).map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
   if (field.type === "money") {
     return <input {...common} type="number" min={0} step="0.01" placeholder={field.placeholder} />;
   }

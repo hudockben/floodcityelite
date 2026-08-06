@@ -48,11 +48,42 @@ export function eventCostCounts(status: EventStatus): boolean {
   return status !== "refund";
 }
 
+// ---------------------------------------------------------------------------
+// Payment tracking
+//
+// The entry fee's `cost` says what a tournament costs; these say how it was
+// settled. All three are optional — an event nobody has paid for yet simply
+// leaves them empty — and they're club-internal, so the parent-facing printout
+// drops them (see `internal` on EventField).
+// ---------------------------------------------------------------------------
+
+// How a tournament's entry fee was paid, as offered in the dropdown. Named
+// with the Event prefix to stay distinct from the Payment Tracker tab's own
+// (narrower) payment types, which track player dues rather than entry fees.
+export type EventPaymentType = "cash" | "check" | "venmo" | "credit" | "other";
+
+export const EVENT_PAYMENT_TYPES: { value: EventPaymentType; label: string }[] = [
+  { value: "cash", label: "Cash" },
+  { value: "check", label: "Check" },
+  { value: "venmo", label: "Venmo" },
+  { value: "credit", label: "Credit" },
+  { value: "other", label: "Other" },
+];
+
+// Derived from the list so it can never drift from the offered options.
+export function isEventPaymentType(value: string): value is EventPaymentType {
+  return EVENT_PAYMENT_TYPES.some((t) => t.value === value);
+}
+
+export function eventPaymentTypeLabel(value: string): string {
+  return EVENT_PAYMENT_TYPES.find((t) => t.value === value)?.label ?? value;
+}
+
 // An event/tournament field. `key` is BOTH the form input name and the DB
 // column, so the add-event form, the server insert, and the schedule table
 // stay aligned. `status` is handled separately (an inline dropdown), so it is
 // not part of this list.
-export type EventFieldType = "text" | "date" | "money";
+export type EventFieldType = "text" | "date" | "money" | "select";
 
 export type EventField = {
   key: string;
@@ -60,6 +91,14 @@ export type EventField = {
   type: EventFieldType;
   placeholder?: string;
   required?: boolean;
+  /** Options for a `select` field, in display order. Blank means "not set". */
+  options?: { value: string; label: string }[];
+  /**
+   * A club-internal money column — what the tournament cost and how it was
+   * paid. The Schedules tab shows them all; the parent-facing printout drops
+   * them (see PARENT_EVENT_FIELDS).
+   */
+  internal?: boolean;
 };
 
 export const EVENT_FIELDS: EventField[] = [
@@ -74,8 +113,28 @@ export const EVENT_FIELDS: EventField[] = [
     required: true,
   },
   { key: "location", label: "Location", type: "text", placeholder: "City, ST" },
-  { key: "cost", label: "Cost", type: "money", placeholder: "500.00" },
+  { key: "cost", label: "Cost", type: "money", placeholder: "500.00", internal: true },
+  {
+    key: "payment_type",
+    label: "Payment Type",
+    type: "select",
+    options: EVENT_PAYMENT_TYPES,
+    internal: true,
+  },
+  {
+    key: "check_number",
+    label: "Check #",
+    type: "text",
+    placeholder: "e.g. 1042",
+    internal: true,
+  },
+  { key: "paid_on", label: "Date Paid", type: "date", internal: true },
 ];
+
+// The columns the parent-facing printout shows: everything except the
+// club-internal money ones. A printed schedule is handed to families, so it
+// stays to hosts, dates, locations and event names.
+export const PARENT_EVENT_FIELDS = EVENT_FIELDS.filter((f) => !f.internal);
 
 // Column index of the money "cost" field within EVENT_FIELDS. The Schedules
 // table's "Total Cost" footer row uses it to place the total under the Cost
@@ -96,7 +155,8 @@ export const SCHEDULE_HEADERS = [
 
 // Shape returned by the schedule query (snake_case columns from Postgres).
 // `cost` comes back as text (NUMERIC cast to text) so we format it ourselves
-// and sum it without floating-point surprises.
+// and sum it without floating-point surprises. The three payment columns are
+// null until someone records how the entry fee was settled.
 export type ScheduleEventRow = {
   id: number;
   team_id: number;
@@ -106,6 +166,9 @@ export type ScheduleEventRow = {
   event_name: string;
   location: string | null;
   cost: string | null;
+  payment_type: EventPaymentType | null;
+  check_number: string | null;
+  paid_on: string | null;
   status: EventStatus;
 };
 
