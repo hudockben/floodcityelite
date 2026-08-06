@@ -1502,14 +1502,16 @@ body {
   padding: 8px 0;
 }
 
-/* Fourteen tabs is a lot of words to fit on one line. The row scrolls when they
+/* Twelve tabs is a lot of words to fit on one line. The row scrolls when they
    don't (see .tabs above), but the scrollbar is hidden, so a tab past the edge
    reads as *missing* rather than as further along — which is why these are sized
    to fit a normal laptop rather than sized for looks and left to overflow. The
-   padding and gap came in a notch when the Dugout tab was added, so fourteen
-   take about the width thirteen did and the row still lands inside a 1512-wide
-   laptop. The larger treatment comes back on wide screens, where there is room
-   for it. */
+   padding and gap came in a notch when the Dugout tab was added; grouping the
+   back-office pages under Admin later took the count from fourteen to twelve,
+   which buys back about 230px. These values are left where they are anyway:
+   they now clear a 1512-wide laptop with room over, and a narrower window still
+   needs every pixel of the saving (twelve want 1315px, so 1280 remains a near
+   thing). The larger treatment comes back on wide screens instead. */
 .tab {
   white-space: nowrap;
   padding: 8px 9px;
@@ -1521,11 +1523,13 @@ body {
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-/* The roomy treatment needs about 1800px to lay fourteen tabs out without
-   pushing the last one off the edge — which is the whole thing this row is
-   sized to avoid, so the breakpoint is set where they actually fit rather than
-   where they used to. */
-@media (min-width: 1800px) {
+/* The roomy treatment needs 1583px to lay twelve tabs out without pushing the
+   last one off the edge — which is the whole thing this row is sized to avoid,
+   so the breakpoint is set where they actually fit rather than where they used
+   to. It was 1800 when there were fourteen; the margin above 1583 is slack for
+   the fact that the same labels measure a little differently across platforms,
+   and it leaves the common 1680/1728/1792 laptops on the roomy row. */
+@media (min-width: 1650px) {
   .tabs-inner {
     gap: 4px;
   }
@@ -1544,6 +1548,53 @@ body {
 .tab.active {
   color: var(--text-on-accent);
   background: var(--accent-fill);
+}
+
+/* ---- Section bar (the pages of a grouped tab) ----
+   Appears under the main row only while you're inside a group, so it reads as
+   "where you are within Admin" rather than as another set of sections. It is
+   deliberately quieter than the row above — smaller, and lit with the accent
+   chip instead of the solid accent fill — so the two rows can't be mistaken for
+   each other, and quieter than the .subtab pills a page draws inside its own
+   panel, which are content rather than chrome. */
+.section-tabs {
+  border-bottom: 1px solid var(--card-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.section-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.section-tabs-inner {
+  display: flex;
+  gap: 4px;
+  min-width: max-content;
+  padding: 7px 0;
+}
+
+.section-tab {
+  white-space: nowrap;
+  padding: 6px 13px;
+  border-radius: 999px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.section-tab:hover {
+  color: var(--text);
+  background: var(--tab-hover-bg);
+}
+
+.section-tab.active {
+  color: var(--accent-text);
+  background: var(--accent-chip-bg);
+  border-color: var(--accent-chip-border);
 }
 
 /* ---- Content panels ---- */
