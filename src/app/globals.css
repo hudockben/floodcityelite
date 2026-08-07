@@ -1939,6 +1939,7 @@ body {
   border-color: var(--status-ok-border);
 }
 
+.hp-pill-payment_requested,
 .hp-pill-waitlisted,
 .hp-pill-warn {
   color: var(--status-warn-text);
@@ -5172,6 +5173,16 @@ body {
   color: var(--status-info-text);
   background-color: var(--status-info-bg);
   border-color: var(--status-info-border);
+}
+
+/* Payment requested — amber, the same "asked for, not settled yet" tone the
+   Budgets tab gives an unpaid expense (.expense-status-not_paid). It shares
+   that amber with "waitlisted"; the two are never confused because the label
+   is always spelled out on the pill. */
+.status-payment_requested {
+  color: var(--status-warn-text);
+  background-color: var(--status-warn-bg);
+  border-color: var(--status-warn-border);
 }
 
 .status-paid {

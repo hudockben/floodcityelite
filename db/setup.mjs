@@ -404,8 +404,9 @@ async function main() {
                         CHECK (payment_type IN ('cash', 'check', 'venmo', 'credit', 'other')),
       check_number    VARCHAR(40),
       paid_on         DATE,
-      status          VARCHAR(16)   NOT NULL DEFAULT 'registered'
-                        CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund')),
+      status          VARCHAR(32)   NOT NULL DEFAULT 'registered'
+                        CHECK (status IN ('registered', 'payment_requested', 'paid',
+                                          'waitlisted', 'rainout', 'refund')),
       created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
       updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
@@ -418,14 +419,21 @@ async function main() {
   // events simply leave it empty.
   await sql`ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS event_end_date DATE`;
 
-  // Widen the status CHECK on databases created before the Rain Out / Refund
-  // options existed. An unnamed inline column CHECK is named
+  // Widen the status CHECK on databases created before the Rain Out / Refund /
+  // Payment Requested options existed. An unnamed inline column CHECK is named
   // <table>_<column>_check by Postgres, so drop that and re-add the full list.
+  //
+  // The column itself has to grow first: it was VARCHAR(16) and
+  // 'payment_requested' is 17 characters, so on an older database the CHECK
+  // would pass and the INSERT would still fail on the length. Widening is a
+  // metadata-only change in Postgres and safe to re-run.
+  await sql`ALTER TABLE schedule_events ALTER COLUMN status TYPE VARCHAR(32)`;
   await sql`ALTER TABLE schedule_events DROP CONSTRAINT IF EXISTS schedule_events_status_check`;
   await sql`
     ALTER TABLE schedule_events
       ADD CONSTRAINT schedule_events_status_check
-      CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund'))
+      CHECK (status IN ('registered', 'payment_requested', 'paid',
+                        'waitlisted', 'rainout', 'refund'))
   `;
 
   // Backfill the payment-tracker columns on databases that created

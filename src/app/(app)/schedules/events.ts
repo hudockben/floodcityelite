@@ -11,13 +11,18 @@
 // The registration status of a scheduled event, as offered in the dropdown.
 export type EventStatus =
   | "registered"
+  | "payment_requested"
   | "paid"
   | "waitlisted"
   | "rainout"
   | "refund";
 
+// Ordered as the money moves: the spot is held, the entry fee has been asked
+// for, the entry fee has gone out. Waitlisted / Rain Out / Refund are the ways
+// out of that run and sit after it.
 export const STATUSES: { value: EventStatus; label: string }[] = [
   { value: "registered", label: "Registered" },
+  { value: "payment_requested", label: "Payment Requested" },
   { value: "paid", label: "Paid" },
   { value: "waitlisted", label: "Waitlisted" },
   { value: "rainout", label: "Rain Out" },

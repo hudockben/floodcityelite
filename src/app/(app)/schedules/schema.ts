@@ -53,8 +53,9 @@ async function provision(): Promise<void> {
                         CHECK (payment_type IN ('cash', 'check', 'venmo', 'credit', 'other')),
       check_number    VARCHAR(40),
       paid_on         DATE,
-      status          VARCHAR(16)   NOT NULL DEFAULT 'registered'
-                        CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund')),
+      status          VARCHAR(32)   NOT NULL DEFAULT 'registered'
+                        CHECK (status IN ('registered', 'payment_requested', 'paid',
+                                          'waitlisted', 'rainout', 'refund')),
       created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
       updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
@@ -66,14 +67,21 @@ async function provision(): Promise<void> {
   // predates it. Nullable and idempotent, mirroring db/setup.mjs.
   await db`ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS event_end_date DATE`;
 
-  // Widen the status CHECK to allow the Rain Out / Refund options on databases
-  // created before they existed. Postgres names an unnamed inline column CHECK
-  // <table>_<column>_check, so drop that and re-add the full option list.
+  // Widen the status CHECK to allow the Rain Out / Refund / Payment Requested
+  // options on databases created before they existed. Postgres names an unnamed
+  // inline column CHECK <table>_<column>_check, so drop that and re-add the full
+  // option list.
+  //
+  // The column has to grow first: it was VARCHAR(16) and 'payment_requested' is
+  // 17 characters, so on an older database the CHECK would pass and the INSERT
+  // would still fail on the length. Widening is metadata-only and re-runnable.
+  await db`ALTER TABLE schedule_events ALTER COLUMN status TYPE VARCHAR(32)`;
   await db`ALTER TABLE schedule_events DROP CONSTRAINT IF EXISTS schedule_events_status_check`;
   await db`
     ALTER TABLE schedule_events
       ADD CONSTRAINT schedule_events_status_check
-      CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund'))
+      CHECK (status IN ('registered', 'payment_requested', 'paid',
+                        'waitlisted', 'rainout', 'refund'))
   `;
 
   // Payment tracking on the event row: how the entry fee was settled, the

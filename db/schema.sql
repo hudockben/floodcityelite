@@ -242,8 +242,10 @@ CREATE TABLE IF NOT EXISTS schedule_events (
                       CHECK (payment_type IN ('cash', 'check', 'venmo', 'credit', 'other')),
     check_number    VARCHAR(40),
     paid_on         DATE,
-    status          VARCHAR(16)   NOT NULL DEFAULT 'registered'
-                      CHECK (status IN ('registered', 'paid', 'waitlisted', 'rainout', 'refund')),
+    -- VARCHAR(32), not (16): 'payment_requested' is 17 characters.
+    status          VARCHAR(32)   NOT NULL DEFAULT 'registered'
+                      CHECK (status IN ('registered', 'payment_requested', 'paid',
+                                        'waitlisted', 'rainout', 'refund')),
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
