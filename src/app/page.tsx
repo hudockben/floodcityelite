@@ -75,12 +75,12 @@ export default async function HomePage() {
 
             <div className="division-body">
               <p className="division-text">
-                No account needed. Log the hours you worked and the office picks
-                it up automatically.
+                No account needed — log your hours and the office picks them up
+                automatically.
               </p>
               <ul className="division-list">
-                <li>Your name and role</li>
-                <li>The date you worked</li>
+                <li>Name &amp; role</li>
+                <li>Date worked</li>
                 <li>Hours worked</li>
               </ul>
               <Link href={`/payroll${tenantQuery}`} className="btn btn-block">
@@ -105,13 +105,12 @@ export default async function HomePage() {
 
             <div className="division-body">
               <p className="division-text">
-                Made a team? Let us know if the player is accepting or declining
-                the roster spot. Accepting adds them straight to the roster.
+                Made a team? Accepting puts the player straight onto the roster.
               </p>
               <ul className="division-list">
                 <li>Accept or decline</li>
                 <li>Player &amp; parent details</li>
-                <li>Team, positions, jersey &amp; more</li>
+                <li>Team, jersey &amp; positions</li>
               </ul>
               <Link
                 href={`/roster-acceptance${tenantQuery}`}
@@ -140,14 +139,13 @@ export default async function HomePage() {
 
             <div className="division-body">
               <p className="division-text">
-                The club&apos;s message board. Coaches and staff post here;
-                there&apos;s nothing to sign in to and nothing to fill out —
-                just read what&apos;s on the board.
+                The club&apos;s message board — nothing to sign in to, nothing
+                to fill out.
               </p>
               <ul className="division-list">
                 <li>Game day &amp; weather calls</li>
-                <li>Practice, travel &amp; gear notes</li>
-                <li>Pinned notices stay up top</li>
+                <li>Practice, travel &amp; gear</li>
+                <li>Pinned notices up top</li>
               </ul>
               <Link href={`/dugout${tenantQuery}`} className="btn btn-block">
                 Open the message board

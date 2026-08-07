@@ -968,11 +968,18 @@ body {
   align-items: center;
 }
 
+/* Each card takes the height of what it holds. They used to stretch to match
+   the tallest in the row, which is the Admin card — a three-field sign-in form
+   that nothing else here comes close to. That was fine while the other three
+   carried a paragraph and a bulleted list; once those came down to a sentence
+   and a line, matching Admin meant a card with a couple of hundred pixels of
+   nothing above its button. A ragged row reads as three short cards beside a
+   tall one, which is what they are. */
 .divisions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  align-items: stretch;
+  align-items: flex-start;
   gap: var(--space-4);
   width: 100%;
 }
@@ -1018,8 +1025,10 @@ body {
   color: var(--text-muted);
 }
 
-/* Payroll card body fills the card so its button lines up with the sign-in
-   button in the taller Admin card beside it. */
+/* The body still fills whatever height the card has, so the link stays pinned
+   to the bottom edge (see .btn-block below). With the cards no longer stretched
+   to a common height that is usually the natural bottom anyway — it matters
+   when two cards in a row do happen to differ by a line of wrapped text. */
 .division-body {
   flex: 1;
   display: flex;
@@ -1034,12 +1043,31 @@ body {
   line-height: 1.5;
 }
 
+/* What the form will ask you for, as one wrapped line rather than a stacked
+   bullet list. The three items are the same three; it is the shape that
+   changed. A card carrying a heading, a subtitle, a paragraph and then three
+   bullets reads as a page rather than as a door, and there are four of these
+   side by side on the way in. */
 .division-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--space-2);
   margin: 0;
-  padding-left: 20px;
+  padding: 0;
+  list-style: none;
   color: var(--text-muted);
-  font-size: var(--text-base);
-  line-height: 1.7;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+/* The separator rides on the end of the item it follows, not the start of the
+   next one — otherwise a line that wraps between two items opens with a
+   floating dot, which reads as a bullet somebody forgot to indent. */
+.division-list li:not(:last-child)::after {
+  content: "·";
+  margin-left: var(--space-2);
+  color: var(--text-placeholder);
 }
 
 .division-body .btn-block {
