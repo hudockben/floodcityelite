@@ -39,7 +39,11 @@ export default function PaymentDraftRow({
   players: PlayerOption[];
   initial?: DraftInitial;
   onRemove: (id: number) => void;
-  onSaved: (id: number) => void;
+  /**
+   * Handed the date it saved under as well as the row's id: the ledger runs
+   * oldest first, so that's what says which page the new payment lands on.
+   */
+  onSaved: (id: number, paidOn: string) => void;
 }) {
   const [date, setDate] = useState<string>(() => todayISO());
   const [division, setDivision] = useState<DivisionSlug | "">(
@@ -94,7 +98,7 @@ export default function PaymentDraftRow({
         checkNumber,
         amount,
       });
-      if (res?.ok) onSaved(id);
+      if (res?.ok) onSaved(id, date);
       else setError(res?.error ?? "Could not save the payment.");
     });
   }

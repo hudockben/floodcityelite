@@ -6438,6 +6438,106 @@ body {
   color: var(--money-in);
 }
 
+/* Pager under the ledger. Only rendered once there are more payments than the
+   smallest page size — a ledger that fits on one page has nothing to page
+   through and nothing to choose. The range sits at the left, the buttons in the
+   middle, and the rows-per-page control is pushed to the right edge. */
+.pay-pager {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+}
+
+.pay-pager-range {
+  font-size: var(--text-md);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The buttons ride in a pill of their own, like the segmented control on Roster
+   Submissions. On a narrow screen they scroll inside it rather than push the
+   panel wide (mirrors the .subs-segment / .tabs overflow pattern). */
+.pay-pager-pages {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 3px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--field-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill);
+}
+
+.pay-pager-pages::-webkit-scrollbar {
+  display: none;
+}
+
+.pay-page {
+  min-width: 32px;
+  padding: 5px 10px;
+  font-size: var(--text-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.pay-page:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.pay-page.is-current {
+  color: var(--text-on-accent);
+  background: var(--accent-fill);
+}
+
+.pay-page:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring-strong);
+}
+
+/* Prev/Next at the ends of the ledger: kept in place rather than removed, so
+   the bar doesn't reflow under the pointer as you page toward an edge. */
+.pay-page:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pay-pager-gap {
+  padding: 0 2px;
+  color: var(--text-muted);
+}
+
+.pay-pager-size {
+  margin-left: auto;
+}
+
+/* On a phone the pager is a row you tap, so give the buttons a finger-sized
+   target instead of the compact one a mouse is happy with. */
+@media (max-width: 640px) {
+  .pay-page {
+    min-width: 40px;
+    padding: 10px 12px;
+  }
+
+  /* Nothing left to push it against once the bar has wrapped onto its own
+     line — the auto margin would only strand it on the far side. */
+  .pay-pager-size {
+    margin-left: 0;
+  }
+}
+
 /* Add Payment button + summary count */
 .pay-actions {
   display: flex;
