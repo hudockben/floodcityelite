@@ -15,15 +15,16 @@ import PaymentPager, {
 import PaymentSearch, { type PlayerMatch } from "./payment-search";
 import {
   NO_PAYMENT_FILTERS,
-  amountToCents,
   formatDate,
   formatMoney,
   isFiltering,
+  ledgerRows,
   matchesPaymentFilters,
   normalizePaymentFilters,
   paymentSearchText,
   paymentTypeLabel,
   sumPaymentCents,
+  type LedgerRow,
   type PaymentFilters as Filters,
   type PaymentRow,
   type PlayerOption,
@@ -51,20 +52,23 @@ function clampPage(page: number, pageCount: number): number {
 }
 
 /**
- * The page a just-saved payment landed on. Rows run oldest first, so the saved
- * one is the last row dated on or before it — anything later starts the page
- * after. Falls back to the end of the ledger while the row is still in flight.
+ * The page a just-saved payment landed on.
+ *
+ * Rows read newest first, and a payment saved now is the newest of its date, so
+ * it sits at the first row dated on or before it — the top of the ledger for
+ * today's date, partway down for a backdated one, and the very end for a date
+ * older than anything on file. Resolving that against the ledger as it stands
+ * holds the page steady while the row is still in flight, and again once it
+ * arrives and pushes everything below it down.
  */
 function anchoredPage(
   anchor: string,
-  rows: PaymentRow[],
+  rows: LedgerRow[],
   perPage: number,
   pageCount: number,
 ): number {
-  if (rows.length === 0) return 1;
-  const after = rows.findIndex((r) => r.paid_on.slice(0, 10) > anchor);
-  const index = after === -1 ? rows.length - 1 : after - 1;
-  if (index < 0) return 1;
+  const at = rows.findIndex((r) => r.payment.paid_on.slice(0, 10) <= anchor);
+  const index = at === -1 ? rows.length : at;
   return clampPage(Math.floor(index / perPage) + 1, pageCount);
 }
 
@@ -108,19 +112,16 @@ export default function PaymentTracker({
     [payments, filters, searchText],
   );
 
-  // The Total column accumulates across everything the filters show, in display
-  // order, so the last row's running total equals the total below the table —
-  // under a filter that's the total for the slice being shown, which is the
-  // figure the download and the printed report carry too. Paging doesn't
-  // restart it: row 26 still counts rows 1–25 before it, and only the last
-  // page ends on the grand total. Kept in cents so a long ledger can't drift
-  // a penny.
-  let runningCents = 0;
-  const savedRows = filtered.map((payment) => {
-    runningCents += amountToCents(payment.amount);
-    return { payment, runningTotal: runningCents / 100 };
-  });
-  const shownTotal = runningCents / 100;
+  // The ledger as it reads: newest payment at the top, each row's Total the
+  // money in as of that payment. So the top row carries the figure under the
+  // table — under a filter, the total for the slice being shown, which is what
+  // the download and the printed report carry too — and the column counts back
+  // down through the season from there. Paging doesn't restart it: row 26 is
+  // still the total less the 25 payments above it.
+  const ledger = ledgerRows(filtered);
+  // Summed from the payments rather than read off the top row, so an empty
+  // ledger and a filtered one both have a figure without a special case.
+  const shownTotal = sumPaymentCents(filtered) / 100;
   // The whole ledger's total, so a filtered view can say what it's a slice of.
   const allTotal = sumPaymentCents(payments) / 100;
   const filtering = isFiltering(filters);
@@ -136,21 +137,21 @@ export default function PaymentTracker({
   const currentPage =
     typeof page === "number"
       ? clampPage(page, pageCount)
-      : anchoredPage(page.anchor, filtered, rowsPerPage, pageCount);
+      : anchoredPage(page.anchor, ledger, rowsPerPage, pageCount);
 
   const start = (currentPage - 1) * rowsPerPage;
-  const pageRows = savedRows.slice(start, start + rowsPerPage);
+  const pageRows = ledger.slice(start, start + rowsPerPage);
   const paginating = filtered.length > PAGER_MIN_ROWS;
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
   function addDraft(initial?: DraftInitial) {
     setDrafts((cur) => [...cur, { id: nextDraftId.current++, initial }]);
-    // Drafts render under the last row on screen, which is only where the
-    // ledger actually ends on the final page — and where the saved payment
-    // will appear once it's in. Jump there so the row doesn't look like it
-    // was inserted into the middle of somebody else's month.
-    setPage(pageCount);
+    // Drafts render above the rows, and the first page is the only one where
+    // that spot is the ledger's own newest end — where the saved payment will
+    // appear once it's in. Jump there so the row doesn't look like it was
+    // dropped into the middle of somebody else's month.
+    setPage(1);
   }
 
   function removeDraft(id: number) {
@@ -162,7 +163,8 @@ export default function PaymentTracker({
   // while the Type filter says Cash — and a row that vanishes the instant it
   // saves reads as a failure. Dropping the filters puts it back on screen, and
   // anchoring the page on the date it was saved under follows it to whichever
-  // page it lands on.
+  // page it lands on — the first one for a payment logged today, further in for
+  // a backdated one.
   function handleSaved(id: number, paidOn: string) {
     removeDraft(id);
     setFilters(NO_PAYMENT_FILTERS);
@@ -222,11 +224,12 @@ export default function PaymentTracker({
       <div className="panel-head">
         <h1>Payment Tracker</h1>
         <p>
-          Log each payment against a player: pick the division, team, and player,
-          choose Check or Cash, and enter the amount. The Total column
-          accumulates every payment received. Narrow the ledger with the filters
-          below — a CSV, Excel or PDF download carries everything they show, not
-          just the page on screen.
+          Log each payment against a player: pick the division, team, and
+          player, choose Check or Cash, and enter the amount. The newest
+          payments read at the top, and the Total column is the money in as of
+          each one — so the newest payment carries the grand total. Narrow the
+          ledger with the filters below; a CSV, Excel or PDF download carries
+          everything they show, not just the page on screen.
         </p>
       </div>
 
@@ -312,7 +315,23 @@ export default function PaymentTracker({
                   </tr>
                 ) : null}
 
-                {pageRows.map(({ payment, runningTotal }) => (
+                {/* Drafts sit above the rows, on the newest end of the ledger
+                    where the payment being typed is about to land — and they
+                    follow whichever page you're on, so paging away from a
+                    half-typed row doesn't throw the typing away. */}
+                {drafts.map((draft) => (
+                  <PaymentDraftRow
+                    key={draft.id}
+                    id={draft.id}
+                    teams={teams}
+                    players={players}
+                    initial={draft.initial}
+                    onRemove={removeDraft}
+                    onSaved={handleSaved}
+                  />
+                ))}
+
+                {pageRows.map(({ payment, runningTotalCents }) => (
                   <tr key={payment.id}>
                     <td className="pay-nowrap">{formatDate(payment.paid_on)}</td>
                     <td className="pay-trunc" title={divisionLabel(payment.division)}>
@@ -342,7 +361,7 @@ export default function PaymentTracker({
                     </td>
                     <td className="pay-num">{formatMoney(payment.amount)}</td>
                     <td className="pay-num pay-running">
-                      {formatMoney(runningTotal)}
+                      {formatMoney(runningTotalCents / 100)}
                     </td>
                     <td className="col-actions">
                       <ConfirmButton
@@ -357,21 +376,6 @@ export default function PaymentTracker({
                       </ConfirmButton>
                     </td>
                   </tr>
-                ))}
-
-                {/* Drafts follow whichever page you're on rather than living on
-                    one of them: paging away from a half-typed row shouldn't
-                    throw the typing away. */}
-                {drafts.map((draft) => (
-                  <PaymentDraftRow
-                    key={draft.id}
-                    id={draft.id}
-                    teams={teams}
-                    players={players}
-                    initial={draft.initial}
-                    onRemove={removeDraft}
-                    onSaved={handleSaved}
-                  />
                 ))}
               </tbody>
               <tfoot>

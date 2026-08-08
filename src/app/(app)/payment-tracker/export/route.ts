@@ -28,8 +28,9 @@ export async function GET(request: Request): Promise<Response> {
   let rows: PaymentExportRow[];
   try {
     const all = await listPayments(session.companyId);
-    // Totals accumulate over what's in the file, so the last Total cell is the
-    // total for this slice of the ledger — the figure the tab was showing.
+    // Totals accumulate over what's in the file, and the rows come out newest
+    // first as they do on screen — so the first Total cell is the total for
+    // this slice of the ledger, the figure the tab was showing.
     rows = withRunningTotals(
       all.filter((p) => matchesPaymentFilters(p, filters)),
     );

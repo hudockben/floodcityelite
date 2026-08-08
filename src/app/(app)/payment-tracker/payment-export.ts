@@ -14,6 +14,7 @@ import { divisionLabel } from "../teams/divisions";
 import {
   amountToCents,
   formatDate,
+  ledgerRows,
   paymentTypeLabel,
   type PaymentRow,
 } from "./payments";
@@ -22,17 +23,20 @@ import {
 export type PaymentExportRow = PaymentRow & { running_total: string };
 
 /**
- * Attach the ledger's Total column: a running sum down the rows, in the order
- * they're given. Kept in cents so a long list can't drift a penny, and written
- * as a plain number ("4925.00") rather than "$4,925.00" so Excel can total the
- * column itself.
+ * The rows a download carries, in the ledger's own order — newest first, each
+ * with the total received through it, so the *first* Total cell is the figure
+ * for the whole file. Ordering and accumulation both come from `ledgerRows`, so
+ * a spreadsheet can't come out reading differently from the tab it was
+ * downloaded off.
+ *
+ * The total is written as a plain number ("4925.00") rather than "$4,925.00" so
+ * Excel can total the column itself.
  */
 export function withRunningTotals(rows: PaymentRow[]): PaymentExportRow[] {
-  let cents = 0;
-  return rows.map((row) => {
-    cents += amountToCents(row.amount);
-    return { ...row, running_total: (cents / 100).toFixed(2) };
-  });
+  return ledgerRows(rows).map(({ payment, runningTotalCents }) => ({
+    ...payment,
+    running_total: (runningTotalCents / 100).toFixed(2),
+  }));
 }
 
 export const PAYMENT_EXPORT_COLUMNS: ExportColumn<PaymentExportRow>[] = [

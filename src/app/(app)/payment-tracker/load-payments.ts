@@ -14,6 +14,10 @@ import { ensurePaymentsSchema } from "./schema";
 /**
  * Every payment logged against this company's players, oldest first — the order
  * the ledger's running Total column accumulates in.
+ *
+ * That's the order the rows are *summed* in, not the order they're read in: all
+ * three surfaces turn them around through `ledgerRows` so the newest payment
+ * reads at the top. See the note there.
  */
 export async function listPayments(companyId: number): Promise<PaymentRow[]> {
   // Create the payments table on first use so the tab works even if the

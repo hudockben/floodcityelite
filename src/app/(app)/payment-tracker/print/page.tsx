@@ -3,9 +3,9 @@ import { getSession } from "@/lib/session";
 import { divisionLabel } from "../../teams/divisions";
 import { listPayments } from "../load-payments";
 import {
-  amountToCents,
   formatDate,
   formatMoney,
+  ledgerRows,
   matchesPaymentFilters,
   paymentTypeLabel,
   readPaymentFilters,
@@ -76,12 +76,9 @@ export default async function PaymentTrackerPrintPage({
   );
   const cashCents = totalCents - checkCents;
 
-  // The Total column accumulates down the report exactly as it does on screen.
-  let running = 0;
-  const rows = payments.map((payment) => {
-    running += amountToCents(payment.amount);
-    return { payment, runningTotal: running };
-  });
+  // Newest first with the Total column accumulating through each payment,
+  // exactly as the tab and the spreadsheet read it.
+  const rows = ledgerRows(payments);
 
   const scope = describePaymentFilters(filters) || "All payments";
   // Plain, with no filters appended: the tab holds them in client state and
@@ -166,7 +163,7 @@ export default async function PaymentTrackerPrintPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map(({ payment, runningTotal }) => (
+                  {rows.map(({ payment, runningTotalCents }) => (
                     <tr key={payment.id}>
                       <td className="col-date">{formatDate(payment.paid_on)}</td>
                       <td>{divisionLabel(payment.division)}</td>
@@ -176,7 +173,7 @@ export default async function PaymentTrackerPrintPage({
                       <td className="amt">{payment.check_number ?? "—"}</td>
                       <td className="amt">{formatMoney(payment.amount)}</td>
                       <td className="amt col-total">
-                        {formatMoney(runningTotal / 100)}
+                        {formatMoney(runningTotalCents / 100)}
                       </td>
                     </tr>
                   ))}

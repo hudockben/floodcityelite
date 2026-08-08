@@ -57,13 +57,18 @@ export default function PaymentDraftRow({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // When the row is seeded from the search bar the player is already chosen, so
-  // drop the user straight into the amount field and bring the row into view.
   const rowRef = useRef<HTMLTableRowElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    if (!initial) return;
-    amountRef.current?.focus();
+    // Seeded from the search bar: the player is already chosen, so drop the
+    // user straight into the amount field.
+    if (initial) amountRef.current?.focus();
+    // Either way, bring the row into view. It opens at the newest end of the
+    // ledger — the top of the table — while both the things that open it sit
+    // below: "Add Payment" under the table, the search bar above it but a full
+    // page of rows away. Left alone the row would appear off screen and the
+    // click would read as having done nothing. `nearest` scrolls the least it
+    // can, so a row that's already visible doesn't move the page at all.
     rowRef.current?.scrollIntoView({ block: "nearest" });
     // Seed once on mount; later prop changes shouldn't yank focus back.
     // eslint-disable-next-line react-hooks/exhaustive-deps

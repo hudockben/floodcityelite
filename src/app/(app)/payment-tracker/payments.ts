@@ -272,6 +272,36 @@ export function sumPaymentCents(rows: PaymentRow[]): number {
   return rows.reduce((cents, row) => cents + amountToCents(row.amount), 0);
 }
 
+/** A payment with the ledger's Total column beside it, in cents. */
+export type LedgerRow = { payment: PaymentRow; runningTotalCents: number };
+
+/**
+ * The ledger as every surface shows it: newest payment first, each row carrying
+ * the total received *through* that payment.
+ *
+ * The two directions are deliberate, and independent of each other. A running
+ * total can only ever accumulate oldest → newest — the total as of a payment
+ * can't include money that arrived after it — so it's summed in the order the
+ * rows come out of the database. The rows are only turned around afterwards,
+ * because the payment you just logged, or came back to check, is the newest
+ * one: it belongs at the top, where it carries the grand total, with the ledger
+ * running back in time beneath it. The last row is the oldest payment, showing
+ * nothing but its own amount.
+ *
+ * Takes the ledger in the order listPayments returns it (oldest first). The
+ * tab, the CSV/Excel download and the printed report all come through here, so
+ * none of the three can put the same rows in a different order or total them a
+ * different way.
+ */
+export function ledgerRows(payments: PaymentRow[]): LedgerRow[] {
+  let cents = 0;
+  const rows = payments.map((payment) => {
+    cents += amountToCents(payment.amount);
+    return { payment, runningTotalCents: cents };
+  });
+  return rows.reverse();
+}
+
 /** "975.00" -> 97500. Rounds so a stray fraction can't leak into the total. */
 export function amountToCents(amount: string | number): number {
   const n = typeof amount === "number" ? amount : Number(amount);
