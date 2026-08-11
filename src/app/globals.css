@@ -544,35 +544,33 @@
   --table-row-hover-tint: rgba(201, 153, 46, 0.07);
 
   /* -- The sheet ---------------------------------------------------------
-     Neutral grey, a shade warmer in its washes than the other theme's but grey
-     all the same, and neutral ink to match — paper on this tenant is the one
-     surface that steps outside the black-and-gold, so it does not compete with
-     the gold it carries. The accent stays this tenant's own: deep gold rather
-     than the bright end of the ramp, since it is drawing links and small
-     figures on a light ground now. Figures are against --sheet-bg; as on the
-     other theme, the tones that carry small type also clear AA on
-     --sheet-inset and --sheet-band. */
-  --sheet-bg: #ebebeb;          /* the card itself — light grey */
-  --sheet-inset: #fbfbfb;
-  --sheet-band: #dcdcdc;
-  --sheet-hover: #f2f2f2;
-  --sheet-rule: #b5b5b5;
-  --sheet-rule-soft: #d6d6d6;
-  --sheet-ink: #1a1a1a;         /*                            — 14.6:1 */
-  --sheet-ink-muted: #4e4e4e;   /*                            —  7.0:1 */
-  --sheet-ink-faint: #585858;   /*                            —  6.0:1 */
-  --sheet-accent: #6f5410;      /* deep gold, not the bright  —  6.0:1 */
-  --sheet-accent-bg: #f2e9cf;
-  --sheet-accent-rule: #cdb679;
-  --sheet-pos: #0c6d46;         /*                            —  5.4:1 */
-  --sheet-pos-bg: #d7eee2;
-  --sheet-neg: #ad2018;         /*                            —  5.9:1 */
-  --sheet-neg-bg: #f9dedb;
-  --sheet-warn: #7a4f07;        /*                            —  6.0:1 */
-  --sheet-warn-bg: #f6e7be;
-  --sheet-balance-bg: #f7ecba;
+     Cream rather than the other theme's grey — this tenant's paper is warm
+     everywhere else it appears (see --print-accent-bg below), and a cool grey
+     card would be the one cold thing on a black-and-gold page. The ink follows:
+     browns and a deep gold where the navy theme uses slate and blue. Figures
+     are against --sheet-bg; as there, the three tones that carry small type
+     also clear AA on --sheet-inset and --sheet-band. */
+  --sheet-bg: #f0e9db;          /* the card itself — cream */
+  --sheet-inset: #fdfaf4;
+  --sheet-band: #e3d9c4;
+  --sheet-hover: #f6f1e6;
+  --sheet-rule: #c4b38f;
+  --sheet-rule-soft: #ddd3bd;
+  --sheet-ink: #1e1a12;         /*                            — 14.4:1 */
+  --sheet-ink-muted: #554c3c;   /*                            —  7.0:1 */
+  --sheet-ink-faint: #5f5646;   /*                            —  6.0:1 */
+  --sheet-accent: #6f5410;      /* deep gold, not the bright  —  5.9:1 */
+  --sheet-accent-bg: #f6ecce;
+  --sheet-accent-rule: #d3b96f;
+  --sheet-pos: #0c6d46;         /*                            —  5.3:1 */
+  --sheet-pos-bg: #d8f0e2;
+  --sheet-neg: #ad2018;         /*                            —  5.8:1 */
+  --sheet-neg-bg: #fadfd9;
+  --sheet-warn: #7a4f07;        /*                            —  5.9:1 */
+  --sheet-warn-bg: #f7e8bc;
+  --sheet-balance-bg: #f8edb9;
   --sheet-alt: #58399f;
-  --sheet-alt-bg: #e7defa;
+  --sheet-alt-bg: #e9e0fa;
 
   /* -- Borders and depth -------------------------------------------------
      This hairline is the only thing marking where an input ends, and on this
