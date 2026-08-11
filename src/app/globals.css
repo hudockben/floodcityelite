@@ -66,7 +66,9 @@
      other wordmark tunables so the whole lockup is described in one place. */
   --brand-mark-height: 2.4em;
 
-  /* Surfaces, lightest-sitting first. */
+  /* Surfaces, lightest-sitting first. --surface-raised is the expanded state of
+     a collapsible team group; see the raised twins under the roster block. */
+  --surface-raised: rgba(30, 58, 95, 0.72);
   --surface-card: rgba(15, 30, 52, 0.72);
   --surface-control: rgba(8, 20, 36, 0.6);
   --field-bg: rgba(8, 20, 36, 0.55);
@@ -85,6 +87,26 @@
   --table-foot-bg: rgba(8, 20, 36, 0.6);
   --table-row-border: rgba(148, 187, 233, 0.08);
   --table-row-hover-tint: rgba(56, 189, 248, 0.05);
+
+  /* Raised twins -------------------------------------------------------
+     An expanded team group is a second elevation step: the card lifts off the
+     content panel behind it (--surface-raised) so the figures grouped inside it
+     read as one block rather than as text on the background. A surface whose
+     job is "recessed relative to whatever sits behind me" has to be re-based
+     onto that lifted card — see .team-group[open] — or the inputs and the
+     opaque table fills go on sitting at panel level, and half the expanded card
+     stays at exactly the tone the lift was meant to get it off.
+
+     The field twin is the same navy at a higher alpha: over the lifted card it
+     composites to the tone the panel-level field lands on, so its placeholder
+     and border figures carry over unchanged, and the field finally reads as a
+     well — 1.4:1 against the card it sits in, where today it is 1.02:1 and so
+     effectively invisible. The table twins hold the roster ramp's own steps
+     (head 1.07:1 below the row fill, hover 1.09:1 above it) one step up. */
+  --field-bg-raised: rgba(8, 20, 36, 0.88);
+  --roster-bg-raised: #1a3355;
+  --roster-head-bg-raised: #182e4d;
+  --roster-hover-bg-raised: #1d395e;
 
   /* Borders and depth */
   --card-border: rgba(148, 187, 233, 0.18);
@@ -478,6 +500,7 @@
      Below near-black there is nowhere left to go, so the recessed surfaces
      (fields, tiles, secondary buttons) lift by a few percent of warm light
      instead of sinking, and the gold hairline does the separating. */
+  --surface-raised: rgba(240, 219, 166, 0.12);
   --surface-card: rgba(12, 12, 12, 0.82);
   --surface-control: rgba(240, 219, 166, 0.06);
   --field-bg: rgba(240, 219, 166, 0.05);
@@ -493,6 +516,19 @@
   --table-foot-bg: rgba(240, 219, 166, 0.06);
   --table-row-border: rgba(201, 153, 46, 0.13);
   --table-row-hover-tint: rgba(201, 153, 46, 0.07);
+
+  /* Raised twins. Against the page this theme has nowhere to sink to, which is
+     why its recessed surfaces lift instead — but inside a card that has itself
+     lifted there is room below again, so the field twin sinks rather than
+     lifting further. That is what holds the placeholder at the 5.2:1 the note
+     above promises: a field that kept lifting inside a lifted card would land it
+     at 3.9:1, under AA. The table twins hold the ink ramp's own steps (head
+     1.07:1 below the row fill, hover 1.10:1 above it) one step up, and stay
+     warm — they are lit by the same gold the card is. */
+  --field-bg-raised: rgba(5, 5, 5, 0.5);
+  --roster-bg-raised: #211f19;
+  --roster-head-bg-raised: #1a1914;
+  --roster-hover-bg-raised: #29271f;
 
   /* -- Borders and depth -------------------------------------------------
      This hairline is the only thing marking where an input ends, and on this
@@ -2955,6 +2991,26 @@ body {
 
 .team-group-summary:hover {
   background: var(--summary-hover-bg);
+}
+
+/* Expanded, the card lifts. Collapsed it can sit at the recessed field tone,
+   because a closed group is a single line of chrome — but open it is a sheet of
+   figures, and at that tone the sheet read as text on the background rather
+   than as a block with edges: the fill composited to within 1.04–1.08:1 of the
+   panel behind it, so the only thing saying where the group started and stopped
+   was the hairline. --surface-raised puts it about 1.3:1 above that panel
+   instead, and the token re-base carries the lift through to the surfaces
+   inside that are defined against whatever sits behind them (see "Raised twins"
+   in the token block). Without the re-base the inputs and the opaque table
+   fills would stay pinned at panel level and the card would only half-lift —
+   worse than not lifting it at all, since the roster would then read as a hole
+   in its own card. */
+.team-group[open] {
+  background: var(--surface-raised);
+  --field-bg: var(--field-bg-raised);
+  --roster-bg: var(--roster-bg-raised);
+  --roster-head-bg: var(--roster-head-bg-raised);
+  --roster-hover-bg: var(--roster-hover-bg-raised);
 }
 
 .team-group[open] > .team-group-summary {
