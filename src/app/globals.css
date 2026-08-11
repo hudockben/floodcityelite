@@ -67,8 +67,9 @@
   --brand-mark-height: 2.4em;
 
   /* Surfaces, lightest-sitting first. --surface-raised is the expanded state of
-     a collapsible team group; see the raised twins under the roster block. */
-  --surface-raised: rgba(30, 58, 95, 0.72);
+     a collapsible team group — a light sheet, not a step on this dark ramp; see
+     the sheet block under the roster tokens. */
+  --surface-raised: var(--sheet-bg);
   --surface-card: rgba(15, 30, 52, 0.72);
   --surface-control: rgba(8, 20, 36, 0.6);
   --field-bg: rgba(8, 20, 36, 0.55);
@@ -88,25 +89,49 @@
   --table-row-border: rgba(148, 187, 233, 0.08);
   --table-row-hover-tint: rgba(56, 189, 248, 0.05);
 
-  /* Raised twins -------------------------------------------------------
-     An expanded team group is a second elevation step: the card lifts off the
-     content panel behind it (--surface-raised) so the figures grouped inside it
-     read as one block rather than as text on the background. A surface whose
-     job is "recessed relative to whatever sits behind me" has to be re-based
-     onto that lifted card — see .team-group[open] — or the inputs and the
-     opaque table fills go on sitting at panel level, and half the expanded card
-     stays at exactly the tone the lift was meant to get it off.
+  /* -- The sheet ---------------------------------------------------------
+     An expanded team group is a light sheet laid on the dark page — the same
+     document the team prints to, which is why its palette is a light one on
+     every tenant just as the print block below is. Collapsed, a group is a
+     single line of chrome and sits at the recessed field tone; expanded it is a
+     page of figures, and at that tone it composited to within 1.04–1.08:1 of
+     the panel behind it, so nothing but a hairline said where one team's
+     numbers stopped and the next team's began.
 
-     The field twin is the same navy at a higher alpha: over the lifted card it
-     composites to the tone the panel-level field lands on, so its placeholder
-     and border figures carry over unchanged, and the field finally reads as a
-     well — 1.4:1 against the card it sits in, where today it is 1.02:1 and so
-     effectively invisible. The table twins hold the roster ramp's own steps
-     (head 1.07:1 below the row fill, hover 1.09:1 above it) one step up. */
-  --field-bg-raised: rgba(8, 20, 36, 0.88);
-  --roster-bg-raised: #1a3355;
-  --roster-head-bg-raised: #182e4d;
-  --roster-hover-bg-raised: #1d395e;
+     Everything inside the card is drawn from this block by .team-group[open],
+     which re-points the role tokens at these values for its subtree. So the
+     rules further down the file are written once against --text, --field-bg,
+     --roster-bg and the rest, and paint themselves in ink on paper inside an
+     expanded group without knowing this block exists.
+
+     Ink figures are against --sheet-bg unless noted; every one of them clears
+     AA, and the three that carry small type (muted, faint, accent) clear it
+     against --sheet-inset and --sheet-band too, since notes and placeholders
+     land on all three. */
+  --sheet-bg: #e8edf3;          /* the card itself — light grey */
+  --sheet-inset: #ffffff;       /* fields and table bodies sit above it */
+  --sheet-band: #dbe3ec;        /* table heads, footer totals, sub-panels */
+  --sheet-hover: #eaf0f7;       /* row hover, against --sheet-inset */
+  --sheet-rule: #b6c2d1;        /* card edge, table head rule */
+  --sheet-rule-soft: #d5dde7;   /* row rules */
+  --sheet-ink: #131c28;         /* body copy and figures      — 14.6:1 */
+  --sheet-ink-muted: #4c5a6e;   /* notes, labels, sub-headers —  6.0:1 */
+  /* Placeholders. Only a third of a step off the muted tone, because the band
+     is the darkest thing a hint can land on and 4.5:1 against it is the floor —
+     the same squeeze the Fennell placeholder note further down describes. */
+  --sheet-ink-faint: #556376;   /*                            —  5.2:1 */
+  --sheet-accent: #0a5a8c;      /* links and accent figures   —  6.3:1 */
+  --sheet-accent-bg: #d6eafa;
+  --sheet-accent-rule: #92c4e6;
+  --sheet-pos: #0c6d46;         /* money in                   —  5.4:1 */
+  --sheet-pos-bg: #d3efe0;
+  --sheet-neg: #ad2018;         /* money out, a deficit       —  6.0:1 */
+  --sheet-neg-bg: #fadbd8;
+  --sheet-warn: #7f5308;        /* pending                    —  5.7:1 */
+  --sheet-warn-bg: #faecbf;
+  --sheet-balance-bg: #faf0bd;  /* the highlighted balance row */
+  --sheet-alt: #58399f;         /* refunded — a status, not a brand — 6.2:1 */
+  --sheet-alt-bg: #e7ddfa;
 
   /* Borders and depth */
   --card-border: rgba(148, 187, 233, 0.18);
@@ -500,7 +525,8 @@
      Below near-black there is nowhere left to go, so the recessed surfaces
      (fields, tiles, secondary buttons) lift by a few percent of warm light
      instead of sinking, and the gold hairline does the separating. */
-  --surface-raised: rgba(240, 219, 166, 0.12);
+  /* --surface-raised is not restated here: :root points it at --sheet-bg, and
+     the sheet block below gives this tenant its own cream value for that. */
   --surface-card: rgba(12, 12, 12, 0.82);
   --surface-control: rgba(240, 219, 166, 0.06);
   --field-bg: rgba(240, 219, 166, 0.05);
@@ -517,18 +543,34 @@
   --table-row-border: rgba(201, 153, 46, 0.13);
   --table-row-hover-tint: rgba(201, 153, 46, 0.07);
 
-  /* Raised twins. Against the page this theme has nowhere to sink to, which is
-     why its recessed surfaces lift instead — but inside a card that has itself
-     lifted there is room below again, so the field twin sinks rather than
-     lifting further. That is what holds the placeholder at the 5.2:1 the note
-     above promises: a field that kept lifting inside a lifted card would land it
-     at 3.9:1, under AA. The table twins hold the ink ramp's own steps (head
-     1.07:1 below the row fill, hover 1.10:1 above it) one step up, and stay
-     warm — they are lit by the same gold the card is. */
-  --field-bg-raised: rgba(5, 5, 5, 0.5);
-  --roster-bg-raised: #211f19;
-  --roster-head-bg-raised: #1a1914;
-  --roster-hover-bg-raised: #29271f;
+  /* -- The sheet ---------------------------------------------------------
+     Cream rather than the other theme's grey — this tenant's paper is warm
+     everywhere else it appears (see --print-accent-bg below), and a cool grey
+     card would be the one cold thing on a black-and-gold page. The ink follows:
+     browns and a deep gold where the navy theme uses slate and blue. Figures
+     are against --sheet-bg; as there, the three tones that carry small type
+     also clear AA on --sheet-inset and --sheet-band. */
+  --sheet-bg: #f0e9db;          /* the card itself — cream */
+  --sheet-inset: #fdfaf4;
+  --sheet-band: #e3d9c4;
+  --sheet-hover: #f6f1e6;
+  --sheet-rule: #c4b38f;
+  --sheet-rule-soft: #ddd3bd;
+  --sheet-ink: #1e1a12;         /*                            — 14.4:1 */
+  --sheet-ink-muted: #554c3c;   /*                            —  7.0:1 */
+  --sheet-ink-faint: #5f5646;   /*                            —  6.0:1 */
+  --sheet-accent: #6f5410;      /* deep gold, not the bright  —  5.9:1 */
+  --sheet-accent-bg: #f6ecce;
+  --sheet-accent-rule: #d3b96f;
+  --sheet-pos: #0c6d46;         /*                            —  5.3:1 */
+  --sheet-pos-bg: #d8f0e2;
+  --sheet-neg: #ad2018;         /*                            —  5.8:1 */
+  --sheet-neg-bg: #fadfd9;
+  --sheet-warn: #7a4f07;        /*                            —  5.9:1 */
+  --sheet-warn-bg: #f7e8bc;
+  --sheet-balance-bg: #f8edb9;
+  --sheet-alt: #58399f;
+  --sheet-alt-bg: #e9e0fa;
 
   /* -- Borders and depth -------------------------------------------------
      This hairline is the only thing marking where an input ends, and on this
@@ -873,8 +915,14 @@ body {
   padding-right: 30px;
 }
 
+/* The budget sheet's and the planner's inputs are styled on their own rather
+   than through .field, and were left drawing the browser's own placeholder —
+   a mid grey picked for neither of this app's surfaces. Routed through the
+   token with the rest, so a hint reads the same wherever it is typed. */
 .field input::placeholder,
-.field textarea::placeholder {
+.field textarea::placeholder,
+.budget-input::placeholder,
+.planner-field input::placeholder {
   color: var(--text-placeholder);
 }
 
@@ -2854,6 +2902,15 @@ body {
   opacity: 0.55;
 }
 
+/* Fading the muted tone is how this dash recedes on the dark theme, where it
+   lands around 3.3:1. On paper the same 55% takes it to 2.5:1 — past recessive
+   and into unreadable — so inside a sheet it recedes by tone instead, on the
+   faint ink that is already the lightest thing here allowed to carry meaning. */
+.team-group[open] .cell-empty {
+  color: var(--sheet-ink-faint);
+  opacity: 1;
+}
+
 /* A refunded event's cost is credited back, so it's struck through and muted
    wherever the amount is shown — it no longer counts toward any total. */
 .cost-refunded {
@@ -2993,24 +3050,170 @@ body {
   background: var(--summary-hover-bg);
 }
 
-/* Expanded, the card lifts. Collapsed it can sit at the recessed field tone,
-   because a closed group is a single line of chrome — but open it is a sheet of
-   figures, and at that tone the sheet read as text on the background rather
-   than as a block with edges: the fill composited to within 1.04–1.08:1 of the
-   panel behind it, so the only thing saying where the group started and stopped
-   was the hairline. --surface-raised puts it about 1.3:1 above that panel
-   instead, and the token re-base carries the lift through to the surfaces
-   inside that are defined against whatever sits behind them (see "Raised twins"
-   in the token block). Without the re-base the inputs and the opaque table
-   fills would stay pinned at panel level and the card would only half-lift —
-   worse than not lifting it at all, since the roster would then read as a hole
-   in its own card. */
+/* Expanded, the card becomes a light sheet — the team's numbers on paper, laid
+   on the dark page. Collapsed it stays at the recessed field tone, which is
+   right for a single line of chrome; open, that tone composited to within
+   1.04–1.08:1 of the panel behind it, so nothing but a hairline said where one
+   team's figures stopped and the next team's began. Paper puts it 14:1 clear of
+   that panel, and the closed groups above and below stay dark, so which team is
+   open is legible from across the room.
+
+   Everything below re-points a role token at its sheet value for this subtree.
+   That is the whole mechanism: the rules further down the file already draw
+   themselves out of --text, --field-bg, --roster-bg and the status families, so
+   pointing those at ink and paper here repaints the roster, the budget sheet,
+   the planner, the inline edit rows and every pill inside an expanded group
+   without one of them naming a colour twice. Anything reachable in here needs a
+   value — a token left on its dark-theme setting is light type on light paper,
+   which is not a wrong shade but invisible text. */
 .team-group[open] {
   background: var(--surface-raised);
-  --field-bg: var(--field-bg-raised);
-  --roster-bg: var(--roster-bg-raised);
-  --roster-head-bg: var(--roster-head-bg-raised);
-  --roster-hover-bg: var(--roster-hover-bg-raised);
+  color: var(--sheet-ink);
+  /* The parts the browser paints itself — the <select> popup, the date picker,
+     a scrollbar in the roster — take their cue from this rather than from any
+     colour above. Without it the Fennell tenant, which declares a dark scheme
+     at the root, drops a black dropdown out of a cream card. */
+  color-scheme: light;
+
+  /* Type */
+  --text: var(--sheet-ink);
+  --text-muted: var(--sheet-ink-muted);
+  --text-placeholder: var(--sheet-ink-faint);
+  --accent-text: var(--sheet-accent);
+
+  /* Surfaces. Paper inverts the ramp: a field is white *above* the card rather
+     than a well sunk below it, and the bands that were lifts become tints. */
+  --field-bg: var(--sheet-inset);
+  --surface-control: var(--sheet-band);
+  --surface-empty: var(--sheet-band);
+  --surface-sunken: var(--sheet-band);
+  --roster-bg: var(--sheet-inset);
+  --roster-head-bg: var(--sheet-band);
+  --roster-hover-bg: var(--sheet-hover);
+  --table-head-bg-strong: var(--sheet-band);
+  --table-foot-bg: var(--sheet-band);
+  --select-option-bg: var(--sheet-inset);
+
+  /* Rules and depth */
+  --card-border: var(--sheet-rule);
+  --border-strong: var(--sheet-ink-faint);
+  --table-row-border: var(--sheet-rule-soft);
+  --table-row-hover-tint: var(--sheet-hover);
+  --card-inner-highlight: transparent;
+
+  /* Accent chrome. --accent-fill is deliberately left alone: the primary button
+     carries the brand and already sets dark type on it, so it reads as the one
+     coloured control on the sheet exactly as it does on the dark page. */
+  --accent: var(--sheet-accent);
+  --focus-ring: var(--sheet-accent-rule);
+  --focus-ring-strong: var(--sheet-accent-rule);
+  --selected-ring: var(--sheet-accent-rule);
+  --summary-hover-bg: var(--sheet-accent-bg);
+  --edit-row-bg: var(--sheet-accent-bg);
+  --draft-row-bg: var(--sheet-accent-bg);
+  --editing-border: var(--sheet-accent);
+  --file-button-bg: var(--sheet-band);
+  --accent-outline-border: var(--sheet-accent-rule);
+  --accent-outline-hover-bg: var(--sheet-accent-bg);
+  --accent-outline-hover-border: var(--sheet-accent);
+  --accent-outline-hover-border-soft: var(--sheet-accent);
+  --accent-ghost-bg: var(--sheet-accent-bg);
+  --accent-ghost-border: var(--sheet-accent-rule);
+  --accent-ghost-hover-bg: var(--sheet-accent-bg);
+  --accent-ghost-hover-border: var(--sheet-accent);
+  --accent-chip-bg: var(--sheet-accent-bg);
+  --accent-chip-border: var(--sheet-accent-rule);
+  --accent-panel-bg: var(--sheet-accent-bg);
+  --accent-panel-border: var(--sheet-accent-rule);
+  --accent-callout-bg: var(--sheet-accent-bg);
+  --accent-callout-border: var(--sheet-accent-rule);
+  --option-hover-bg: var(--sheet-accent-bg);
+  --option-hover-border: var(--sheet-accent-rule);
+  --option-selected-bg: var(--sheet-accent-bg);
+  --option-selected-ring: var(--sheet-accent-rule);
+
+  /* Neutral chrome */
+  --ghost-hover-bg: var(--sheet-band);
+  --code-bg: var(--sheet-band);
+  --chip-neutral-bg: var(--sheet-band);
+  --count-chip-bg: var(--sheet-band);
+  --meter-track-bg: var(--sheet-band);
+  /* The date field's picker icon is drawn by the browser and only a filter can
+     recolour it. On paper the browser's own dark glyph is already right, so the
+     filter that lightened it for the dark theme comes off. */
+  --date-picker-filter: none;
+
+  /* Status. Same meanings — green in, red out, amber pending, slate rained
+     out, violet refunded — restated as ink and a wash rather than a glow and a
+     tint. Each pill's ink clears AA on its own wash and on the sheet. */
+  --status-ok: var(--sheet-pos);
+  --status-ok-text: var(--sheet-pos);
+  --status-ok-text-strong: var(--sheet-pos);
+  --status-ok-on-text: var(--sheet-pos);
+  --status-ok-bg: var(--sheet-pos-bg);
+  --status-ok-bg-soft: var(--sheet-pos-bg);
+  --status-ok-bg-faint: var(--sheet-pos-bg);
+  --status-ok-badge-bg: var(--sheet-pos-bg);
+  --status-ok-row-bg: var(--sheet-pos-bg);
+  --status-ok-select-bg: var(--sheet-pos-bg);
+  --status-ok-chip-on-bg: var(--sheet-pos-bg);
+  --status-ok-chip-on-count-bg: var(--sheet-pos-bg);
+  --status-ok-nudge-bg: var(--sheet-pos-bg);
+  --status-ok-border: var(--sheet-pos);
+  --status-ok-border-soft: var(--sheet-accent-rule);
+  --status-ok-border-hairline: var(--sheet-accent-rule);
+  --status-ok-border-hover: var(--sheet-pos);
+  --status-ok-border-active: var(--sheet-pos);
+  --status-ok-select-border: var(--sheet-pos);
+  --status-ok-chip-on-border: var(--sheet-pos);
+  --status-ok-nudge-border: var(--sheet-pos);
+  --accept-text: var(--sheet-pos);
+  --paying-on-text: var(--sheet-pos);
+  --saved-text: var(--sheet-pos);
+  --checkbox-accent: var(--sheet-pos);
+  --result-ok-bg: var(--sheet-pos-bg);
+  --result-ok-border: var(--sheet-pos);
+  --money-in: var(--sheet-pos);
+  --money-in-soft: var(--sheet-pos);
+  --money-out: var(--sheet-neg);
+  --danger: var(--sheet-neg);
+  --danger-bg: var(--sheet-neg-bg);
+  --danger-bg-strong: var(--sheet-neg-bg);
+  --danger-border: var(--sheet-neg);
+  --danger-border-soft: var(--sheet-neg);
+  --danger-border-strong: var(--sheet-neg);
+  --status-alert-text: var(--sheet-neg);
+  --status-alert-bg: var(--sheet-neg-bg);
+  --status-alert-border: var(--sheet-neg);
+  --warn-alert-text: var(--sheet-neg);
+  --status-warn-text: var(--sheet-warn);
+  --status-warn-bg: var(--sheet-warn-bg);
+  --status-warn-border: var(--sheet-warn);
+  --warn-row-bg: var(--sheet-warn-bg);
+  --exception-bg: var(--sheet-warn-bg);
+  --exception-border: var(--sheet-warn);
+  --notice-warn-bg: var(--sheet-warn-bg);
+  --notice-warn-border: var(--sheet-warn);
+  --sport-softball-border: var(--sheet-warn);
+  --fund-badge-text: var(--sheet-warn);
+  --fund-badge-bg: var(--sheet-warn-bg);
+  --fund-badge-border: var(--sheet-warn);
+  --balance-text: var(--sheet-ink);
+  --balance-bg: var(--sheet-balance-bg);
+  --balance-credit-bg: var(--sheet-pos-bg);
+  --status-info-text: var(--sheet-accent);
+  --status-info-bg: var(--sheet-accent-bg);
+  --status-info-border: var(--sheet-accent-rule);
+  --status-new-text: var(--sheet-accent);
+  --status-new-bg: var(--sheet-accent-bg);
+  --status-new-border: var(--sheet-accent-rule);
+  --status-neutral-text: var(--sheet-ink-muted);
+  --status-neutral-bg: var(--sheet-band);
+  --status-neutral-border: var(--sheet-ink-faint);
+  --status-off-bg: var(--sheet-band);
+  --status-refund-text: var(--sheet-alt);
+  --status-refund-bg: var(--sheet-alt-bg);
+  --status-refund-border: var(--sheet-alt);
 }
 
 .team-group[open] > .team-group-summary {
