@@ -113,6 +113,15 @@ export default function PlayerRow({
   // Everywhere but the team they're already on.
   const moveTargets = teams.filter((t) => t.id !== player.team_id);
 
+  // Both row buttons live in the actions column, at the far right of a roster
+  // wide enough to scroll sideways — so the form that replaces the row opens
+  // with its start off the left edge of the view. Take the table back to its
+  // beginning along with it, so the form reads from its first field.
+  const scrollRosterToStart = (button: HTMLElement) => {
+    const scroller = button.closest(".roster-scroll");
+    if (scroller) scroller.scrollLeft = 0;
+  };
+
   // Collapse the editor once a save succeeds (fresh data arrives via
   // revalidation, so the display row shows the updated values).
   useEffect(() => {
@@ -299,7 +308,10 @@ export default function PlayerRow({
           <button
             type="button"
             className="row-edit"
-            onClick={() => setMode("edit")}
+            onClick={(e) => {
+              scrollRosterToStart(e.currentTarget);
+              setMode("edit");
+            }}
           >
             Edit
           </button>
@@ -310,12 +322,7 @@ export default function PlayerRow({
               type="button"
               className="row-move"
               onClick={(e) => {
-                // The actions column sits at the far right of a roster wide
-                // enough to scroll sideways, so the short form that replaces
-                // this row would open off the left edge of the view. Take the
-                // table back to its start along with it.
-                const scroller = e.currentTarget.closest(".roster-scroll");
-                if (scroller) scroller.scrollLeft = 0;
+                scrollRosterToStart(e.currentTarget);
                 // Start clean: no stale choice, and no error from a previous
                 // attempt showing on a freshly opened form.
                 setTargetTeam("");
