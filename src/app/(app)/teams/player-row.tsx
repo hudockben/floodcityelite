@@ -3,6 +3,7 @@
 import { Fragment, useActionState, useEffect, useState } from "react";
 import {
   deletePlayerAction,
+  movePlayerAction,
   updatePlayerAction,
   type FormState,
 } from "./actions";
@@ -13,12 +14,18 @@ import {
   PLAYER_FIELDS,
   ROSTER_STATUS_OPTIONS,
   rosterStatusValue,
+  sportLabel,
   type DivisionSlug,
   type PlayerField,
   type PlayerRow as PlayerRowData,
 } from "./divisions";
 
 const initialState: FormState = {};
+
+// The teams a player can be moved to: this season's teams, as the page already
+// lists them for the add-player form.
+type TeamOption = { id: number; name: string; sport: string };
+
 // Columns: every player field, plus the "Paying" and "New / Returning" columns
 // and the actions column.
 const COL_SPAN = PLAYER_FIELDS.length + 3;
@@ -71,23 +78,55 @@ function EditField({
 export default function PlayerRow({
   player,
   division,
+  teams,
 }: {
   player: PlayerRowData;
   division: DivisionSlug;
+  /** This season's teams — the row's Move picker offers the other ones. */
+  teams: TeamOption[];
 }) {
-  const [editing, setEditing] = useState(false);
+  // Which of the row's two inline forms is open, if either. One state rather
+  // than a flag each, so opening Move can't leave the editor open behind it.
+  const [mode, setMode] = useState<"view" | "edit" | "move">("view");
   const [state, formAction, pending] = useActionState(
     updatePlayerAction,
     initialState,
   );
+  const [moveState, moveAction, moving] = useActionState(
+    movePlayerAction,
+    initialState,
+  );
+  // The team picked in the Move form. Controlled so a rejected move keeps the
+  // choice — React resets an uncontrolled field once a form action settles.
+  const [targetTeam, setTargetTeam] = useState("");
+  // The move action's state outlives the form, so remember the result the row
+  // has already shown; otherwise reopening Move greets the coach with the error
+  // from the last attempt. (Same reason as the team chip's rename.)
+  const [seenMove, setSeenMove] = useState<FormState | null>(null);
+  const moveError = moveState !== seenMove ? moveState?.error : undefined;
+
+  const closeMove = () => {
+    setSeenMove(moveState);
+    setMode("view");
+  };
+
+  // Everywhere but the team they're already on.
+  const moveTargets = teams.filter((t) => t.id !== player.team_id);
 
   // Collapse the editor once a save succeeds (fresh data arrives via
   // revalidation, so the display row shows the updated values).
   useEffect(() => {
-    if (state?.ok) setEditing(false);
+    if (state?.ok) setMode("view");
   }, [state]);
 
-  if (editing) {
+  // A finished move takes the player off this team, so the row goes away when
+  // the revalidated page lands. Close the form as soon as the action returns
+  // rather than leaving it up for the round trip.
+  useEffect(() => {
+    if (moveState?.ok) setMode("view");
+  }, [moveState]);
+
+  if (mode === "edit") {
     return (
       <tr className="player-edit-row">
         <td colSpan={COL_SPAN}>
@@ -144,7 +183,7 @@ export default function PlayerRow({
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => setEditing(false)}
+                onClick={() => setMode("view")}
                 disabled={pending}
               >
                 Cancel
@@ -152,6 +191,70 @@ export default function PlayerRow({
               {state?.error ? (
                 <p className="error player-form-msg" role="alert">
                   {state.error}
+                </p>
+              ) : null}
+            </div>
+          </form>
+        </td>
+      </tr>
+    );
+  }
+
+  if (mode === "move") {
+    const selectId = `move-${player.id}-team`;
+    return (
+      <tr className="player-edit-row">
+        <td colSpan={COL_SPAN}>
+          <form action={moveAction} className="player-edit-form">
+            <input type="hidden" name="playerId" value={player.id} />
+
+            <div className="player-edit-head">
+              Moving <strong>{player.player_name}</strong> off{" "}
+              <strong>{player.team_name}</strong>
+            </div>
+
+            <div className="field player-move-field">
+              <label htmlFor={selectId}>New team</label>
+              <select
+                id={selectId}
+                name="teamId"
+                value={targetTeam}
+                onChange={(e) => setTargetTeam(e.target.value)}
+                required
+              >
+                <option value="" disabled>
+                  Choose a team…
+                </option>
+                {moveTargets.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} · {sportLabel(t.sport)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <p className="player-move-hint">
+              Everything on the player comes along — their details, their jersey
+              number, the payments logged against them, and the acceptance form
+              they came in on. Their playing-time group is cleared, since groups
+              are set per team.
+            </p>
+
+            <div className="player-form-actions">
+              <button type="submit" className="btn" disabled={moving}>
+                {moving ? "Moving…" : "Move player"}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={closeMove}
+                disabled={moving}
+              >
+                Cancel
+              </button>
+              {moveError ? (
+                <p className="error player-form-msg" role="alert">
+                  {moveError}
                 </p>
               ) : null}
             </div>
@@ -196,10 +299,33 @@ export default function PlayerRow({
           <button
             type="button"
             className="row-edit"
-            onClick={() => setEditing(true)}
+            onClick={() => setMode("edit")}
           >
             Edit
           </button>
+          {/* Nowhere to move to on a one-team season, so the button stays off
+              the row entirely rather than opening an empty picker. */}
+          {moveTargets.length > 0 ? (
+            <button
+              type="button"
+              className="row-move"
+              onClick={(e) => {
+                // The actions column sits at the far right of a roster wide
+                // enough to scroll sideways, so the short form that replaces
+                // this row would open off the left edge of the view. Take the
+                // table back to its start along with it.
+                const scroller = e.currentTarget.closest(".roster-scroll");
+                if (scroller) scroller.scrollLeft = 0;
+                // Start clean: no stale choice, and no error from a previous
+                // attempt showing on a freshly opened form.
+                setTargetTeam("");
+                setSeenMove(moveState);
+                setMode("move");
+              }}
+            >
+              Move
+            </button>
+          ) : null}
           <ConfirmButton
             action={deletePlayerAction}
             hidden={{ playerId: player.id, division }}

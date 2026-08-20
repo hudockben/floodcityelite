@@ -317,6 +317,132 @@ export async function updatePlayerAction(
   return { ok: true };
 }
 
+// --- move a player to another team -----------------------------------------
+
+// Kids get moved between teams mid-season — a call-up, an age-group shuffle, a
+// roster rebalance. Retyping the player onto the new team and deleting the old
+// row would throw away everything hanging off their id: payments logged against
+// them, fundraiser entries, the acceptance form they came in on. So a move is
+// an update of players.team_id, and all of that comes along.
+//
+// Only teams in the SAME season are offered. A season is one division's run for
+// a year, and rosters, schedules and budgets all hang off the team, so moving
+// across seasons would drag a player's history into a year — or a division —
+// it was never part of. Putting a player in another division is a roster row of
+// its own, not a move.
+export async function movePlayerAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await getSession();
+  if (!session) return { error: "Your session has expired. Please sign in again." };
+
+  const playerId = Number.parseInt(String(formData.get("playerId") ?? ""), 10);
+  const teamId = Number.parseInt(String(formData.get("teamId") ?? ""), 10);
+
+  if (!Number.isFinite(playerId)) return { error: "Missing player." };
+  if (!Number.isFinite(teamId)) return { error: "Choose a team to move them to." };
+
+  try {
+    await ensureTeamsSchema();
+
+    // Where the player is now, and which season that team runs in — the season
+    // is what bounds where they can go. Scoped to this company so a stale form
+    // can't reach into someone else's roster.
+    const current = await sql()`
+      SELECT p.player_name, p.team_id, t.season_id
+      FROM players p
+      JOIN teams t ON t.id = p.team_id
+      WHERE p.id = ${playerId} AND t.company_id = ${session.companyId}
+    `;
+    if (current.length === 0) {
+      return { error: "That player is no longer on a roster." };
+    }
+    const from = current[0] as {
+      player_name: string;
+      team_id: number;
+      season_id: number | null;
+    };
+    const fromTeamId = Number(from.team_id);
+
+    if (fromTeamId === teamId) {
+      return { error: `${from.player_name} is already on that team.` };
+    }
+
+    const destination = await sql()`
+      SELECT id, season_id FROM teams
+      WHERE id = ${teamId} AND company_id = ${session.companyId}
+    `;
+    if (destination.length === 0) return { error: "That team no longer exists." };
+    const to = destination[0] as { season_id: number | null };
+    if (Number(to.season_id) !== Number(from.season_id)) {
+      return { error: "Pick one of this season's teams to move them to." };
+    }
+
+    // The move. Two things are reset along with the team:
+    //
+    //  • roster_group — the standing playing-time groups belong to the team
+    //    they left. "Group 3" means nothing on the new roster, and could sit
+    //    past the number of groups that team has been split into.
+    //
+    //  • jersey_locked — pin whatever number they wear. The acceptance-form
+    //    jersey automation reconciles a team from the submissions pointing at
+    //    it, and this player's submission still points at the team they left.
+    //    Unpinned, the old team's next accept would reassign a number to a
+    //    player who isn't on it any more, and the new team's next accept could
+    //    hand their number to somebody else. Pinning takes them out of both,
+    //    which is right: a person moved them, and a person sets their number
+    //    from here on (clearing the field on the editor unpins it again).
+    //
+    // Matching on the team we just read makes this a compare-and-swap: if the
+    // player moved (or was removed) between the read and this write, it lands
+    // on nothing rather than on a stale destination.
+    const moved = await sql()`
+      UPDATE players SET
+        team_id       = ${teamId},
+        roster_group  = NULL,
+        jersey_locked = true,
+        updated_at    = now()
+      WHERE id = ${playerId} AND team_id = ${fromTeamId}
+      RETURNING id
+    `;
+    if (moved.length === 0) {
+      return { error: "That player is no longer on a roster." };
+    }
+
+    // Per-event attendance exceptions were decisions about the old team's
+    // schedule — benching them from that team's tournament says nothing about
+    // this one — and a leftover row would come back to life if they were ever
+    // moved back. Best-effort on purpose: the move is already committed, and on
+    // a database where the Schedules tab has never been opened the table
+    // doesn't exist yet (in which case there is nothing to clean up).
+    try {
+      await sql()`
+        DELETE FROM event_attendance a
+        USING schedule_events e
+        WHERE a.event_id = e.id
+          AND a.player_id = ${playerId}
+          AND e.team_id = ${fromTeamId}
+      `;
+    } catch (err) {
+      console.error("movePlayer attendance cleanup error:", err);
+    }
+  } catch (err) {
+    console.error("movePlayer error:", err);
+    return { error: "Could not move the player. Please try again." };
+  }
+
+  // Both teams' rosters change, so everything that reads a roster by team
+  // follows: the paying-player counts on Budgets, the Schedules groups, and the
+  // team a player's payments are listed under.
+  revalidatePath("/teams");
+  revalidatePath("/budgets");
+  revalidatePath("/schedules");
+  revalidatePath("/payment-tracker");
+  revalidatePath("/fundraiser-tracker");
+  return { ok: true };
+}
+
 // --- toggle a player's paying status (inline roster checkbox) --------------
 
 // The roster's "Paying" checkbox posts here on every change. The desired state

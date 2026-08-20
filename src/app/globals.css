@@ -3284,6 +3284,26 @@ body {
   border-color: var(--accent-outline-hover-border);
 }
 
+/* "Move" sits between Edit and Remove: neither the accent of an edit nor the
+   red of a delete, since moving a player changes nothing about them. */
+.row-move {
+  padding: 5px 10px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.row-move:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
 .btn-secondary {
   padding: var(--btn-pad-y) var(--btn-pad-x);
   font-size: var(--text-base);
@@ -3324,6 +3344,26 @@ body {
 
 .player-edit-head strong {
   color: var(--text);
+}
+
+/* Moving a player: one field (where they're going) and a line on what travels
+   with them, so the picker doesn't stretch the width of the roster table. */
+.player-move-field {
+  max-width: 300px;
+}
+
+.player-move-hint {
+  margin: 12px 0 0;
+  /* The roster table is wider than a phone and scrolls sideways, so cap the
+     sentence against the screen as well as its own measure — otherwise it runs
+     off to the side. The subtraction is everything between the viewport edge
+     and the form's text: page, panel and card padding, plus the form's own. */
+  max-width: min(62ch, calc(100vw - 124px));
+  /* Roster cells are nowrap so the columns stay in step; this paragraph is the
+     one place in the table that has a sentence to wrap. */
+  white-space: normal;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
 }
 
 /* ---- Budgets ---- */

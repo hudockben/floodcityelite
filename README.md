@@ -264,6 +264,27 @@ per tenant and none of them is shared. The core ones are:
   scorer's notation for shortstop or a half-typed ordinal.) **Print / Save PDF**
   in that view opens `/teams/print/field`, which renders the same diagram —
   identical components, repainted for white paper — one team per portrait page.
+
+  **Moving a player between teams.** Kids get shuffled mid-season, so each
+  roster row has a **Move** button next to Edit and Remove. It opens a picker of
+  the other teams in the season being viewed and reassigns the player with a
+  single write to `players.team_id` — the row keeps its id, so their details,
+  their jersey number, the payments logged against them, their fundraiser
+  entries and the acceptance form they came in on all travel with them. Both
+  teams' rosters, paying-player counts and schedules follow immediately.
+
+  Only teams in the *same season* are offered. A season is one division's run
+  for a year and rosters, schedules and budgets all hang off the team, so a move
+  across seasons would drag a player's history into a year — or a division — it
+  was never part of; putting a player in another division is a roster row of its
+  own. Two things are deliberately reset on the way over: the player's
+  playing-time group (`roster_group`), since groups are the old team's, and
+  `jersey_locked`, which is switched on to pin whatever number they wear. That
+  pin matters because the jersey automation reconciles a team from the
+  submissions pointing at it, and a moved player's submission still names the
+  team they left — unpinned, that team's next accept would strip the number off
+  a player it no longer rosters. Their per-event attendance exceptions for the
+  old team's schedule are cleared for the same reason.
 - **`payments`** — payments logged against a player via `player_id`
   (`ON DELETE CASCADE`). Each row records `paid_on`, a `payment_type` (`check`
   or `cash`), an optional `check_number` (for check payments), and an `amount`.

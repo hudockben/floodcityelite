@@ -297,6 +297,9 @@ export default async function TeamsPage({
             <p>
               {players.length} {players.length === 1 ? "player" : "players"}{" "}
               across {teams.length} {teams.length === 1 ? "team" : "teams"}.
+              {teams.length > 1
+                ? " Use Move on a player's row to put them on another team in this season."
+                : null}
             </p>
           </div>
           {teams.length > 0 ? (
@@ -401,6 +404,7 @@ export default async function TeamsPage({
                               key={row.id}
                               player={row}
                               division={division.slug}
+                              teams={teamOptions}
                             />
                           ))}
                         </tbody>
