@@ -1,8 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import ExportButtons from "../export-buttons";
 import ConfirmButton from "../teams/confirm-button";
 import { divisionLabel } from "../teams/divisions";
 import {
@@ -11,15 +10,21 @@ import {
 } from "./actions";
 import CreateFundraiser from "./create-fundraiser";
 import EntryDraftRow, { type DraftInitial } from "./entry-draft-row";
+import FundraiserFilters from "./fundraiser-filters";
 import FundraiserSearch, { type PlayerMatch } from "./fundraiser-search";
 import {
+  NO_FUNDRAISER_FILTERS,
   TEAM_LEVEL_LABEL,
   formatDate,
   formatMoney,
+  isFiltering,
   ledgerRows,
+  matchesFundraiserFilters,
+  normalizeFundraiserFilters,
   raisedByFundraiser,
   sumEntryCents,
   type FundraiserEntryRow,
+  type FundraiserFilters as Filters,
   type FundraiserOption,
   type PlayerOption,
   type TeamOption,
@@ -48,6 +53,11 @@ export default function FundraiserTracker({
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const nextDraftId = useRef(1);
 
+  // The filter bar. Held raw and normalized against the log below, so a filter
+  // whose last entry has just been deleted drops itself rather than leaving an
+  // empty table with nothing on screen saying why.
+  const [rawFilters, setFilters] = useState<Filters>(NO_FUNDRAISER_FILTERS);
+
   function addDraft(initial?: DraftInitial) {
     setDrafts((cur) => [...cur, { id: nextDraftId.current++, initial }]);
   }
@@ -66,24 +76,46 @@ export default function FundraiserTracker({
     });
   }
 
-  // The Total column accumulates across saved entries in display order, so the
-  // last row's running total equals the grand total raised. Ordering and
-  // accumulation come from `ledgerRows`, which the download and the printed
-  // report use too — so none of the three can total the same rows differently.
-  const savedRows = ledgerRows(entries);
-  const grandTotalCents = sumEntryCents(entries);
+  const filters = useMemo(
+    () => normalizeFundraiserFilters(rawFilters, entries),
+    [rawFilters, entries],
+  );
+  const filtering = isFiltering(filters);
 
-  // Sum each fundraiser's raised amount so its card can show progress.
+  const shown = useMemo(
+    () => entries.filter((e) => matchesFundraiserFilters(e, filters)),
+    [entries, filters],
+  );
+
+  // The Total column accumulates across the entries on screen, in display
+  // order, so the last row's running total equals the total raised by the slice
+  // being shown. Ordering and accumulation come from `ledgerRows`, which the
+  // download and the printed report use too — so none of the three can total
+  // the same rows differently.
+  const savedRows = ledgerRows(shown);
+  const shownTotalCents = sumEntryCents(shown);
+  const totalCents = sumEntryCents(entries);
+
+  // Sum each fundraiser's raised amount so its card can show progress. Off
+  // every entry, not the filtered slice: the cards belong to step 1, where a
+  // fundraiser's own total is the whole point — filtering the log to one
+  // division shouldn't make the others look like they raised less.
   const raised = raisedByFundraiser(entries);
 
   const hasTeams = teams.length > 0;
   const hasFundraisers = fundraisers.length > 0;
 
-  // The spreadsheet download. No query beyond the format: nothing on this tab
-  // narrows the table, so the file is always the whole log. The PDF is a page
-  // rather than a file — the browser's own print dialog saves it.
-  const exportHref = (format: "csv" | "xlsx") =>
-    `/fundraiser-tracker/export?format=${format}`;
+  // The summary beside "Add Entry". The filter bar above already says how many
+  // rows are on screen out of how many, so this line carries the money — and
+  // both halves of it while the log is narrowed, since "how much did this one
+  // bring in, out of everything" is the question a filter is asked.
+  const countLine = filtering
+    ? `${formatMoney(shownTotalCents / 100)} of ${formatMoney(
+        totalCents / 100,
+      )} raised`
+    : `${entries.length} ${
+        entries.length === 1 ? "entry" : "entries"
+      } · ${formatMoney(totalCents / 100)} raised`;
 
   return (
     <div className="teams">
@@ -188,8 +220,8 @@ export default function FundraiserTracker({
           <p>
             Pick the division and team, then a player or the whole team, choose
             which fundraiser, and enter the amount raised. The Total column
-            accumulates every dollar, and a CSV, Excel or PDF download carries
-            the whole log with it.
+            accumulates every dollar. Narrow the log by fundraiser or division;
+            a CSV, Excel or PDF download carries exactly what the filters show.
           </p>
         </div>
 
@@ -210,25 +242,23 @@ export default function FundraiserTracker({
           </div>
         ) : (
           <>
-            {/* The search field adds to the log; the downloads take it away
-                with you. Nothing on this tab filters the table, so a download
-                always carries every entry below it. */}
-            <div className="fund-toolbar">
-              <FundraiserSearch
-                teams={teams}
-                players={players}
-                onPick={handlePick}
-              />
+            <FundraiserSearch
+              teams={teams}
+              players={players}
+              onPick={handlePick}
+            />
 
-              {entries.length > 0 ? (
-                <ExportButtons
-                  href={exportHref}
-                  pdfHref="/fundraiser-tracker/print"
-                  count={entries.length}
-                  nounPlural="entries"
-                />
-              ) : null}
-            </div>
+            {/* Nothing to narrow — and nothing to download — until something
+                has been logged. */}
+            {entries.length > 0 ? (
+              <FundraiserFilters
+                entries={entries}
+                fundraisers={fundraisers}
+                filters={filters}
+                onChange={setFilters}
+                shownCount={shown.length}
+              />
+            ) : null}
 
             <div className="pay-scroll">
               <table className="pay-table fund-table">
@@ -260,7 +290,20 @@ export default function FundraiserTracker({
                   {savedRows.length === 0 && drafts.length === 0 ? (
                     <tr>
                       <td colSpan={COL_COUNT} className="pay-empty">
-                        No fundraising logged yet — click “Add Entry” to log one.
+                        {filtering ? (
+                          <>
+                            No entries match these filters.{" "}
+                            <button
+                              type="button"
+                              className="dir-clear-all"
+                              onClick={() => setFilters(NO_FUNDRAISER_FILTERS)}
+                            >
+                              Clear filters
+                            </button>
+                          </>
+                        ) : (
+                          "No fundraising logged yet — click “Add Entry” to log one."
+                        )}
                       </td>
                     </tr>
                   ) : null}
@@ -325,10 +368,10 @@ export default function FundraiserTracker({
                 <tfoot>
                   <tr className="pay-total-row">
                     <td colSpan={6} className="pay-total-label">
-                      Total raised
+                      {filtering ? "Total raised (filtered)" : "Total raised"}
                     </td>
                     <td className="pay-num pay-grand">
-                      {formatMoney(grandTotalCents / 100)}
+                      {formatMoney(shownTotalCents / 100)}
                     </td>
                     <td />
                   </tr>
@@ -346,10 +389,7 @@ export default function FundraiserTracker({
                 <span aria-hidden="true">+</span> Add Entry
               </button>
               {hasFundraisers ? (
-                <span className="pay-count">
-                  {entries.length} {entries.length === 1 ? "entry" : "entries"} ·{" "}
-                  {formatMoney(grandTotalCents / 100)} raised
-                </span>
+                <span className="pay-count">{countLine}</span>
               ) : (
                 <span className="pay-count">
                   Create a fundraiser above before logging entries.

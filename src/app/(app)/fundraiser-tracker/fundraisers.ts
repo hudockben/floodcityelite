@@ -13,7 +13,11 @@
 //     mirroring the Payment Tracker's Total column.
 // ---------------------------------------------------------------------------
 
-import type { DivisionSlug } from "../teams/divisions";
+import {
+  divisionLabel,
+  isDivisionSlug,
+  type DivisionSlug,
+} from "../teams/divisions";
 
 // Dropdown option shapes for the cascading Division → Team → Player selects.
 export type TeamOption = { id: number; name: string; division: DivisionSlug };
@@ -126,3 +130,127 @@ export function raisedByFundraiser(
 
 /** The label a whole-team entry carries where a player name would go. */
 export const TEAM_LEVEL_LABEL = "Whole team";
+
+// --- filters ---------------------------------------------------------------
+
+/**
+ * The filter bar over the log. Both are exact matches on a single value, so a
+ * blank string means "not narrowing on that" rather than "match nothing".
+ *
+ * `fundraiser` is an id held as a string: it comes off a <select> value and a
+ * query param, and comparing it as text keeps the round trip through the URL
+ * from having to parse and re-print a number at every edge.
+ */
+export type FundraiserFilters = {
+  /** A fundraisers.id, as text. */
+  fundraiser: string;
+  /** A division slug. */
+  division: string;
+};
+
+export const NO_FUNDRAISER_FILTERS: FundraiserFilters = {
+  fundraiser: "",
+  division: "",
+};
+
+/**
+ * The whole filter bar as one predicate.
+ *
+ * Shared by the log, the CSV/Excel export route and the printed report so a
+ * download holds exactly the rows that were on screen — there's only one rule.
+ */
+export function matchesFundraiserFilters(
+  row: FundraiserEntryRow,
+  filters: FundraiserFilters,
+): boolean {
+  if (
+    filters.fundraiser !== "" &&
+    String(row.fundraiser_id) !== filters.fundraiser
+  ) {
+    return false;
+  }
+  if (filters.division !== "" && row.division !== filters.division) return false;
+  return true;
+}
+
+/**
+ * Drop a filter no entry in the log can satisfy any more.
+ *
+ * The two dropdowns only offer values the log actually uses. Without this,
+ * removing the last Softball entry would leave "Softball" applied behind a
+ * dropdown that no longer shows it — an empty table with nothing on screen
+ * saying why. It's also what keeps a hand-edited URL widening the download
+ * rather than silently emptying it, the way an unknown division slug does.
+ *
+ * Returns the same object when nothing is stale, so it can be memoized on.
+ */
+export function normalizeFundraiserFilters(
+  filters: FundraiserFilters,
+  entries: FundraiserEntryRow[],
+): FundraiserFilters {
+  const keepFundraiser =
+    filters.fundraiser === "" ||
+    entries.some((e) => String(e.fundraiser_id) === filters.fundraiser);
+  const keepDivision =
+    filters.division === "" ||
+    entries.some((e) => e.division === filters.division);
+
+  if (keepFundraiser && keepDivision) return filters;
+  return {
+    fundraiser: keepFundraiser ? filters.fundraiser : "",
+    division: keepDivision ? filters.division : "",
+  };
+}
+
+/** Whether anything is narrowing the log — drives the "Clear filters" reset. */
+export function isFiltering(filters: FundraiserFilters): boolean {
+  return filters.fundraiser !== "" || filters.division !== "";
+}
+
+/** The filter bar as query params, for the export and print links. */
+export function fundraiserFilterParams(
+  filters: FundraiserFilters,
+): URLSearchParams {
+  const params = new URLSearchParams();
+  if (filters.fundraiser !== "") params.set("fundraiser", filters.fundraiser);
+  if (filters.division !== "") params.set("division", filters.division);
+  return params;
+}
+
+/**
+ * The other half of fundraiserFilterParams: read the bar back off a request.
+ * Anything unrecognized falls back to "not filtering on that", so a hand-edited
+ * URL widens the download rather than silently emptying it. An id that parses
+ * but names no fundraiser is caught by normalizeFundraiserFilters, which sees
+ * the rows this can't.
+ */
+export function readFundraiserFilters(
+  params: URLSearchParams,
+): FundraiserFilters {
+  const fundraiser = params.get("fundraiser") ?? "";
+  const division = params.get("division") ?? "";
+  return {
+    fundraiser: /^[1-9]\d*$/.test(fundraiser) ? fundraiser : "",
+    division: isDivisionSlug(division) ? division : "",
+  };
+}
+
+/**
+ * A human summary of what's being shown, for the printed report's scope line —
+ * so a PDF handed to someone else says which slice of the log it holds. Takes
+ * the fundraisers because the filter carries an id and a reader needs the name.
+ */
+export function describeFundraiserFilters(
+  filters: FundraiserFilters,
+  fundraisers: FundraiserOption[],
+): string {
+  const parts: string[] = [];
+  if (filters.fundraiser !== "") {
+    const named = fundraisers.find(
+      (f) => String(f.id) === filters.fundraiser,
+    )?.name;
+    parts.push(named ?? `Fundraiser #${filters.fundraiser}`);
+  }
+  if (filters.division !== "") parts.push(divisionLabel(filters.division));
+  return parts.join(" · ");
+}

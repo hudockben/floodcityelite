@@ -6932,25 +6932,13 @@ body {
 
 /* ---- Fundraiser Tracker ---- */
 
-/* The row above the log: the search field that adds an entry, and the CSV /
-   Excel / PDF downloads that take the whole log away with you. They share a
-   line because they're the two things you do *to* the table, and .subs-export
-   already carries the margin-left:auto that strands the downloads at the right
-   end of it. Below ~640px the pair wraps under the field rather than squeezing
-   it down to nothing. */
-.fund-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-}
-
-/* The search brings its own top margin for the tabs that use it alone; here the
-   toolbar carries it, so the field and the buttons sit on one baseline. */
-.fund-toolbar .pay-search {
-  flex: 1 1 280px;
-  margin-top: 0;
+/* The log's filter bar. Like the Payment Tracker's it reuses the directory bar
+   (.dir-*) so the controls match Contact Info and Hotels; it carries only two
+   dropdowns, so nothing here needs its own width. It sits between the
+   add-an-entry search field and the table, so it gets a little less top margin
+   than a bar that opens a tab. */
+.fund-filters {
+  margin-top: var(--space-3);
 }
 
 /* The entries grid reuses the Payment Tracker's .pay-* table styles; only the

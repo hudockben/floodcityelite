@@ -4,10 +4,15 @@ import { divisionLabel } from "../../teams/divisions";
 import {
   TEAM_LEVEL_LABEL,
   amountToCents,
+  describeFundraiserFilters,
   formatDate,
   formatMoney,
+  isFiltering,
   ledgerRows,
+  matchesFundraiserFilters,
+  normalizeFundraiserFilters,
   raisedByFundraiser,
+  readFundraiserFilters,
   sumEntryCents,
   type FundraiserEntryRow,
   type FundraiserOption,
@@ -17,11 +22,13 @@ import PrintControls from "./print-controls";
 
 // The printable / save-as-PDF view of the fundraising log.
 //
-// The rows, their order and the running Total column all come from the same
-// place the tab and the CSV/Excel download read them from, so a report handed
-// to a board or a parent can't disagree with the screen it was printed off.
-// Above the log sits a line per fundraiser — raised, goal, and progress — since
-// that's the question a fundraising report is usually asked to answer.
+// The tab's fundraiser and division filters ride along as query params — the
+// same ones the CSV/Excel download uses — and are re-applied here with the very
+// same predicate, so a report handed to a board or a parent can't disagree with
+// the screen it was printed off. The scope line under the title spells those
+// filters out, so the report says which slice of the log it covers. Above the
+// log sits a line per fundraiser — raised, goal, and progress — since that's
+// the question a fundraising report is usually asked to answer.
 export const dynamic = "force-dynamic";
 
 // Deterministic "Month D, YYYY" for the generated-on line (UTC, no locale).
@@ -41,18 +48,40 @@ function goalCents(fundraiser: FundraiserOption): number | null {
   return cents > 0 ? cents : null;
 }
 
-export default async function FundraiserTrackerPrintPage() {
+/** Next hands params through as string | string[]; take the first of each. */
+function toSearchParams(
+  params: Record<string, string | string[] | undefined>,
+): URLSearchParams {
+  const out = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    const first = Array.isArray(value) ? value[0] : value;
+    if (first != null) out.set(key, first);
+  }
+  return out;
+}
+
+export default async function FundraiserTrackerPrintPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getSession();
   if (!session) redirect("/");
 
+  const params = toSearchParams(await searchParams);
+
   let fundraisers: FundraiserOption[] = [];
   let entries: FundraiserEntryRow[] = [];
+  let filters = readFundraiserFilters(params);
   let loadError = false;
 
   try {
     const data = await loadFundraiserReport(session.companyId);
     fundraisers = data.fundraisers;
-    entries = data.entries;
+    // Normalized against the log first, so a filter naming a fundraiser nothing
+    // was raised toward widens the report rather than emptying it.
+    filters = normalizeFundraiserFilters(filters, data.entries);
+    entries = data.entries.filter((e) => matchesFundraiserFilters(e, filters));
   } catch (err) {
     console.error("Fundraiser Tracker print load error:", err);
     loadError = true;
@@ -67,11 +96,15 @@ export default async function FundraiserTrackerPrintPage() {
   const rows = ledgerRows(entries);
 
   // Only the fundraisers this report actually covers: one with nothing logged
-  // against it has no line to add, and a summary of empty rows buries the ones
-  // that matter.
+  // against it — or nothing left after the filters — has no line to add, and a
+  // summary of empty rows buries the ones that matter.
   const summary = fundraisers
     .map((f) => ({ fundraiser: f, cents: raised.get(f.id) ?? 0 }))
     .filter((s) => s.cents > 0);
+
+  const filtering = isFiltering(filters);
+  const scope =
+    describeFundraiserFilters(filters, fundraisers) || "All fundraising logged";
 
   return (
     <div className="print-view">
@@ -79,6 +112,11 @@ export default async function FundraiserTrackerPrintPage() {
           down the page than across it. Scoped to this route only. */}
       <style>{"@media print { @page { size: letter portrait; margin: 0.5in; } }"}</style>
 
+      {/* Plain, with no filters appended: the tab holds them in client state
+          and doesn't read them off the URL, so a link carrying them would land
+          on an unfiltered log under an address claiming otherwise. The report
+          opens in its own tab anyway — the filtered log is still sitting behind
+          it. */}
       <PrintControls backHref="/fundraiser-tracker" />
 
       <article className="print-doc">
@@ -88,7 +126,7 @@ export default async function FundraiserTrackerPrintPage() {
                 hard-coded club — the portal serves more than one. */}
             <p className="print-brand">{session.companyName}</p>
             <h1 className="print-doc-title">Fundraising Report</h1>
-            <p className="print-doc-scope">All fundraising logged</p>
+            <p className="print-doc-scope">{scope}</p>
           </div>
           <p className="print-doc-meta">
             Generated {todayLabel()}
@@ -103,7 +141,11 @@ export default async function FundraiserTrackerPrintPage() {
             Fundraiser Tracker and try again.
           </p>
         ) : rows.length === 0 ? (
-          <p className="print-note">No fundraising has been logged yet.</p>
+          <p className="print-note">
+            {filtering
+              ? "No entries match these filters."
+              : "No fundraising has been logged yet."}
+          </p>
         ) : (
           <>
             <div className="print-pay-summary">
