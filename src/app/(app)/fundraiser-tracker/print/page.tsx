@@ -22,8 +22,9 @@ import PrintControls from "./print-controls";
 
 // The printable / save-as-PDF view of the fundraising log.
 //
-// The tab's fundraiser and division filters ride along as query params — the
-// same ones the CSV/Excel download uses — and are re-applied here with the very
+// The tab's fundraiser, division and date-range filters ride along as query
+// params — the same ones the CSV/Excel download uses — and are re-applied here
+// with the very
 // same predicate, so a report handed to a board or a parent can't disagree with
 // the screen it was printed off. The scope line under the title spells those
 // filters out, so the report says which slice of the log it covers. Above the

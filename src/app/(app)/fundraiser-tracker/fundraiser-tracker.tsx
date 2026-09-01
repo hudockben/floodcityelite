@@ -220,8 +220,9 @@ export default function FundraiserTracker({
           <p>
             Pick the division and team, then a player or the whole team, choose
             which fundraiser, and enter the amount raised. The Total column
-            accumulates every dollar. Narrow the log by fundraiser or division;
-            a CSV, Excel or PDF download carries exactly what the filters show.
+            accumulates every dollar. Narrow the log by fundraiser, division or
+            date; a CSV, Excel or PDF download carries exactly what the filters
+            show.
           </p>
         </div>
 

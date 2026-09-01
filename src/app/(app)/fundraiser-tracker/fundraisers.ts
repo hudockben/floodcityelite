@@ -146,12 +146,22 @@ export type FundraiserFilters = {
   fundraiser: string;
   /** A division slug. */
   division: string;
+  /** Inclusive YYYY-MM-DD bounds on the date raised; "" is open-ended. */
+  from: string;
+  to: string;
 };
 
 export const NO_FUNDRAISER_FILTERS: FundraiserFilters = {
   fundraiser: "",
   division: "",
+  from: "",
+  to: "",
 };
+
+/** A "YYYY-MM-DD" date, or "" for anything else (e.g. a hand-edited param). */
+export function isoDateOrBlank(value: string | null | undefined): string {
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+}
 
 /**
  * The whole filter bar as one predicate.
@@ -170,6 +180,13 @@ export function matchesFundraiserFilters(
     return false;
   }
   if (filters.division !== "" && row.division !== filters.division) return false;
+
+  // raised_on is a DATE read as text, so "YYYY-MM-DD" compares correctly as a
+  // string — no Date object, and so no time-zone shift at the range edges.
+  const day = row.raised_on.slice(0, 10);
+  if (filters.from !== "" && day < filters.from) return false;
+  if (filters.to !== "" && day > filters.to) return false;
+
   return true;
 }
 
@@ -181,6 +198,10 @@ export function matchesFundraiserFilters(
  * dropdown that no longer shows it — an empty table with nothing on screen
  * saying why. It's also what keeps a hand-edited URL widening the download
  * rather than silently emptying it, the way an unknown division slug does.
+ *
+ * The date range is left alone: it's a free range the user typed rather than a
+ * value picked out of the log, so there's no such thing as a stale one. A range
+ * matching nothing shows the empty row's "Clear filters", not a silent reset.
  *
  * Returns the same object when nothing is stale, so it can be memoized on.
  */
@@ -197,6 +218,7 @@ export function normalizeFundraiserFilters(
 
   if (keepFundraiser && keepDivision) return filters;
   return {
+    ...filters,
     fundraiser: keepFundraiser ? filters.fundraiser : "",
     division: keepDivision ? filters.division : "",
   };
@@ -204,7 +226,12 @@ export function normalizeFundraiserFilters(
 
 /** Whether anything is narrowing the log — drives the "Clear filters" reset. */
 export function isFiltering(filters: FundraiserFilters): boolean {
-  return filters.fundraiser !== "" || filters.division !== "";
+  return (
+    filters.fundraiser !== "" ||
+    filters.division !== "" ||
+    filters.from !== "" ||
+    filters.to !== ""
+  );
 }
 
 /** The filter bar as query params, for the export and print links. */
@@ -214,6 +241,8 @@ export function fundraiserFilterParams(
   const params = new URLSearchParams();
   if (filters.fundraiser !== "") params.set("fundraiser", filters.fundraiser);
   if (filters.division !== "") params.set("division", filters.division);
+  if (filters.from !== "") params.set("from", filters.from);
+  if (filters.to !== "") params.set("to", filters.to);
   return params;
 }
 
@@ -232,7 +261,17 @@ export function readFundraiserFilters(
   return {
     fundraiser: /^[1-9]\d*$/.test(fundraiser) ? fundraiser : "",
     division: isDivisionSlug(division) ? division : "",
+    from: isoDateOrBlank(params.get("from")),
+    to: isoDateOrBlank(params.get("to")),
   };
+}
+
+/** "Jul 1, 2026 – Aug 3, 2026" / "On or after …" / "" for no range at all. */
+export function describeDateRange(from: string, to: string): string {
+  if (from !== "" && to !== "") return `${formatDate(from)} – ${formatDate(to)}`;
+  if (from !== "") return `On or after ${formatDate(from)}`;
+  if (to !== "") return `On or before ${formatDate(to)}`;
+  return "";
 }
 
 /**
@@ -252,5 +291,7 @@ export function describeFundraiserFilters(
     parts.push(named ?? `Fundraiser #${filters.fundraiser}`);
   }
   if (filters.division !== "") parts.push(divisionLabel(filters.division));
+  const range = describeDateRange(filters.from, filters.to);
+  if (range !== "") parts.push(range);
   return parts.join(" · ");
 }

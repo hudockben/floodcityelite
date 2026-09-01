@@ -12,8 +12,9 @@ import {
   type FundraiserOption,
 } from "./fundraisers";
 
-// The filter bar over the log: which fundraiser, and which division. Both are
-// client-side — every entry is already on the page, so narrowing is instant.
+// The filter bar over the log: which fundraiser, which division, and a date
+// range. All of it is client-side — every entry is already on the page, so
+// narrowing is instant.
 //
 // The two dropdowns are driven by what's actually in the log — a fundraiser or
 // division only shows up once some entry uses it, and only when there's more
@@ -24,7 +25,9 @@ import {
 // hiding its dropdown would leave no way to see or undo it.
 //
 // `filters` arrives already normalized against the log, so a value no entry can
-// satisfy at all is never left silently applied either.
+// satisfy at all is never left silently applied either. The date range is
+// always offered: it isn't drawn from the rows, so there's no such thing as a
+// range the log can't offer.
 //
 // The download links carry the same filters as query params, so a CSV, Excel
 // file or PDF holds exactly the rows on screen.
@@ -122,6 +125,32 @@ export default function FundraiserFilters({
           </select>
         </div>
       ) : null}
+
+      <div className="dir-filter">
+        {/* Not a <label>: it heads two inputs, and each carries its own. */}
+        <span className="dir-filter-label">Dates</span>
+        {/* Each bound caps the other so the picker can't offer a range that
+            reads backwards and would show nothing. */}
+        <input
+          type="date"
+          className="dir-input dir-date"
+          value={filters.from}
+          max={filters.to || undefined}
+          aria-label="Raised on or after"
+          onChange={(e) => set("from", e.target.value)}
+        />
+        <span className="dir-range-sep" aria-hidden="true">
+          –
+        </span>
+        <input
+          type="date"
+          className="dir-input dir-date"
+          value={filters.to}
+          min={filters.from || undefined}
+          aria-label="Raised on or before"
+          onChange={(e) => set("to", e.target.value)}
+        />
+      </div>
 
       {/* The count only. What the shown entries add up to reads on the line
           beside "Add Entry", a few pixels below — saying it twice is noise. */}

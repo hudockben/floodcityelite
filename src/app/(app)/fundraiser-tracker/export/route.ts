@@ -14,8 +14,9 @@ import { loadFundraiserEntries } from "../load-fundraisers";
 
 // Download the fundraising log as a spreadsheet.
 //
-// The tab's fundraiser and division filters ride along as query params and are
-// re-applied here with the very same predicate the log uses, so the file holds
+// The tab's fundraiser, division and date-range filters ride along as query
+// params and are re-applied here with the very same predicate the log uses, so
+// the file holds
 // exactly the rows that were on screen — the running Total column included.
 // Never cached: the download must reflect the log as it stands right now.
 export const dynamic = "force-dynamic";
