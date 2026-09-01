@@ -4645,6 +4645,19 @@ body {
   margin-top: 20px;
 }
 
+/* The fundraising report runs a per-fundraiser breakdown above the full log,
+   so its second heading needs the same air the camp report's stacked ones do.
+   The breakdown is kept off one sheet's worth of rows so a short report reads
+   as two tables rather than one run-on. */
+.print-fund-sub {
+  margin-top: 22px;
+}
+
+.print-fund-breakdown {
+  margin-bottom: 4px;
+  break-inside: avoid;
+}
+
 .print-exp-table {
   width: 100%;
   border-collapse: collapse;
@@ -6918,6 +6931,27 @@ body {
 }
 
 /* ---- Fundraiser Tracker ---- */
+
+/* The row above the log: the search field that adds an entry, and the CSV /
+   Excel / PDF downloads that take the whole log away with you. They share a
+   line because they're the two things you do *to* the table, and .subs-export
+   already carries the margin-left:auto that strands the downloads at the right
+   end of it. Below ~640px the pair wraps under the field rather than squeezing
+   it down to nothing. */
+.fund-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+/* The search brings its own top margin for the tabs that use it alone; here the
+   toolbar carries it, so the field and the buttons sit on one baseline. */
+.fund-toolbar .pay-search {
+  flex: 1 1 280px;
+  margin-top: 0;
+}
 
 /* The entries grid reuses the Payment Tracker's .pay-* table styles; only the
    column widths differ (a Fundraiser column replaces Type + Check #). The

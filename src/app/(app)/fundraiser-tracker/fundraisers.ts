@@ -67,3 +67,62 @@ export function formatMoney(value: string | number): string {
   if (!Number.isFinite(n)) return "$0.00";
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
+
+// --- totals ----------------------------------------------------------------
+
+/** "150.00" -> 15000. Rounds so a stray fraction can't leak into the total. */
+export function amountToCents(amount: string | number): number {
+  const n = typeof amount === "number" ? amount : Number(amount);
+  return Number.isFinite(n) ? Math.round(n * 100) : 0;
+}
+
+/** What a set of entries adds up to, in cents. */
+export function sumEntryCents(entries: FundraiserEntryRow[]): number {
+  return entries.reduce((cents, e) => cents + amountToCents(e.amount), 0);
+}
+
+/** An entry with the tab's Total column beside it, in cents. */
+export type LedgerRow = { entry: FundraiserEntryRow; runningTotalCents: number };
+
+/**
+ * The log as every surface shows it: oldest entry first, each row carrying the
+ * total raised *through* that entry, so the last row's Total is the grand
+ * total for the whole file.
+ *
+ * Takes the entries in the order listFundraiserEntries returns them (oldest
+ * first) — the only order a running total can accumulate in, since the total as
+ * of an entry can't include money logged after it. The tab, the CSV/Excel
+ * download and the printed report all come through here, so none of the three
+ * can put the same rows in a different order or total them a different way.
+ *
+ * Summed in cents rather than dollars: a long log of floats drifts, and a
+ * report whose Total column is a penny off the amounts above it is a report
+ * somebody has to go and reconcile by hand.
+ */
+export function ledgerRows(entries: FundraiserEntryRow[]): LedgerRow[] {
+  let cents = 0;
+  return entries.map((entry) => {
+    cents += amountToCents(entry.amount);
+    return { entry, runningTotalCents: cents };
+  });
+}
+
+/**
+ * Each fundraiser's total raised, in cents, keyed by fundraiser id. Drives the
+ * progress on the fundraiser cards and the summary strip on the report.
+ */
+export function raisedByFundraiser(
+  entries: FundraiserEntryRow[],
+): Map<number, number> {
+  const totals = new Map<number, number>();
+  for (const e of entries) {
+    totals.set(
+      e.fundraiser_id,
+      (totals.get(e.fundraiser_id) ?? 0) + amountToCents(e.amount),
+    );
+  }
+  return totals;
+}
+
+/** The label a whole-team entry carries where a player name would go. */
+export const TEAM_LEVEL_LABEL = "Whole team";

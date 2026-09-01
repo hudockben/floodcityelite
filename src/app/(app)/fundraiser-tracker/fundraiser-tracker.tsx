@@ -2,8 +2,9 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import ExportButtons from "../export-buttons";
 import ConfirmButton from "../teams/confirm-button";
-import { DIVISIONS } from "../teams/divisions";
+import { divisionLabel } from "../teams/divisions";
 import {
   deleteFundraiserAction,
   deleteFundraiserEntryAction,
@@ -12,8 +13,12 @@ import CreateFundraiser from "./create-fundraiser";
 import EntryDraftRow, { type DraftInitial } from "./entry-draft-row";
 import FundraiserSearch, { type PlayerMatch } from "./fundraiser-search";
 import {
+  TEAM_LEVEL_LABEL,
   formatDate,
   formatMoney,
+  ledgerRows,
+  raisedByFundraiser,
+  sumEntryCents,
   type FundraiserEntryRow,
   type FundraiserOption,
   type PlayerOption,
@@ -26,10 +31,6 @@ type Draft = { id: number; initial?: DraftInitial };
 
 // Date, Division, Team, Player, Fundraiser, Amount, Total, Actions.
 const COL_COUNT = 8;
-
-function divisionLabel(slug: string): string {
-  return DIVISIONS.find((d) => d.slug === slug)?.label ?? slug;
-}
 
 export default function FundraiserTracker({
   teams,
@@ -66,25 +67,23 @@ export default function FundraiserTracker({
   }
 
   // The Total column accumulates across saved entries in display order, so the
-  // last row's running total equals the grand total raised.
-  let running = 0;
-  const savedRows = entries.map((entry) => {
-    running += Number(entry.amount) || 0;
-    return { entry, runningTotal: running };
-  });
-  const grandTotal = running;
+  // last row's running total equals the grand total raised. Ordering and
+  // accumulation come from `ledgerRows`, which the download and the printed
+  // report use too — so none of the three can total the same rows differently.
+  const savedRows = ledgerRows(entries);
+  const grandTotalCents = sumEntryCents(entries);
 
   // Sum each fundraiser's raised amount so its card can show progress.
-  const raisedByFundraiser = new Map<number, number>();
-  for (const e of entries) {
-    raisedByFundraiser.set(
-      e.fundraiser_id,
-      (raisedByFundraiser.get(e.fundraiser_id) ?? 0) + (Number(e.amount) || 0),
-    );
-  }
+  const raised = raisedByFundraiser(entries);
 
   const hasTeams = teams.length > 0;
   const hasFundraisers = fundraisers.length > 0;
+
+  // The spreadsheet download. No query beyond the format: nothing on this tab
+  // narrows the table, so the file is always the whole log. The PDF is a page
+  // rather than a file — the browser's own print dialog saves it.
+  const exportHref = (format: "csv" | "xlsx") =>
+    `/fundraiser-tracker/export?format=${format}`;
 
   return (
     <div className="teams">
@@ -120,12 +119,12 @@ export default function FundraiserTracker({
         ) : (
           <ul className="fund-list">
             {fundraisers.map((f) => {
-              const raised = raisedByFundraiser.get(f.id) ?? 0;
+              const raisedAmt = (raised.get(f.id) ?? 0) / 100;
               const goalNum =
                 f.goal != null && f.goal !== "" ? Number(f.goal) : null;
               const pct =
                 goalNum && goalNum > 0
-                  ? Math.min(100, Math.round((raised / goalNum) * 100))
+                  ? Math.min(100, Math.round((raisedAmt / goalNum) * 100))
                   : null;
               return (
                 <li key={f.id} className="fund-item">
@@ -148,7 +147,9 @@ export default function FundraiserTracker({
                   ) : null}
 
                   <div className="fund-item-raised">
-                    <span className="fund-raised-amt">{formatMoney(raised)}</span>
+                    <span className="fund-raised-amt">
+                      {formatMoney(raisedAmt)}
+                    </span>
                     <span className="fund-raised-goal">
                       {goalNum != null
                         ? ` of ${formatMoney(goalNum)} goal`
@@ -187,7 +188,8 @@ export default function FundraiserTracker({
           <p>
             Pick the division and team, then a player or the whole team, choose
             which fundraiser, and enter the amount raised. The Total column
-            accumulates every dollar.
+            accumulates every dollar, and a CSV, Excel or PDF download carries
+            the whole log with it.
           </p>
         </div>
 
@@ -208,11 +210,25 @@ export default function FundraiserTracker({
           </div>
         ) : (
           <>
-            <FundraiserSearch
-              teams={teams}
-              players={players}
-              onPick={handlePick}
-            />
+            {/* The search field adds to the log; the downloads take it away
+                with you. Nothing on this tab filters the table, so a download
+                always carries every entry below it. */}
+            <div className="fund-toolbar">
+              <FundraiserSearch
+                teams={teams}
+                players={players}
+                onPick={handlePick}
+              />
+
+              {entries.length > 0 ? (
+                <ExportButtons
+                  href={exportHref}
+                  pdfHref="/fundraiser-tracker/print"
+                  count={entries.length}
+                  nounPlural="entries"
+                />
+              ) : null}
+            </div>
 
             <div className="pay-scroll">
               <table className="pay-table fund-table">
@@ -249,7 +265,7 @@ export default function FundraiserTracker({
                     </tr>
                   ) : null}
 
-                  {savedRows.map(({ entry, runningTotal }) => (
+                  {savedRows.map(({ entry, runningTotalCents }) => (
                     <tr key={entry.id}>
                       <td className="pay-nowrap">{formatDate(entry.raised_on)}</td>
                       <td
@@ -263,10 +279,12 @@ export default function FundraiserTracker({
                       </td>
                       <td
                         className="col-name pay-trunc"
-                        title={entry.player_name ?? "Whole team"}
+                        title={entry.player_name ?? TEAM_LEVEL_LABEL}
                       >
                         {entry.player_name ?? (
-                          <span className="fund-team-level">Whole team</span>
+                          <span className="fund-team-level">
+                            {TEAM_LEVEL_LABEL}
+                          </span>
                         )}
                       </td>
                       <td className="pay-trunc" title={entry.fundraiser_name}>
@@ -274,7 +292,7 @@ export default function FundraiserTracker({
                       </td>
                       <td className="pay-num">{formatMoney(entry.amount)}</td>
                       <td className="pay-num pay-running">
-                        {formatMoney(runningTotal)}
+                        {formatMoney(runningTotalCents / 100)}
                       </td>
                       <td className="col-actions">
                         <ConfirmButton
@@ -309,7 +327,9 @@ export default function FundraiserTracker({
                     <td colSpan={6} className="pay-total-label">
                       Total raised
                     </td>
-                    <td className="pay-num pay-grand">{formatMoney(grandTotal)}</td>
+                    <td className="pay-num pay-grand">
+                      {formatMoney(grandTotalCents / 100)}
+                    </td>
                     <td />
                   </tr>
                 </tfoot>
@@ -328,7 +348,7 @@ export default function FundraiserTracker({
               {hasFundraisers ? (
                 <span className="pay-count">
                   {entries.length} {entries.length === 1 ? "entry" : "entries"} ·{" "}
-                  {formatMoney(grandTotal)} raised
+                  {formatMoney(grandTotalCents / 100)} raised
                 </span>
               ) : (
                 <span className="pay-count">

@@ -7,6 +7,16 @@
 //
 // `count` is what those filters currently show — it goes into the accessible
 // label so the buttons say what they'll actually produce.
+/**
+ * "payments" -> "payment", "entries" -> "entry". Only for the accessible label
+ * on a single row, so it covers the two shapes the tabs' nouns actually take
+ * rather than trying to be a general English pluralizer.
+ */
+function singular(plural: string): string {
+  if (plural.endsWith("ies")) return `${plural.slice(0, -3)}y`;
+  return plural.replace(/s$/, "");
+}
+
 export default function ExportButtons({
   href,
   pdfHref,
@@ -30,7 +40,7 @@ export default function ExportButtons({
   count: number;
   nounPlural: string;
 }) {
-  const label = `${count} ${count === 1 ? nounPlural.replace(/s$/, "") : nounPlural}`;
+  const label = `${count} ${count === 1 ? singular(nounPlural) : nounPlural}`;
   return (
     <div className="subs-export">
       <a
