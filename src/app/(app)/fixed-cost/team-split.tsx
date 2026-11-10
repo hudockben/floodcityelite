@@ -13,6 +13,13 @@ import {
 // Tuition varies by age and by season, so the two splits land differently on
 // every team — this is where that difference is read off, side by side, before
 // (and after) picking one. The column in use is the one the Budgets tab runs on.
+//
+// A team whose portion to team budget is set by hand on the Budgets tab takes
+// neither split: the override pins what reaches the team, and whatever's left of
+// its tuition after it is what the team actually puts toward the fixed cost.
+// Its row still shows what each split *would* give, so the override can be
+// weighed against clearing it, but the covered totals count what it really
+// covers.
 
 type Cell = {
   /** Fixed cost per player, in cents. */
@@ -25,15 +32,51 @@ function cellFor(tuitionCents: number, fixedCents: number): Cell {
   return { fixedCents, keepsCents: tuitionCents - fixedCents };
 }
 
+/**
+ * What a team whose portion is set by hand actually puts toward the fixed cost
+ * per player, in cents: its tuition less that portion. The override pins it, so
+ * it's the same under both splits — and negative when the portion is more than
+ * the tuition, which costs the program money on every player. Null when no
+ * tuition is entered to measure the portion against.
+ */
+function handSetCoverCents(team: FixedCostTeam): number | null {
+  if (team.portionOverrideCents == null || team.tuitionCents <= 0) return null;
+  return team.tuitionCents - team.portionOverrideCents;
+}
+
 /** "keeps $48.32 (5%)" — or why there's nothing to say yet. */
-function Keeps({ tuitionCents, cell }: { tuitionCents: number; cell: Cell }) {
+function Keeps({
+  tuitionCents,
+  cell,
+  handSet,
+}: {
+  tuitionCents: number;
+  cell: Cell;
+  /** The team's portion is set by hand, so this split is only what it'd be. */
+  handSet: boolean;
+}) {
   if (tuitionCents <= 0) {
     return <span className="fx-split-sub">no tuition yet</span>;
   }
   const pct = Math.round((cell.keepsCents / tuitionCents) * 100);
   return (
     <span className={`fx-split-sub${cell.keepsCents < 0 ? " fx-split-neg" : ""}`}>
-      keeps {formatCents(cell.keepsCents)} ({pct}%)
+      {handSet ? "would keep" : "keeps"} {formatCents(cell.keepsCents)} ({pct}%)
+    </span>
+  );
+}
+
+/** Under a hand-set team's name: what it keeps, and what that leaves. */
+function HandSetNote({ team }: { team: FixedCostTeam }) {
+  const cover = handSetCoverCents(team);
+  return (
+    <span className={`fx-split-sub${cover != null && cover < 0 ? " fx-split-neg" : ""}`}>
+      set by hand on Budgets: keeps {formatCents(team.portionOverrideCents ?? 0)}
+      {cover == null
+        ? " · no tuition entered"
+        : cover >= 0
+          ? `, ${formatCents(cover)} to fixed cost`
+          : `, ${formatCents(-cover)} more than its tuition`}
     </span>
   );
 }
@@ -56,6 +99,7 @@ export default function TeamSplit({
 }) {
   const rows = teams.map((t) => ({
     team: t,
+    handSet: t.portionOverrideCents != null,
     equal: cellFor(t.tuitionCents, perPlayerCents),
     share: cellFor(
       t.tuitionCents,
@@ -63,17 +107,25 @@ export default function TeamSplit({
     ),
   }));
 
-  // What each split actually takes off team budgets: paying players × fixed
-  // cost per player, for every team that doesn't set its portion by hand (its
-  // tuition never has the fixed cost taken off).
-  let equalChargedCents = 0;
-  let shareChargedCents = 0;
+  // How much of the year's total the teams cover under each split: paying
+  // players × fixed cost per player. A hand-set team counts at what it actually
+  // puts toward the fixed cost — tuition less its hand-set portion — the same
+  // under both splits, since the override pins it. Without that it would read
+  // as covering nothing, when everything its portion doesn't take still goes to
+  // the program.
+  let equalCoveredCents = 0;
+  let shareCoveredCents = 0;
   for (const r of rows) {
-    if (r.team.manualPortion) continue;
-    equalChargedCents += r.team.payingCount * r.equal.fixedCents;
-    shareChargedCents += r.team.payingCount * r.share.fixedCents;
+    if (r.handSet) {
+      const covered = r.team.payingCount * (handSetCoverCents(r.team) ?? 0);
+      equalCoveredCents += covered;
+      shareCoveredCents += covered;
+    } else {
+      equalCoveredCents += r.team.payingCount * r.equal.fixedCents;
+      shareCoveredCents += r.team.payingCount * r.share.fixedCents;
+    }
   }
-  const manualCount = teams.filter((t) => t.manualPortion).length;
+  const handSetCount = rows.filter((r) => r.handSet).length;
 
   // Every division in tab order, then any value the list doesn't know (so a
   // team is never silently dropped from the breakdown).
@@ -96,7 +148,7 @@ export default function TeamSplit({
   const labelFor = (m: SplitMethod) =>
     SPLIT_METHODS.find((s) => s.value === m)?.label ?? m;
 
-  const charged = (cents: number) => (
+  const covered = (cents: number) => (
     <>
       {formatCents(cents)}
       <span className="fx-split-sub">
@@ -145,67 +197,83 @@ export default function TeamSplit({
                   </span>
                 </th>
               </tr>
-              {g.rows.map(({ team, equal, share }) => (
-                <tr key={team.id}>
-                  <th scope="row" className="fx-split-team">
-                    {team.name}
-                    {team.manualPortion ? (
-                      <span className="fx-split-sub">
-                        portion set by hand on Budgets
-                      </span>
-                    ) : null}
-                  </th>
-                  <td className="fx-split-num">{team.payingCount}</td>
-                  <td className="fx-split-num">
-                    {team.tuitionCents > 0 ? (
-                      formatCents(team.tuitionCents)
-                    ) : (
-                      <span className="fx-split-muted">—</span>
-                    )}
-                  </td>
-                  <td className={`fx-split-num${activeClass("per_player")}`}>
-                    {formatCents(equal.fixedCents)}
-                    <Keeps tuitionCents={team.tuitionCents} cell={equal} />
-                  </td>
-                  <td className={`fx-split-num${activeClass("tuition")}`}>
-                    {team.tuitionCents > 0 ? (
-                      formatCents(share.fixedCents)
-                    ) : (
-                      <span className="fx-split-muted">—</span>
-                    )}
-                    <Keeps tuitionCents={team.tuitionCents} cell={share} />
-                  </td>
-                </tr>
-              ))}
+              {g.rows.map(({ team, handSet, equal, share }) => {
+                // A hand-set team's split figures are only what they'd be.
+                const would = handSet ? " fx-split-would" : "";
+                return (
+                  <tr key={team.id}>
+                    <th scope="row" className="fx-split-team">
+                      {team.name}
+                      {handSet ? <HandSetNote team={team} /> : null}
+                    </th>
+                    <td className="fx-split-num">{team.payingCount}</td>
+                    <td className="fx-split-num">
+                      {team.tuitionCents > 0 ? (
+                        formatCents(team.tuitionCents)
+                      ) : (
+                        <span className="fx-split-muted">—</span>
+                      )}
+                    </td>
+                    <td
+                      className={`fx-split-num${activeClass("per_player")}${would}`}
+                    >
+                      {formatCents(equal.fixedCents)}
+                      <Keeps
+                        tuitionCents={team.tuitionCents}
+                        cell={equal}
+                        handSet={handSet}
+                      />
+                    </td>
+                    <td
+                      className={`fx-split-num${activeClass("tuition")}${would}`}
+                    >
+                      {team.tuitionCents > 0 ? (
+                        formatCents(share.fixedCents)
+                      ) : (
+                        <span className="fx-split-muted">—</span>
+                      )}
+                      <Keeps
+                        tuitionCents={team.tuitionCents}
+                        cell={share}
+                        handSet={handSet}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           ))}
 
           <tfoot>
             <tr>
               <th scope="row" colSpan={3}>
-                Charged to team budgets
+                Fixed cost covered
               </th>
               <td className={`fx-split-num${activeClass("per_player")}`}>
-                {charged(equalChargedCents)}
+                {covered(equalCoveredCents)}
               </td>
               <td className={`fx-split-num${activeClass("tuition")}`}>
-                {charged(shareChargedCents)}
+                {covered(shareCoveredCents)}
               </td>
             </tr>
           </tfoot>
         </table>
       </div>
 
-      {manualCount > 0 ? (
+      {handSetCount > 0 ? (
         <p className="fx-split-foot">
-          {manualCount} {manualCount === 1 ? "team sets its" : "teams set their"}{" "}
+          {handSetCount === 1
+            ? "1 team sets its"
+            : `${handSetCount} teams set their`}{" "}
           portion to team budget by hand on the{" "}
           <Link className="inline-link" href="/budgets">
             Budgets
           </Link>{" "}
-          tab, so no fixed cost comes off {manualCount === 1 ? "its" : "their"}{" "}
-          tuition either way. {manualCount === 1 ? "It's" : "They're"} left out
-          of the charged totals.
+          tab. {handSetCount === 1 ? "Its row shows" : "Their rows show"} what
+          each split would give if the portion were cleared; the covered totals
+          count what {handSetCount === 1 ? "it actually puts" : "they actually put"}{" "}
+          toward the fixed cost — tuition less the hand-set portion — the same
+          under both splits.
         </p>
       ) : null}
     </>

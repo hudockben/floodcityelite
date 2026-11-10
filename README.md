@@ -340,8 +340,11 @@ per tenant and none of them is shared. The core ones are:
 
   Step 3 on the tab, **What each team carries**, lays both splits side by side
   for every team in the year — fixed cost per player, what's left of the
-  tuition, and what each split charges to team budgets in total — so the choice
-  can be made on real numbers before it's switched.
+  tuition, and how much of the total each split covers — so the choice can be
+  made on real numbers before it's switched. A team whose portion to team
+  budget is set by hand takes neither split; its row shows what each would
+  give, and the covered totals count what it actually puts toward the fixed
+  cost (tuition less the hand-set portion), the same under both.
 
   On the Budgets sheet the fixed cost per player shows as its own deduction row,
   and `team_budgets.portion_to_team_budget` is now **nullable**: NULL means

@@ -40,10 +40,13 @@ export type FixedCostTeam = {
   /** Tuition per player from the team's budget, in cents; 0 when not entered. */
   tuitionCents: number;
   /**
-   * The team's budget overrides its portion to team budget by hand, so no
-   * fixed cost is taken off its tuition whichever way the total is split.
+   * The portion to team budget set by hand on the team's budget, per player, in
+   * cents — or null when it's derived from the split. A hand-set portion pins
+   * what reaches the team, so no fixed cost is taken off its tuition whichever
+   * way the total is split; what's left of the tuition after it is what the
+   * team actually puts toward the fixed cost.
    */
-  manualPortion: boolean;
+  portionOverrideCents: number | null;
 };
 
 export type FixedCostBasis = {
@@ -141,7 +144,7 @@ type TeamRow = {
   paying_count: number;
   paying_players: number | null;
   tuition_per_player: string | null;
-  manual_portion: boolean;
+  portion_override: string | null;
 };
 
 export async function loadFixedCostBasis(
@@ -190,7 +193,7 @@ export async function loadFixedCostBasis(
            WHERE p.team_id = t.id AND p.is_paying)::int AS paying_count,
         b.paying_players,
         b.tuition_per_player::text                     AS tuition_per_player,
-        (b.portion_to_team_budget IS NOT NULL)         AS manual_portion
+        b.portion_to_team_budget::text                 AS portion_override
       FROM teams t
       JOIN seasons s ON s.id = t.season_id
       LEFT JOIN team_budgets b ON b.team_id = t.id
@@ -228,7 +231,8 @@ export async function loadFixedCostBasis(
       Number(r.paying_count) || 0,
     ),
     tuitionCents: amountToCents(r.tuition_per_player),
-    manualPortion: Boolean(r.manual_portion),
+    portionOverrideCents:
+      r.portion_override == null ? null : amountToCents(r.portion_override),
   }));
 
   const tuitionBaseCents = teams.reduce(

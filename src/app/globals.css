@@ -8534,6 +8534,11 @@ body {
   color: var(--text-muted);
 }
 
+/* A hand-set team's split figures: only what they'd be if it were cleared. */
+.fx-split .fx-split-would {
+  color: var(--text-muted);
+}
+
 .fx-split tfoot th,
 .fx-split tfoot td {
   padding: var(--space-3);
