@@ -348,17 +348,22 @@ async function main() {
 
   // One budget row per team. The paying-player count defaults to the number of
   // players marked is_paying on the roster; paying_players is an optional manual
-  // override.
+  // override. fixed_cost_per_player is too: NULL derives it from the Fixed Cost
+  // tab's split, a number is this team's own figure.
   await sql`
     CREATE TABLE IF NOT EXISTS team_budgets (
       team_id                 INTEGER       PRIMARY KEY REFERENCES teams(id) ON DELETE CASCADE,
       tuition_per_player      NUMERIC(12,2) NOT NULL DEFAULT 0,
       portion_to_team_budget  NUMERIC(12,2),
       paying_players          INTEGER,
+      fixed_cost_per_player   NUMERIC(12,2),
       created_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
       updated_at              TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
   `;
+
+  // The fixed cost override, for a team_budgets table that predates it.
+  await sql`ALTER TABLE team_budgets ADD COLUMN IF NOT EXISTS fixed_cost_per_player NUMERIC(12,2)`;
 
   // Ad-hoc team expenses logged on the Budgets tab (a coach's hotel, gas,
   // gear, etc.). A 'paid' row is deducted from the team's current balance, a

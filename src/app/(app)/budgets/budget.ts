@@ -26,6 +26,9 @@ export type TeamBudgetRow = {
   /** Optional manual override for the paying-player count; NULL uses the
    *  roster's paying_count. */
   paying_players: number | null;
+  /** Optional manual override for the fixed cost per player; NULL derives it
+   *  from the Fixed Cost tab's split. */
+  fixed_cost_per_player: number | null;
   /** Sum of every scheduled event's cost for this team (the Schedules tab
    *  total), in dollars. 0 when the team has no events. */
   scheduled_cost: number;
@@ -41,6 +44,12 @@ export type SavedBudget = {
   portionToTeamBudget: number | null;
   /** null → fall back to the roster's paying-player count. */
   payingPlayersOverride: number | null;
+  /**
+   * null → this team's piece of the program's fixed cost, worked out by the
+   * Fixed Cost tab's split. A saved number is this team's own figure, typed in
+   * by hand.
+   */
+  fixedCostOverride: number | null;
 };
 
 // ---- team expenses --------------------------------------------------------
@@ -226,6 +235,16 @@ export function derivePortion(
   const cents =
     Math.round(tuitionPerPlayer * 100) - Math.round(fixedCostPerPlayer * 100);
   return cents / 100;
+}
+
+/**
+ * The fixed cost per player a team's budget runs on: the team's own figure when
+ * one is typed in by hand, otherwise its piece of the program's fixed cost from
+ * the Fixed Cost tab's split (`derived`). A hand-set $0 is a real figure — a
+ * team that carries none of it — not a blank.
+ */
+export function resolveFixedCost(override: number | null, derived: number): number {
+  return override != null ? override : derived;
 }
 
 /**

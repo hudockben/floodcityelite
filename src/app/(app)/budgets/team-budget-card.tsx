@@ -10,6 +10,7 @@ import {
   fundraisingPerPlayer,
   isBudgetConfigured,
   parseMoney,
+  resolveFixedCost,
   resolvePayingCount,
   startingBalance,
   sumFundraisedCents,
@@ -84,7 +85,8 @@ function sameBudget(a: SavedBudget, b: SavedBudget): boolean {
   return (
     a.tuitionPerPlayer === b.tuitionPerPlayer &&
     a.portionToTeamBudget === b.portionToTeamBudget &&
-    a.payingPlayersOverride === b.payingPlayersOverride
+    a.payingPlayersOverride === b.payingPlayersOverride &&
+    a.fixedCostOverride === b.fixedCostOverride
   );
 }
 
@@ -107,6 +109,11 @@ function budgetFormData(teamId: number, values: SavedBudget): FormData {
     values.payingPlayersOverride == null
       ? ""
       : String(values.payingPlayersOverride),
+  );
+  // Blank ⇒ NULL ⇒ "derive it from the Fixed Cost tab's split".
+  fd.set(
+    "fixed_cost_per_player",
+    values.fixedCostOverride == null ? "" : String(values.fixedCostOverride),
   );
   return fd;
 }
@@ -170,6 +177,12 @@ export default function TeamBudgetCard({
       ? ""
       : String(team.saved.portionToTeamBudget),
   );
+  // Blank means "use the Fixed Cost tab's figure" — the placeholder shows it.
+  const [fixedInput, setFixedInput] = useState(
+    team.saved.fixedCostOverride == null
+      ? ""
+      : String(team.saved.fixedCostOverride),
+  );
   const [paying, setPaying] = useState(
     team.saved.payingPlayersOverride == null
       ? ""
@@ -203,8 +216,11 @@ export default function TeamBudgetCard({
     ),
     tuitionContributionCents(payingCount, Math.round(tuitionNum * 100)),
   );
-  const fixedCostPerPlayer = fixedCostFor(liveFixedCost, tuitionNum);
+  const derivedFixedCost = fixedCostFor(liveFixedCost, tuitionNum);
   const byTuition = fixedCost.method === "tuition" && fixedCost.totalCents > 0;
+  // …unless this team has its own figure typed in, which wins.
+  const fixedOverride = normalizeMoneyOverride(fixedInput);
+  const fixedCostPerPlayer = resolveFixedCost(fixedOverride, derivedFixedCost);
   // The portion is derived from tuition minus that fixed cost unless this team
   // overrides it by typing one in.
   const portionOverride = normalizeMoneyOverride(portion);
@@ -239,6 +255,7 @@ export default function TeamBudgetCard({
     tuitionPerPlayer: tuitionNum,
     portionToTeamBudget: portionOverride,
     payingPlayersOverride: override,
+    fixedCostOverride: fixedOverride,
   };
   const latest = useRef<SavedBudget>(values);
   latest.current = values;
@@ -488,7 +505,9 @@ export default function TeamBudgetCard({
                     <th scope="row">
                       Fixed cost per player
                       <span className="bs-note">
-                        {byTuition ? (
+                        {fixedOverride != null ? (
+                          `manual override · auto would be ${formatMoney(derivedFixedCost)}`
+                        ) : byTuition ? (
                           // Split by tuition: say what share, since the figure
                           // moves with this team's tuition.
                           <>
@@ -506,7 +525,7 @@ export default function TeamBudgetCard({
                             </Link>{" "}
                             tab
                           </>
-                        ) : fixedCostPerPlayer > 0 ? (
+                        ) : derivedFixedCost > 0 ? (
                           <>
                             from the{" "}
                             <Link className="bs-note-link" href="/fixed-cost">
@@ -526,11 +545,27 @@ export default function TeamBudgetCard({
                             tab
                           </>
                         )}
+                        {/* A hand-set portion pins what reaches the team, so
+                            nothing on this row reaches the budget below. */}
+                        {portionOverride != null
+                          ? " · not used while the portion below is set by hand"
+                          : null}
                       </span>
                     </th>
-                    <td className="bs-value bs-deduct">
-                      {fixedCostPerPlayer > 0 ? "−" : ""}
-                      {formatMoney(fixedCostPerPlayer)}
+                    <td>
+                      <MoneyInput
+                        name="fixed_cost_per_player"
+                        value={fixedInput}
+                        onChange={(v) => {
+                          setFixedInput(v);
+                          schedule();
+                        }}
+                        onBlur={() => void flush()}
+                        // What the Fixed Cost tab's split gives this team — the
+                        // figure a blank field uses.
+                        placeholder={derivedFixedCost.toFixed(2)}
+                        ariaLabel="Fixed cost per player for this team (leave blank to use the Fixed Cost tab's figure)"
+                      />
                     </td>
                   </tr>
 
@@ -551,12 +586,21 @@ export default function TeamBudgetCard({
                             {formatMoney(fixedCostPerPlayer)} fixed cost per
                             player is more than the {formatMoney(tuitionNum)}{" "}
                             tuition — every player starts the team{" "}
-                            {formatMoney(-derivedPortion)} down. Check how
-                            it&apos;s split on the{" "}
-                            <Link className="bs-note-link" href="/fixed-cost">
-                              Fixed Cost
-                            </Link>{" "}
-                            tab
+                            {formatMoney(-derivedPortion)} down.{" "}
+                            {fixedOverride != null ? (
+                              "Lower this team's fixed cost above"
+                            ) : (
+                              <>
+                                Check how it&apos;s split on the{" "}
+                                <Link
+                                  className="bs-note-link"
+                                  href="/fixed-cost"
+                                >
+                                  Fixed Cost
+                                </Link>{" "}
+                                tab
+                              </>
+                            )}
                           </>
                         ) : (
                           `${formatMoney(tuitionNum)} tuition less ${formatMoney(fixedCostPerPlayer)} fixed cost = ${formatMoney(derivedPortion)}`
@@ -726,9 +770,11 @@ export default function TeamBudgetCard({
               <p className="budget-hint">
                 These figures save themselves a moment after you stop typing, and
                 again as you leave the field — the button is only there to write
-                them right now. Portion to team budget = tuition per player minus
-                the program&apos;s fixed cost per player, unless you type a
-                figure here to override it for this team. Current balance =
+                them right now. Fixed cost per player is this team&apos;s piece
+                of the program&apos;s fixed cost from the Fixed Cost tab, unless
+                you type this team&apos;s own figure in. Portion to team budget =
+                tuition per player minus that fixed cost, unless you type a
+                figure in for it too. Current balance =
                 starting balance minus this team&apos;s total scheduled cost on
                 the Schedules tab and its paid expenses (less refunds), plus
                 what it has raised on the Fundraiser Tracker tab. Fundraising
