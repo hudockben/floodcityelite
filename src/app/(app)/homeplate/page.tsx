@@ -21,7 +21,12 @@ import {
   startingBalance,
   currentBalance,
 } from "../budgets/budget";
-import { loadFixedCostPerPlayer } from "../fixed-cost/basis";
+import { loadFixedCostRule } from "../fixed-cost/basis";
+import {
+  NO_FIXED_COST,
+  fixedCostFor,
+  type FixedCostRule,
+} from "../fixed-cost/fixed-costs";
 
 export const dynamic = "force-dynamic";
 
@@ -236,11 +241,10 @@ export default async function HomeplatePage() {
   // company has — so look up each year present once and index by it, keeping
   // the at-risk balances identical to what the Budgets tab shows per season.
   const years = [...new Set(budgetRows.map((r) => r.season_year).filter((y): y is number => y != null))];
-  const fixedCostByYear = new Map<number, number>(
+  const fixedCostByYear = new Map<number, FixedCostRule>(
     await Promise.all(
       years.map(
-        async (y) =>
-          [y, await loadFixedCostPerPlayer(session.companyId, y)] as const,
+        async (y) => [y, await loadFixedCostRule(session.companyId, y)] as const,
       ),
     ),
   );
@@ -254,11 +258,15 @@ export default async function HomeplatePage() {
     .map((r) => {
       const payingCount = resolvePayingCount(r.paying_players ?? null, r.paying_count);
       // Same rule as the Budgets tab: a saved portion is that team's
-      // override, otherwise tuition less the program's fixed cost per player.
+      // override, otherwise tuition less the team's fixed cost per player —
+      // worked out from its own tuition when the year splits by tuition.
+      const rule =
+        (r.season_year != null ? fixedCostByYear.get(r.season_year) : undefined) ??
+        NO_FIXED_COST;
       const portion = resolvePortion(
         r.portion_to_team_budget ?? null,
         r.tuition_per_player ?? 0,
-        (r.season_year != null ? fixedCostByYear.get(r.season_year) : 0) ?? 0,
+        fixedCostFor(rule, r.tuition_per_player ?? 0),
       );
       const starting = startingBalance(payingCount, portion);
       // Fundraising is credited here the same way the Budgets tab credits it,

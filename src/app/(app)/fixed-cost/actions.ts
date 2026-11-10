@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { sql } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { ITEM_NAME_MAX, SECTION_NAME_MAX } from "./fixed-costs";
+import { ITEM_NAME_MAX, SECTION_NAME_MAX, isSplitMethod } from "./fixed-costs";
 import { ensureFixedCostSchema } from "./schema";
 
 export type FormState = { ok?: boolean; error?: string };
@@ -248,6 +248,39 @@ export async function savePlayerCountAction(
   } catch (err) {
     console.error("savePlayerCount error:", err);
     return { error: "Could not save the player count. Please try again." };
+  }
+
+  revalidateAll();
+  return { ok: true };
+}
+
+// --- how the year's total is split across teams ----------------------------
+
+export async function saveSplitMethodAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await getSession();
+  if (!session) return { error: "Your session has expired. Please sign in again." };
+
+  const method = String(formData.get("method") ?? "");
+  if (!isSplitMethod(method)) return { error: "Pick how to split the fixed cost." };
+
+  try {
+    await ensureFixedCostSchema();
+    // Same (company, year) row as the player count. Only the method is
+    // written, so a saved count override survives a switch and is there again
+    // on switching back.
+    await sql()`
+      INSERT INTO fixed_cost_settings (company_id, season_year, split_method, updated_at)
+      VALUES (${session.companyId}, ${year(formData)}, ${method}, now())
+      ON CONFLICT (company_id, season_year) DO UPDATE SET
+        split_method = EXCLUDED.split_method,
+        updated_at   = now()
+    `;
+  } catch (err) {
+    console.error("saveSplitMethod error:", err);
+    return { error: "Could not change how the fixed cost is split. Please try again." };
   }
 
   revalidateAll();

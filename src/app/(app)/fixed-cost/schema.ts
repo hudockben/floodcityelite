@@ -122,4 +122,15 @@ async function provision(): Promise<void> {
     CREATE UNIQUE INDEX IF NOT EXISTS ux_fixed_cost_settings_company_year
       ON fixed_cost_settings (company_id, season_year)
   `;
+
+  // How that year's total is split across its teams: 'per_player' (the same
+  // dollars for every paying player — how the tab always worked, so it's the
+  // default every existing row takes) or 'tuition' (the same percentage of
+  // every team's tuition). Added rather than put in the CREATE above so a
+  // settings table that predates it picks it up too. Idempotent.
+  await db`
+    ALTER TABLE fixed_cost_settings
+      ADD COLUMN IF NOT EXISTS split_method VARCHAR(16) NOT NULL DEFAULT 'per_player'
+        CHECK (split_method IN ('per_player', 'tuition'))
+  `;
 }

@@ -8,7 +8,14 @@ import { ensureSchedulesSchema } from "../../schedules/schema";
 import { ensureFundraisersSchema } from "../../fundraiser-tracker/schema";
 import { eventCostCounts, statusLabel } from "../../schedules/events";
 import { ensureBudgetsSchema } from "../schema";
-import { loadFixedCostPerPlayer } from "../../fixed-cost/basis";
+import { loadFixedCostRule } from "../../fixed-cost/basis";
+import {
+  NO_FIXED_COST,
+  fixedCostFor,
+  formatPercent,
+  tuitionRate,
+  type FixedCostRule,
+} from "../../fixed-cost/fixed-costs";
 import {
   amountToCents,
   currentBalance,
@@ -73,9 +80,9 @@ export default async function BudgetPrintPage({
   let fundraisers: FundraiserCreditRow[] = [];
   let season: Season | null = null;
   let loadError = false;
-  // Same figure the on-screen sheet subtracts, so the printout matches it —
+  // Same rule the on-screen sheet subtracts by, so the printout matches it —
   // resolved from the season's year once that's known, below.
-  let fixedCostPerPlayer = 0;
+  let fixedCost: FixedCostRule = NO_FIXED_COST;
 
   try {
     await ensureTeamsSchema();
@@ -91,7 +98,7 @@ export default async function BudgetPrintPage({
     season = resolved.current;
     const seasonId = resolved.current.id;
 
-    fixedCostPerPlayer = await loadFixedCostPerPlayer(
+    fixedCost = await loadFixedCostRule(
       session.companyId,
       resolved.current.year,
     );
@@ -250,6 +257,9 @@ export default async function BudgetPrintPage({
               r.paying_count,
             );
             const tuitionPer = r.tuition_per_player ?? 0;
+            // This team's piece of the year's fixed cost — the same dollars as
+            // every team, or its tuition's share, per the Fixed Cost tab.
+            const fixedCostPerPlayer = fixedCostFor(fixedCost, tuitionPer);
             // Same rule as the on-screen sheet: a saved figure is this team's
             // override, otherwise tuition less the fixed cost per player.
             const portion = resolvePortion(
@@ -339,7 +349,17 @@ export default async function BudgetPrintPage({
                         </tr>
                         {fixedCostPerPlayer > 0 ? (
                           <tr>
-                            <th>Fixed cost per player</th>
+                            <th>
+                              Fixed cost per player
+                              {fixedCost.method === "tuition"
+                                ? ` (${formatPercent(
+                                    tuitionRate(
+                                      fixedCost.totalCents,
+                                      fixedCost.tuitionBaseCents,
+                                    ),
+                                  )} of tuition)`
+                                : ""}
+                            </th>
                             <td>−{formatMoney(fixedCostPerPlayer)}</td>
                           </tr>
                         ) : null}

@@ -320,9 +320,28 @@ per tenant and none of them is shared. The core ones are:
   ```
 
   so raising a fixed cost lowers every team's starting balance without anyone
-  retyping a number. The divisor is the players marked **Paying** on the active
-  seasons' rosters, with `fixed_cost_settings.player_count` as an optional
-  manual override (mirroring the Budgets tab's paying-player field).
+  retyping a number.
+
+  How the year's total becomes each team's fixed cost per player is picked per
+  year (`fixed_cost_settings.split_method`, the **Split** pills on the tab):
+
+  - **Equal per player** (`per_player`, the default) — total ÷ paying players,
+    the same dollars for everyone. The divisor is the players marked
+    **Paying** on that year's rosters, with `fixed_cost_settings.player_count`
+    as an optional manual override (mirroring the Budgets tab's paying-player
+    field).
+  - **Share of tuition** (`tuition`) — total ÷ the year's tuition (each team's
+    paying players × tuition per player, from its budget) gives one rate, and
+    every team carries that percentage of its own tuition. Tuition is priced by
+    age and season, so this lands less on the cheaper teams (a $975 fall team
+    no longer gives up as much per player as a $2,400 spring one) while still
+    recovering the whole total. A team with no tuition entered carries none of
+    it until it has one.
+
+  Step 3 on the tab, **What each team carries**, lays both splits side by side
+  for every team in the year — fixed cost per player, what's left of the
+  tuition, and what each split charges to team budgets in total — so the choice
+  can be made on real numbers before it's switched.
 
   On the Budgets sheet the fixed cost per player shows as its own deduction row,
   and `team_budgets.portion_to_team_budget` is now **nullable**: NULL means

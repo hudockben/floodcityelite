@@ -693,6 +693,15 @@ async function main() {
       ON fixed_cost_settings (company_id, season_year)
   `;
 
+  // How that year's total is split across its teams: 'per_player' (the same
+  // dollars for every paying player, the original behaviour) or 'tuition' (the
+  // same percentage of every team's tuition).
+  await sql`
+    ALTER TABLE fixed_cost_settings
+      ADD COLUMN IF NOT EXISTS split_method VARCHAR(16) NOT NULL DEFAULT 'per_player'
+        CHECK (split_method IN ('per_player', 'tuition'))
+  `;
+
   // A college coach contact owned by a company — the Contact Info tab. `sport`
   // splits the tab into its Baseball and Softball lists and uses the same two
   // values as teams.sport. Only the school is required; the coach, their title,

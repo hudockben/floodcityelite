@@ -410,10 +410,12 @@ CREATE INDEX IF NOT EXISTS idx_camp_expenses_camp_id ON camp_expenses (camp_id);
 -- Fixed costs
 --
 -- What the program pays for up front regardless of which team a player lands
--- on: uniforms, insurance, facility time. Costs are grouped under sections the
--- user names, and the total divided by the player count is the *fixed cost per
--- player* the Budgets tab subtracts from each team's tuition to work out the
--- portion of a player's payment that reaches the team budget.
+-- on: rent, insurance, software. Costs are grouped under sections the user
+-- names, and the total is split across the year's teams into each team's
+-- *fixed cost per player* — the same dollars for every paying player, or the
+-- same share of every team's tuition (fixed_cost_settings.split_method) — which
+-- the Budgets tab subtracts from that team's tuition to work out the portion of
+-- a player's payment that reaches the team budget.
 --
 -- Costs are kept per season *year* (a season row is one division's run, but
 -- insurance and uniforms are bought once for the whole program), so one year's
@@ -478,6 +480,13 @@ ALTER TABLE fixed_cost_settings ALTER COLUMN season_year SET NOT NULL;
 ALTER TABLE fixed_cost_settings DROP CONSTRAINT IF EXISTS fixed_cost_settings_pkey;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_fixed_cost_settings_company_year
   ON fixed_cost_settings (company_id, season_year);
+
+-- How that year's total is split across its teams: 'per_player' (the same
+-- dollars for every paying player — the original behaviour, so every existing
+-- row takes it) or 'tuition' (the same percentage of every team's tuition).
+ALTER TABLE fixed_cost_settings
+  ADD COLUMN IF NOT EXISTS split_method VARCHAR(16) NOT NULL DEFAULT 'per_player'
+    CHECK (split_method IN ('per_player', 'tuition'));
 
 
 

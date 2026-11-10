@@ -13,26 +13,36 @@ import ItemRow from "./item-row";
 import {
   ITEM_NAME_MAX,
   SECTION_NAME_MAX,
+  formatPercent,
   itemsTotalCents,
   perPlayerCents,
+  tuitionRate,
   type FixedCostItem,
   type FixedCostSection,
+  type SplitMethod,
 } from "./fixed-costs";
 
 const initialState: FormState = {};
 
 // One user-named section of the fixed-cost sheet: its line items, its subtotal,
-// and what that subtotal works out to per player. The heading renames in place,
-// and each section can be removed (taking its items with it).
+// and what that subtotal works out to under the year's split — per player, or
+// as a share of tuition. The heading renames in place, and each section can be
+// removed (taking its items with it).
 export default function SectionCard({
   section,
   items,
+  method,
   playerCount,
+  tuitionBaseCents,
 }: {
   section: FixedCostSection;
   items: FixedCostItem[];
-  /** The count the whole tab divides by, for this section's per-player line. */
+  /** How the year's total is split, which decides what the subtotal reads as. */
+  method: SplitMethod;
+  /** Equal per player: the count the whole tab divides by. */
   playerCount: number;
+  /** Share of tuition: the tuition the whole tab spreads the total over. */
+  tuitionBaseCents: number;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [renameState, renameAction, renamePending] = useActionState(
@@ -55,7 +65,14 @@ export default function SectionCard({
   }, [addState]);
 
   const subtotalCents = itemsTotalCents(items);
-  const perPlayer = perPlayerCents(subtotalCents, playerCount);
+  const share =
+    method === "tuition"
+      ? tuitionBaseCents > 0
+        ? ` · ${formatPercent(tuitionRate(subtotalCents, tuitionBaseCents))} of tuition`
+        : " · no tuition to split across yet"
+      : playerCount > 0
+        ? ` · ${formatCents(perPlayerCents(subtotalCents, playerCount))}/player`
+        : " · set a player count";
 
   return (
     <section className="fx-section">
@@ -98,11 +115,7 @@ export default function SectionCard({
             <h3 className="fx-section-name">{section.name}</h3>
             <span className="fx-section-total">
               {formatCents(subtotalCents)}
-              <span className="fx-section-per">
-                {playerCount > 0
-                  ? ` · ${formatCents(perPlayer)}/player`
-                  : " · set a player count"}
-              </span>
+              <span className="fx-section-per">{share}</span>
             </span>
             <div className="row-actions fx-section-actions">
               <button

@@ -9,7 +9,8 @@ import { ensureTeamsSchema } from "../teams/schema";
 import { ensureSchedulesSchema } from "../schedules/schema";
 import { ensureFundraisersSchema } from "../fundraiser-tracker/schema";
 import { ensureBudgetsSchema } from "./schema";
-import { loadFixedCostPerPlayer } from "../fixed-cost/basis";
+import { loadFixedCostRule } from "../fixed-cost/basis";
+import { NO_FIXED_COST, type FixedCostRule } from "../fixed-cost/fixed-costs";
 import {
   type ExpenseRow,
   type FundraiserCreditRow,
@@ -44,10 +45,11 @@ export default async function BudgetsPage({
   let seasons: Season[] = [];
   let season: Season | null = null;
   let loadError = false;
-  // The program's fixed cost per player for the season being viewed. Each
-  // team's portion of tuition is derived from it unless that team overrides the
-  // portion by hand. Resolved once the season is known, below.
-  let fixedCostPerPlayer = 0;
+  // How the program's fixed cost is split for the season being viewed — the
+  // rule each card turns its tuition into a fixed cost per player with. A
+  // team's portion of tuition is derived from that unless the team overrides
+  // the portion by hand. Resolved once the season is known, below.
+  let fixedCost: FixedCostRule = NO_FIXED_COST;
 
   try {
     // Ensure the roster tables exist first (the FK target), then the budgets,
@@ -70,7 +72,7 @@ export default async function BudgetsPage({
     const seasonId = resolved.current.id;
 
     // The fixed-cost sheet is kept per year, so this season's year picks it.
-    fixedCostPerPlayer = await loadFixedCostPerPlayer(
+    fixedCost = await loadFixedCostRule(
       session.companyId,
       resolved.current.year,
     );
@@ -321,7 +323,7 @@ export default async function BudgetsPage({
                   team={team}
                   division={division.slug}
                   seasonYear={season.year}
-                  fixedCostPerPlayer={fixedCostPerPlayer}
+                  fixedCost={fixedCost}
                 />
               ))}
             </div>

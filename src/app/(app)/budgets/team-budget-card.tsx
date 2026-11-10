@@ -24,6 +24,14 @@ import TeamExpenses from "./team-expenses";
 import TeamFundraisers from "./team-fundraisers";
 import TeamTournaments from "./team-tournaments";
 import { sportLabel, type Sport } from "../teams/divisions";
+import {
+  fixedCostFor,
+  formatPercent,
+  tuitionContributionCents,
+  tuitionRate,
+  withTeamContribution,
+  type FixedCostRule,
+} from "../fixed-cost/fixed-costs";
 
 /**
  * How long the sheet waits after the last keystroke before saving itself.
@@ -144,13 +152,16 @@ export default function TeamBudgetCard({
   team,
   division,
   seasonYear,
-  fixedCostPerPlayer,
+  fixedCost,
 }: {
   team: BudgetTeam;
   division: string;
   seasonYear: number;
-  /** The program's fixed cost per player, from the Fixed Cost tab. */
-  fixedCostPerPlayer: number;
+  /**
+   * How the program's fixed cost is split this year, from the Fixed Cost tab —
+   * the same dollars for every player, or a share of each team's tuition.
+   */
+  fixedCost: FixedCostRule;
 }) {
   const [tuition, setTuition] = useState(moneyToInput(team.saved.tuitionPerPlayer));
   // Blank means "derive it" — the placeholder shows what that comes to.
@@ -177,13 +188,28 @@ export default function TeamBudgetCard({
 
   // Live-computed figures (recompute every keystroke, spreadsheet-style).
   const tuitionNum = parseMoney(tuition);
-  // The portion is derived from tuition minus the program's fixed cost per
-  // player unless this team overrides it by typing one in.
+  const override = normalizeOverride(paying);
+  const payingCount = resolvePayingCount(override, team.payingRosterCount);
+  // This team's fixed cost per player. Split by tuition, it's this team's
+  // tuition's share of the year's total — and this team's own paying players
+  // × tuition are part of what that total is spread over, so swap the saved
+  // figures the page loaded with for the ones on screen. The preview then lands
+  // on the figure the page settles on once the edit saves.
+  const liveFixedCost = withTeamContribution(
+    fixedCost,
+    tuitionContributionCents(
+      resolvePayingCount(persisted.payingPlayersOverride, team.payingRosterCount),
+      Math.round(persisted.tuitionPerPlayer * 100),
+    ),
+    tuitionContributionCents(payingCount, Math.round(tuitionNum * 100)),
+  );
+  const fixedCostPerPlayer = fixedCostFor(liveFixedCost, tuitionNum);
+  const byTuition = fixedCost.method === "tuition" && fixedCost.totalCents > 0;
+  // The portion is derived from tuition minus that fixed cost unless this team
+  // overrides it by typing one in.
   const portionOverride = normalizeMoneyOverride(portion);
   const derivedPortion = derivePortion(tuitionNum, fixedCostPerPlayer);
   const portionNum = portionOverride ?? derivedPortion;
-  const override = normalizeOverride(paying);
-  const payingCount = resolvePayingCount(override, team.payingRosterCount);
   const tuitionTotal = totalTuition(payingCount, tuitionNum);
   const starting = startingBalance(payingCount, portionNum);
   // Net expense impact (paid minus refunds) that comes off the starting balance
@@ -462,7 +488,25 @@ export default function TeamBudgetCard({
                     <th scope="row">
                       Fixed cost per player
                       <span className="bs-note">
-                        {fixedCostPerPlayer > 0 ? (
+                        {byTuition ? (
+                          // Split by tuition: say what share, since the figure
+                          // moves with this team's tuition.
+                          <>
+                            {tuitionNum > 0
+                              ? `${formatPercent(
+                                  tuitionRate(
+                                    liveFixedCost.totalCents,
+                                    liveFixedCost.tuitionBaseCents,
+                                  ),
+                                )} of tuition`
+                              : "a share of tuition — enter one above"}
+                            , from the{" "}
+                            <Link className="bs-note-link" href="/fixed-cost">
+                              Fixed Cost
+                            </Link>{" "}
+                            tab
+                          </>
+                        ) : fixedCostPerPlayer > 0 ? (
                           <>
                             from the{" "}
                             <Link className="bs-note-link" href="/fixed-cost">
@@ -507,8 +551,8 @@ export default function TeamBudgetCard({
                             {formatMoney(fixedCostPerPlayer)} fixed cost per
                             player is more than the {formatMoney(tuitionNum)}{" "}
                             tuition — every player starts the team{" "}
-                            {formatMoney(-derivedPortion)} down. Check the
-                            divisor on the{" "}
+                            {formatMoney(-derivedPortion)} down. Check how
+                            it&apos;s split on the{" "}
                             <Link className="bs-note-link" href="/fixed-cost">
                               Fixed Cost
                             </Link>{" "}
