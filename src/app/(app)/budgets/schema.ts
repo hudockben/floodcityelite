@@ -37,10 +37,11 @@ async function provision(): Promise<void> {
 
   // One budget row per team (team_id is the primary key). Money columns are
   // stored as NUMERIC. Everything defaults to 0 / NULL so a team can be listed
-  // before its budget has been filled in. Two columns are optional overrides:
-  // paying_players (NULL falls back to the team's roster count) and
+  // before its budget has been filled in. Three columns are optional overrides:
+  // paying_players (NULL falls back to the team's roster count),
+  // fixed_cost_per_player (NULL derives it from the Fixed Cost tab's split) and
   // portion_to_team_budget (NULL derives it — tuition per player minus the
-  // program's fixed cost per player, from the Fixed Cost tab).
+  // fixed cost per player).
   await db`
     CREATE TABLE IF NOT EXISTS team_budgets (
       team_id                 INTEGER       PRIMARY KEY
@@ -48,10 +49,16 @@ async function provision(): Promise<void> {
       tuition_per_player      NUMERIC(12,2) NOT NULL DEFAULT 0,
       portion_to_team_budget  NUMERIC(12,2),
       paying_players          INTEGER,
+      fixed_cost_per_player   NUMERIC(12,2),
       created_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
       updated_at              TIMESTAMPTZ   NOT NULL DEFAULT now()
     )
   `;
+
+  // The per-team fixed cost override, for a table that predates it. Nullable
+  // with no default, so every existing budget keeps deriving its fixed cost
+  // from the Fixed Cost tab until someone types one in. Idempotent.
+  await db`ALTER TABLE team_budgets ADD COLUMN IF NOT EXISTS fixed_cost_per_player NUMERIC(12,2)`;
 
   // Let the portion be NULL on databases whose team_budgets predates the Fixed
   // Cost tab, where the column was NOT NULL DEFAULT 0. Existing rows keep their

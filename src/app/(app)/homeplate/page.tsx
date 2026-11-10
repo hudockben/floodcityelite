@@ -16,6 +16,7 @@ import {
 } from "../payment-tracker/payments";
 import {
   isBudgetConfigured,
+  resolveFixedCost,
   resolvePayingCount,
   resolvePortion,
   startingBalance,
@@ -78,6 +79,8 @@ type BudgetRow = {
   tuition_per_player: number | null;
   portion_to_team_budget: number | null;
   paying_players: number | null;
+  /** The team's own fixed cost per player, typed in by hand; null derives it. */
+  fixed_cost_per_player: number | null;
   scheduled_cost: number;
   expense_net: number;
   /** Everything the team has raised on the Fundraiser Tracker tab. */
@@ -209,6 +212,7 @@ export default async function HomeplatePage() {
           b.tuition_per_player::float8     AS tuition_per_player,
           b.portion_to_team_budget::float8 AS portion_to_team_budget,
           b.paying_players                 AS paying_players,
+          b.fixed_cost_per_player::float8  AS fixed_cost_per_player,
           (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e
              WHERE e.team_id = t.id AND e.status <> 'refund')::float8
                                            AS scheduled_cost,
@@ -259,14 +263,18 @@ export default async function HomeplatePage() {
       const payingCount = resolvePayingCount(r.paying_players ?? null, r.paying_count);
       // Same rule as the Budgets tab: a saved portion is that team's
       // override, otherwise tuition less the team's fixed cost per player —
-      // worked out from its own tuition when the year splits by tuition.
+      // its own hand-set figure if it has one, else its piece of the year's
+      // split, worked out from its own tuition when the year splits by tuition.
       const rule =
         (r.season_year != null ? fixedCostByYear.get(r.season_year) : undefined) ??
         NO_FIXED_COST;
       const portion = resolvePortion(
         r.portion_to_team_budget ?? null,
         r.tuition_per_player ?? 0,
-        fixedCostFor(rule, r.tuition_per_player ?? 0),
+        resolveFixedCost(
+          r.fixed_cost_per_player ?? null,
+          fixedCostFor(rule, r.tuition_per_player ?? 0),
+        ),
       );
       const starting = startingBalance(payingCount, portion);
       // Fundraising is credited here the same way the Budgets tab credits it,

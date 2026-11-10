@@ -14,12 +14,11 @@ import {
 // every team — this is where that difference is read off, side by side, before
 // (and after) picking one. The column in use is the one the Budgets tab runs on.
 //
-// A team whose portion to team budget is set by hand on the Budgets tab takes
-// neither split: the override pins what reaches the team, and whatever's left of
-// its tuition after it is what the team actually puts toward the fixed cost.
-// Its row still shows what each split *would* give, so the override can be
-// weighed against clearing it, but the covered totals count what it really
-// covers.
+// A team with a figure typed in by hand on the Budgets tab — its own fixed cost
+// per player, or its portion to team budget — takes neither split: the figure
+// pins what comes off its tuition. Its row still shows what each split *would*
+// give, so the hand-set figure can be weighed against clearing it, but the
+// covered totals count what the team really puts toward the fixed cost.
 
 type Cell = {
   /** Fixed cost per player, in cents. */
@@ -32,16 +31,29 @@ function cellFor(tuitionCents: number, fixedCents: number): Cell {
   return { fixedCents, keepsCents: tuitionCents - fixedCents };
 }
 
+function isHandSet(team: FixedCostTeam): boolean {
+  return team.portionOverrideCents != null || team.fixedOverrideCents != null;
+}
+
 /**
- * What a team whose portion is set by hand actually puts toward the fixed cost
- * per player, in cents: its tuition less that portion. The override pins it, so
- * it's the same under both splits — and negative when the portion is more than
- * the tuition, which costs the program money on every player. Null when no
- * tuition is entered to measure the portion against.
+ * What a team with a figure typed in by hand actually puts toward the fixed
+ * cost per player, in cents — or null when nothing on its budget is hand-set
+ * and the split's own figure applies. The same under both splits, since the
+ * hand-set figure pins it.
+ *
+ *   • A hand-set portion pins what reaches the team, so the team covers its
+ *     tuition less that portion: negative when the portion is more than the
+ *     tuition, and 0 when there's no tuition entered to measure it against. It
+ *     wins over a hand-set fixed cost, exactly as on the Budgets sheet.
+ *   • Otherwise a hand-set fixed cost is what comes off the team's tuition.
  */
 function handSetCoverCents(team: FixedCostTeam): number | null {
-  if (team.portionOverrideCents == null || team.tuitionCents <= 0) return null;
-  return team.tuitionCents - team.portionOverrideCents;
+  if (team.portionOverrideCents != null) {
+    return team.tuitionCents > 0
+      ? team.tuitionCents - team.portionOverrideCents
+      : 0;
+  }
+  return team.fixedOverrideCents;
 }
 
 /** "keeps $48.32 (5%)" — or why there's nothing to say yet. */
@@ -52,7 +64,7 @@ function Keeps({
 }: {
   tuitionCents: number;
   cell: Cell;
-  /** The team's portion is set by hand, so this split is only what it'd be. */
+  /** The team has a figure set by hand, so this split is only what it'd be. */
   handSet: boolean;
 }) {
   if (tuitionCents <= 0) {
@@ -66,17 +78,32 @@ function Keeps({
   );
 }
 
-/** Under a hand-set team's name: what it keeps, and what that leaves. */
+/** Under a hand-set team's name: the figure typed in, and what it leaves. */
 function HandSetNote({ team }: { team: FixedCostTeam }) {
-  const cover = handSetCoverCents(team);
+  if (team.portionOverrideCents != null) {
+    const cover =
+      team.tuitionCents > 0 ? team.tuitionCents - team.portionOverrideCents : null;
+    return (
+      <span
+        className={`fx-split-sub${cover != null && cover < 0 ? " fx-split-neg" : ""}`}
+      >
+        portion set by hand on Budgets: keeps {formatCents(team.portionOverrideCents)}
+        {cover == null
+          ? " · no tuition entered"
+          : cover >= 0
+            ? `, ${formatCents(cover)} to fixed cost`
+            : `, ${formatCents(-cover)} more than its tuition`}
+      </span>
+    );
+  }
+  const fixed = team.fixedOverrideCents ?? 0;
+  const keeps = team.tuitionCents - fixed;
   return (
-    <span className={`fx-split-sub${cover != null && cover < 0 ? " fx-split-neg" : ""}`}>
-      set by hand on Budgets: keeps {formatCents(team.portionOverrideCents ?? 0)}
-      {cover == null
-        ? " · no tuition entered"
-        : cover >= 0
-          ? `, ${formatCents(cover)} to fixed cost`
-          : `, ${formatCents(-cover)} more than its tuition`}
+    <span
+      className={`fx-split-sub${team.tuitionCents > 0 && keeps < 0 ? " fx-split-neg" : ""}`}
+    >
+      fixed cost set by hand on Budgets: {formatCents(fixed)}
+      {team.tuitionCents > 0 ? `, keeps ${formatCents(keeps)}` : ""}
     </span>
   );
 }
@@ -99,7 +126,7 @@ export default function TeamSplit({
 }) {
   const rows = teams.map((t) => ({
     team: t,
-    handSet: t.portionOverrideCents != null,
+    handSet: isHandSet(t),
     equal: cellFor(t.tuitionCents, perPlayerCents),
     share: cellFor(
       t.tuitionCents,
@@ -109,17 +136,15 @@ export default function TeamSplit({
 
   // How much of the year's total the teams cover under each split: paying
   // players × fixed cost per player. A hand-set team counts at what it actually
-  // puts toward the fixed cost — tuition less its hand-set portion — the same
-  // under both splits, since the override pins it. Without that it would read
-  // as covering nothing, when everything its portion doesn't take still goes to
-  // the program.
+  // puts toward the fixed cost (see handSetCoverCents), the same under both
+  // splits, since its figure pins it.
   let equalCoveredCents = 0;
   let shareCoveredCents = 0;
   for (const r of rows) {
-    if (r.handSet) {
-      const covered = r.team.payingCount * (handSetCoverCents(r.team) ?? 0);
-      equalCoveredCents += covered;
-      shareCoveredCents += covered;
+    const handSetCover = handSetCoverCents(r.team);
+    if (handSetCover != null) {
+      equalCoveredCents += r.team.payingCount * handSetCover;
+      shareCoveredCents += r.team.payingCount * handSetCover;
     } else {
       equalCoveredCents += r.team.payingCount * r.equal.fixedCents;
       shareCoveredCents += r.team.payingCount * r.share.fixedCents;
@@ -158,6 +183,8 @@ export default function TeamSplit({
       </span>
     </>
   );
+
+  const one = handSetCount === 1;
 
   return (
     <>
@@ -262,18 +289,17 @@ export default function TeamSplit({
 
       {handSetCount > 0 ? (
         <p className="fx-split-foot">
-          {handSetCount === 1
-            ? "1 team sets its"
-            : `${handSetCount} teams set their`}{" "}
-          portion to team budget by hand on the{" "}
+          {one ? "1 team has" : `${handSetCount} teams have`} a figure typed in
+          by hand on the{" "}
           <Link className="inline-link" href="/budgets">
             Budgets
           </Link>{" "}
-          tab. {handSetCount === 1 ? "Its row shows" : "Their rows show"} what
-          each split would give if the portion were cleared; the covered totals
-          count what {handSetCount === 1 ? "it actually puts" : "they actually put"}{" "}
-          toward the fixed cost — tuition less the hand-set portion — the same
-          under both splits.
+          tab — {one ? "its" : "their"} own fixed cost per player or{" "}
+          {one ? "its" : "their"} portion to team budget.{" "}
+          {one ? "Its row shows" : "Their rows show"} what each split would give
+          if that were cleared; the covered totals count what{" "}
+          {one ? "it actually puts" : "they actually put"} toward the fixed cost,
+          the same under both splits.
         </p>
       ) : null}
     </>

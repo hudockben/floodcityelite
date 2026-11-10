@@ -18,9 +18,10 @@ function money(formData: FormData, key: string): number {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
-// Optional money field (the per-player portion override). Blank → null, which
-// tells the tab to derive it from tuition minus the fixed cost per player.
-// Anything unparseable is treated as blank rather than silently becoming 0.
+// Optional money field (the per-player portion and fixed cost overrides). Blank
+// → null, which tells the tab to derive the figure. Anything unparseable is
+// treated as blank rather than silently becoming 0 — a typed 0 stays 0, a real
+// "nothing" for that team.
 function optionalMoney(formData: FormData, key: string): number | null {
   const raw = String(formData.get(key) ?? "").trim();
   if (raw === "") return null;
@@ -99,6 +100,9 @@ export async function saveBudgetAction(
   // Fixed Cost tab owns that figure, so the column stays NULL.
   const portionToTeamBudget = optionalMoney(formData, "portion_to_team_budget");
   const payingPlayers = optionalCount(formData, "paying_players");
+  // Blank means "derive it from the Fixed Cost tab's split"; a number is this
+  // team's own fixed cost per player.
+  const fixedCostPerPlayer = optionalMoney(formData, "fixed_cost_per_player");
 
   try {
     await ensureBudgetsSchema();
@@ -111,14 +115,17 @@ export async function saveBudgetAction(
 
     const write = () => sql()`
       INSERT INTO team_budgets (
-        team_id, tuition_per_player, portion_to_team_budget, paying_players, updated_at
+        team_id, tuition_per_player, portion_to_team_budget, paying_players,
+        fixed_cost_per_player, updated_at
       ) VALUES (
-        ${teamId}, ${tuitionPerPlayer}, ${portionToTeamBudget}, ${payingPlayers}, now()
+        ${teamId}, ${tuitionPerPlayer}, ${portionToTeamBudget}, ${payingPlayers},
+        ${fixedCostPerPlayer}, now()
       )
       ON CONFLICT (team_id) DO UPDATE SET
         tuition_per_player     = EXCLUDED.tuition_per_player,
         portion_to_team_budget = EXCLUDED.portion_to_team_budget,
         paying_players         = EXCLUDED.paying_players,
+        fixed_cost_per_player  = EXCLUDED.fixed_cost_per_player,
         updated_at             = now()
     `;
 

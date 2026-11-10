@@ -47,6 +47,13 @@ export type FixedCostTeam = {
    * team actually puts toward the fixed cost.
    */
   portionOverrideCents: number | null;
+  /**
+   * The team's own fixed cost per player, typed in by hand on its budget, in
+   * cents — or null when it takes its piece of the split. Either way the team
+   * stays in what the split is spread over, so setting one team's figure by
+   * hand never moves another team's.
+   */
+  fixedOverrideCents: number | null;
 };
 
 export type FixedCostBasis = {
@@ -145,6 +152,7 @@ type TeamRow = {
   paying_players: number | null;
   tuition_per_player: string | null;
   portion_override: string | null;
+  fixed_override: string | null;
 };
 
 export async function loadFixedCostBasis(
@@ -193,7 +201,8 @@ export async function loadFixedCostBasis(
            WHERE p.team_id = t.id AND p.is_paying)::int AS paying_count,
         b.paying_players,
         b.tuition_per_player::text                     AS tuition_per_player,
-        b.portion_to_team_budget::text                 AS portion_override
+        b.portion_to_team_budget::text                 AS portion_override,
+        b.fixed_cost_per_player::text                  AS fixed_override
       FROM teams t
       JOIN seasons s ON s.id = t.season_id
       LEFT JOIN team_budgets b ON b.team_id = t.id
@@ -233,6 +242,8 @@ export async function loadFixedCostBasis(
     tuitionCents: amountToCents(r.tuition_per_player),
     portionOverrideCents:
       r.portion_override == null ? null : amountToCents(r.portion_override),
+    fixedOverrideCents:
+      r.fixed_override == null ? null : amountToCents(r.fixed_override),
   }));
 
   const tuitionBaseCents = teams.reduce(

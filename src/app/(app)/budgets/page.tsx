@@ -91,6 +91,7 @@ export default async function BudgetsPage({
             b.tuition_per_player::float8     AS tuition_per_player,
             b.portion_to_team_budget::float8 AS portion_to_team_budget,
             b.paying_players                 AS paying_players,
+            b.fixed_cost_per_player::float8  AS fixed_cost_per_player,
             (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e
                WHERE e.team_id = t.id AND e.status <> 'refund')::float8
                                              AS scheduled_cost
@@ -203,6 +204,8 @@ export default async function BudgetsPage({
       // NULL (or no budget row at all) means "derive it" — see resolvePortion.
       portionToTeamBudget: r.portion_to_team_budget ?? null,
       payingPlayersOverride: r.paying_players ?? null,
+      // NULL derives it from the Fixed Cost tab's split — see resolveFixedCost.
+      fixedCostOverride: r.fixed_cost_per_player ?? null,
     },
     expenses: expensesByTeam.get(r.id) ?? [],
     tournaments: tournamentsByTeam.get(r.id) ?? [],
@@ -223,7 +226,8 @@ export default async function BudgetsPage({
             <Link className="inline-link" href="/fixed-cost">
               Fixed Cost
             </Link>{" "}
-            tab, unless you override it for a team. The paying-player count
+            tab, unless you type in either figure by hand for a team. The
+            paying-player count
             comes from the players marked <strong>Paying</strong> on each
             team&apos;s roster on the Teams tab.
           </p>

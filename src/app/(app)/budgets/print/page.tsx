@@ -26,6 +26,7 @@ import {
   formatMoney,
   fundraisingPerPlayer,
   isBudgetConfigured,
+  resolveFixedCost,
   resolvePayingCount,
   resolvePortion,
   startingBalance,
@@ -117,6 +118,7 @@ export default async function BudgetPrintPage({
             b.tuition_per_player::float8     AS tuition_per_player,
             b.portion_to_team_budget::float8 AS portion_to_team_budget,
             b.paying_players                 AS paying_players,
+            b.fixed_cost_per_player::float8  AS fixed_cost_per_player,
             (SELECT COALESCE(SUM(e.cost), 0) FROM schedule_events e
                WHERE e.team_id = t.id AND e.status <> 'refund')::float8
                                              AS scheduled_cost
@@ -257,9 +259,15 @@ export default async function BudgetPrintPage({
               r.paying_count,
             );
             const tuitionPer = r.tuition_per_player ?? 0;
-            // This team's piece of the year's fixed cost — the same dollars as
-            // every team, or its tuition's share, per the Fixed Cost tab.
-            const fixedCostPerPlayer = fixedCostFor(fixedCost, tuitionPer);
+            // This team's fixed cost per player: its own figure when one is
+            // typed in by hand, otherwise its piece of the year's total — the
+            // same dollars as every team, or its tuition's share, per the
+            // Fixed Cost tab.
+            const fixedCostOverride = r.fixed_cost_per_player ?? null;
+            const fixedCostPerPlayer = resolveFixedCost(
+              fixedCostOverride,
+              fixedCostFor(fixedCost, tuitionPer),
+            );
             // Same rule as the on-screen sheet: a saved figure is this team's
             // override, otherwise tuition less the fixed cost per player.
             const portion = resolvePortion(
@@ -347,20 +355,27 @@ export default async function BudgetPrintPage({
                         <tr className="ph">
                           <th colSpan={2}>Player Expense</th>
                         </tr>
-                        {fixedCostPerPlayer > 0 ? (
+                        {/* A hand-set figure prints even at $0.00 — that's a
+                            decision about this team, not a missing number. */}
+                        {fixedCostPerPlayer > 0 || fixedCostOverride != null ? (
                           <tr>
                             <th>
                               Fixed cost per player
-                              {fixedCost.method === "tuition"
-                                ? ` (${formatPercent(
-                                    tuitionRate(
-                                      fixedCost.totalCents,
-                                      fixedCost.tuitionBaseCents,
-                                    ),
-                                  )} of tuition)`
-                                : ""}
+                              {fixedCostOverride != null
+                                ? " (set by hand)"
+                                : fixedCost.method === "tuition"
+                                  ? ` (${formatPercent(
+                                      tuitionRate(
+                                        fixedCost.totalCents,
+                                        fixedCost.tuitionBaseCents,
+                                      ),
+                                    )} of tuition)`
+                                  : ""}
                             </th>
-                            <td>−{formatMoney(fixedCostPerPlayer)}</td>
+                            <td>
+                              {fixedCostPerPlayer > 0 ? "−" : ""}
+                              {formatMoney(fixedCostPerPlayer)}
+                            </td>
                           </tr>
                         ) : null}
                         {/* Both are gated like the balance rows below: with no

@@ -180,9 +180,17 @@ CREATE TABLE IF NOT EXISTS team_budgets (
     -- player (see fixed_cost_* below). A number is a manual override.
     portion_to_team_budget  NUMERIC(12,2),
     paying_players          INTEGER,
+    -- NULL means "derive it" from the Fixed Cost tab's split for the team's
+    -- season year. A number is this team's own fixed cost per player, typed in
+    -- by hand on the Budgets tab.
+    fixed_cost_per_player   NUMERIC(12,2),
     created_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_at              TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
+
+-- Add the fixed cost override to a database whose team_budgets predates it.
+-- Nullable, so every existing budget keeps deriving its fixed cost. Idempotent.
+ALTER TABLE team_budgets ADD COLUMN IF NOT EXISTS fixed_cost_per_player NUMERIC(12,2);
 
 -- Let the portion be NULL on a database whose team_budgets predates the Fixed
 -- Cost tab, where the column was NOT NULL DEFAULT 0 (CREATE TABLE IF NOT EXISTS
