@@ -161,6 +161,23 @@ export default async function SchedulesPage({
     else eventsByTeam.set(e.team_id, [e]);
   }
 
+  // Each team's running cost. Refunded events are credited back, so their cost
+  // drops out (matches the Budgets scheduled cost). Worked out once, up here,
+  // so the division total is exactly the team totals added up.
+  const totalCentsByTeam = new Map<number, number>();
+  for (const t of teams) {
+    totalCentsByTeam.set(
+      t.id,
+      (eventsByTeam.get(t.id) ?? []).reduce(
+        (sum, e) => sum + (eventCostCounts(e.status) ? costToCents(e.cost) : 0),
+        0,
+      ),
+    );
+  }
+  const divisionTotal = formatCents(
+    [...totalCentsByTeam.values()].reduce((sum, cents) => sum + cents, 0),
+  );
+
   // Group the roster by team for the Groups panels and the planner.
   const playersByTeam = new Map<number, GroupPlayer[]>();
   for (const p of roster) {
@@ -277,7 +294,13 @@ export default async function SchedulesPage({
                 </h2>
                 <p>
                   {events.length} {events.length === 1 ? "event" : "events"}{" "}
-                  across {teams.length} {teams.length === 1 ? "team" : "teams"}.
+                  across {teams.length} {teams.length === 1 ? "team" : "teams"}
+                  {events.length > 0 ? (
+                    <>
+                      , totaling <strong>{divisionTotal}</strong>
+                    </>
+                  ) : null}
+                  .
                 </p>
               </div>
               {teams.length > 0 ? (
@@ -311,14 +334,7 @@ export default async function SchedulesPage({
                 {teams.map((t) => {
                   const teamEvents = eventsByTeam.get(t.id) ?? [];
                   const teamPlayers = playersByTeam.get(t.id) ?? [];
-                  // Refunded events are credited back, so their cost drops out
-                  // of the running total (matches the Budgets scheduled cost).
-                  const totalCents = teamEvents.reduce(
-                    (sum, e) =>
-                      sum + (eventCostCounts(e.status) ? costToCents(e.cost) : 0),
-                    0,
-                  );
-                  const total = formatCents(totalCents);
+                  const total = formatCents(totalCentsByTeam.get(t.id) ?? 0);
 
                   // Each player's appearances so far: every one of the team's
                   // events they're attending under the group + exception rules.
@@ -430,6 +446,25 @@ export default async function SchedulesPage({
                     </details>
                   );
                 })}
+
+                {/* Every team's total above, added up. Laid out like a team's
+                    bar so the figure lands directly under the column of team
+                    totals it sums. One team's total is already its own. */}
+                {teams.length > 1 ? (
+                  <div className="team-groups-total">
+                    <span className="tg-caret tg-caret-spacer" aria-hidden="true" />
+                    <span className="tg-grand-label">All teams</span>
+                    <span className="tg-count">
+                      {events.length} {events.length === 1 ? "event" : "events"}
+                    </span>
+                    <span
+                      className="tg-total tg-grand-total"
+                      title="Total schedule cost, all teams"
+                    >
+                      Total {divisionTotal}
+                    </span>
+                  </div>
+                ) : null}
               </div>
             )}
           </section>

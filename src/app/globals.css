@@ -5370,6 +5370,39 @@ body {
   border: 1px solid var(--accent-chip-border);
 }
 
+/* The division's total, under the stack of team groups: every team's total
+   above, added up. Laid out like a team's summary bar — the same border width,
+   padding and right-aligned count and total, with a hidden caret holding the
+   label in line with the team names — so its figure lands directly under the
+   column of team totals it sums. */
+.team-groups-total {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border: 1px solid var(--accent-callout-border);
+  border-radius: var(--radius-lg);
+  background: var(--accent-callout-bg);
+}
+
+.tg-caret-spacer {
+  visibility: hidden;
+}
+
+.tg-grand-label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.tg-grand-total {
+  font-size: var(--text-base);
+  font-weight: 800;
+}
+
 /* Schedule table — same look as the roster, but no frozen first column
    (it has far fewer columns) and a total row in the footer. */
 .sched {
