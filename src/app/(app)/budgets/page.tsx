@@ -12,6 +12,7 @@ import { ensureBudgetsSchema } from "./schema";
 import { loadFixedCostRule } from "../fixed-cost/basis";
 import { NO_FIXED_COST, type FixedCostRule } from "../fixed-cost/fixed-costs";
 import {
+  formatCents,
   type ExpenseRow,
   type FundraiserCreditRow,
   type TeamBudgetRow,
@@ -192,6 +193,12 @@ export default async function BudgetsPage({
     else fundraisersByTeam.set(f.team_id, [f]);
   }
 
+  // Every team's total cost on the Schedules tab, added up. Summed in whole
+  // cents so the division figure is exactly the team figures on the cards.
+  const divisionCost = formatCents(
+    rows.reduce((sum, r) => sum + Math.round((r.scheduled_cost ?? 0) * 100), 0),
+  );
+
   const teams: BudgetTeam[] = rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -283,10 +290,16 @@ export default async function BudgetsPage({
                 {season.year} {division.label} budgets
               </h2>
               <p>
-                {teams.length} {teams.length === 1 ? "team" : "teams"}. Current
-                balance is each team&apos;s starting balance minus its total
-                scheduled cost from the Schedules tab and its paid expenses,
-                plus everything it has raised on the{" "}
+                {teams.length} {teams.length === 1 ? "team" : "teams"}
+                {tournaments.length > 0 ? (
+                  <>
+                    , with a total cost of <strong>{divisionCost}</strong> in
+                    scheduled tournaments
+                  </>
+                ) : null}
+                . Current balance is each team&apos;s starting balance minus
+                its total scheduled cost from the Schedules tab and its paid
+                expenses, plus everything it has raised on the{" "}
                 <Link className="inline-link" href="/fundraiser-tracker">
                   Fundraiser Tracker
                 </Link>{" "}
@@ -330,6 +343,22 @@ export default async function BudgetsPage({
                   fixedCost={fixedCost}
                 />
               ))}
+
+              {/* Every team's total cost above, added up — laid out like the
+                  Schedules tab's, so the figure lands directly under the
+                  column of team totals it sums. */}
+              {teams.length > 1 ? (
+                <div className="team-groups-total">
+                  <span className="tg-caret tg-caret-spacer" aria-hidden="true" />
+                  <span className="tg-grand-label">All teams</span>
+                  <span
+                    className="tg-total tg-grand-total"
+                    title="Total cost of every team's tournaments on the Schedules tab"
+                  >
+                    Total cost {divisionCost}
+                  </span>
+                </div>
+              ) : null}
             </div>
           )}
         </section>

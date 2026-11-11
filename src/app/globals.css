@@ -5390,7 +5390,10 @@ body {
   visibility: hidden;
 }
 
+/* Pushes the figures after it to the far right, as the auto margin on a team
+   bar's own count or balance does. */
 .tg-grand-label {
+  margin-right: auto;
   font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.06em;

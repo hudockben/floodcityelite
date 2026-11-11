@@ -403,6 +403,14 @@ export default function TeamBudgetCard({
             <span className="budget-summary-empty">Set up budget</span>
           )}
         </span>
+        {/* The team's total on the Schedules tab — the same pill in the same
+            place, so the division total under the cards lines up with it. */}
+        <span
+          className="tg-total"
+          title="Total cost of this team's tournaments on the Schedules tab"
+        >
+          Total cost {formatMoney(team.scheduledCost)}
+        </span>
       </summary>
 
       <div className="budget-body">
