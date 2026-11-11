@@ -18,6 +18,7 @@ import {
   type TeamBudgetRow,
   type TournamentRow,
 } from "./budget";
+import { budgetFigures } from "./figures";
 import TeamBudgetCard, { type BudgetTeam } from "./team-budget-card";
 
 export const dynamic = "force-dynamic";
@@ -219,6 +220,20 @@ export default async function BudgetsPage({
     fundraisers: fundraisersByTeam.get(r.id) ?? [],
   }));
 
+  // The division's total balance: every set-up team's current balance from
+  // what's saved, through the same arithmetic as the cards (see figures.ts), so
+  // it is the sum of the balances on them. A team not set up yet shows no
+  // balance, so it isn't counted. An edit on a card reaches this total when the
+  // card saves, since saving refreshes the page.
+  let balanceCents = 0;
+  let balancedTeams = 0;
+  for (const team of teams) {
+    const { configured, current } = budgetFigures(team, fixedCost, team.saved);
+    if (!configured) continue;
+    balanceCents += Math.round(current * 100);
+    balancedTeams += 1;
+  }
+
   return (
     <div className="teams">
       <section className="panel">
@@ -344,13 +359,31 @@ export default async function BudgetsPage({
                 />
               ))}
 
-              {/* Every team's total cost above, added up — laid out like the
-                  Schedules tab's, so the figure lands directly under the
-                  column of team totals it sums. */}
+              {/* Every team's current balance and total cost above, added up —
+                  laid out like a team's bar, so each figure sits under the
+                  column it sums. The balance counts the teams that show one. */}
               {teams.length > 1 ? (
                 <div className="team-groups-total">
                   <span className="tg-caret tg-caret-spacer" aria-hidden="true" />
                   <span className="tg-grand-label">All teams</span>
+                  {balancedTeams > 0 ? (
+                    <span
+                      className="budget-summary"
+                      title="Every set-up team's current balance, added up. A team still showing Set up budget isn't counted."
+                    >
+                      <span className="budget-summary-label">
+                        Total balance
+                        {balancedTeams < teams.length
+                          ? ` · ${balancedTeams} of ${teams.length} teams`
+                          : ""}
+                      </span>
+                      <span
+                        className={`budget-summary-value${balanceCents < 0 ? " bs-negative" : ""}`}
+                      >
+                        {formatCents(balanceCents)}
+                      </span>
+                    </span>
+                  ) : null}
                   <span
                     className="tg-total tg-grand-total"
                     title="Total cost of every team's tournaments on the Schedules tab"

@@ -4,29 +4,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { saveBudgetAction, type FormState } from "./actions";
 import {
-  currentBalance,
-  derivePortion,
   formatMoney,
-  fundraisingPerPlayer,
-  isBudgetConfigured,
   parseMoney,
-  resolveFixedCost,
   resolvePayingCount,
-  startingBalance,
-  sumFundraisedCents,
-  summarizeExpenses,
-  totalTuition,
   type ExpenseRow,
   type FundraiserCreditRow,
   type SavedBudget,
   type TournamentRow,
 } from "./budget";
+import { budgetFigures } from "./figures";
 import TeamExpenses from "./team-expenses";
 import TeamFundraisers from "./team-fundraisers";
 import TeamTournaments from "./team-tournaments";
 import { sportLabel, type Sport } from "../teams/divisions";
 import {
-  fixedCostFor,
   formatPercent,
   tuitionContributionCents,
   tuitionRate,
@@ -216,37 +207,10 @@ export default function TeamBudgetCard({
     ),
     tuitionContributionCents(payingCount, Math.round(tuitionNum * 100)),
   );
-  const derivedFixedCost = fixedCostFor(liveFixedCost, tuitionNum);
   const byTuition = fixedCost.method === "tuition" && fixedCost.totalCents > 0;
-  // …unless this team has its own figure typed in, which wins.
+  // A fixed cost or a portion typed in by hand wins over the derived one.
   const fixedOverride = normalizeMoneyOverride(fixedInput);
-  const fixedCostPerPlayer = resolveFixedCost(fixedOverride, derivedFixedCost);
-  // The portion is derived from tuition minus that fixed cost unless this team
-  // overrides it by typing one in.
   const portionOverride = normalizeMoneyOverride(portion);
-  const derivedPortion = derivePortion(tuitionNum, fixedCostPerPlayer);
-  const portionNum = portionOverride ?? derivedPortion;
-  const tuitionTotal = totalTuition(payingCount, tuitionNum);
-  const starting = startingBalance(payingCount, portionNum);
-  // Net expense impact (paid minus refunds) that comes off the starting balance
-  // alongside scheduled costs. Not-paid expenses are excluded — they're tracked
-  // but don't move the balance until marked paid.
-  const expenseTotals = summarizeExpenses(team.expenses);
-  const expenseNet = expenseTotals.netCents / 100;
-  // Money this team has raised on the Fundraiser Tracker tab. It's a credit, so
-  // logging an entry there lifts the balance the moment the page reloads.
-  const fundraisedCents = sumFundraisedCents(team.fundraisers);
-  const fundraised = fundraisedCents / 100;
-  // Current balance nets this team's total scheduled cost (from the Schedules
-  // tab) and its net expenses out of the starting balance and credits back what
-  // it has raised; fundraising then covers whatever shortfall is left.
-  const current = currentBalance(
-    starting,
-    team.scheduledCost,
-    expenseNet,
-    fundraised,
-  );
-  const fundraise = fundraisingPerPlayer(current, payingCount);
 
   // The figures as typed, kept in a ref so the save loop, the debounce timer and
   // the unmount handler all read what's on screen *now* rather than whatever was
@@ -259,6 +223,23 @@ export default function TeamBudgetCard({
   };
   const latest = useRef<SavedBudget>(values);
   latest.current = values;
+
+  // Everything else on the sheet follows from those, through the same
+  // arithmetic the page adds the division's balance up with (see figures.ts).
+  const {
+    derivedFixedCost,
+    fixedCostPerPlayer,
+    derivedPortion,
+    portionNum,
+    tuitionTotal,
+    starting,
+    expenseNet,
+    fundraisedCents,
+    fundraised,
+    current,
+    fundraise,
+    configured,
+  } = budgetFigures(team, liveFixedCost, values);
 
   const dirty = !sameBudget(values, persisted);
 
@@ -373,13 +354,6 @@ export default function TeamBudgetCard({
           : status === "saved"
             ? { text: "Saved", className: "bss-saved" }
             : null;
-
-  // Current balance / fundraising are only meaningful once the team has real
-  // inputs (paying players AND a tuition or portion override). Until then the
-  // sheet would present un-entered fields as a deficit, so we gate those rows
-  // and the summary figure on it. A team that *is* set up and under water shows
-  // its figures — that's the shortfall the fundraising row is there to size.
-  const configured = isBudgetConfigured(payingCount, tuitionNum, portionOverride);
 
   return (
     <details className="team-group budget-group">

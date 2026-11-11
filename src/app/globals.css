@@ -5406,6 +5406,16 @@ body {
   font-weight: 800;
 }
 
+/* The division's balance on the Budgets tab may wrap, unlike a team's: its
+   label can carry a "9 of 10 teams" note, and on a phone the label and the
+   figure don't fit on one line. The figure drops under the label, still
+   right-aligned. */
+.team-groups-total .budget-summary {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  white-space: normal;
+}
+
 /* Schedule table — same look as the roster, but no frozen first column
    (it has far fewer columns) and a total row in the footer. */
 .sched {
